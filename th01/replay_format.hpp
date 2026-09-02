@@ -3,8 +3,9 @@
 
 /*
  * TH01's user replay format. V5 appends run-wide slowdown telemetry to the
- * complete V4 header while retaining the compact packet geometry, native
- * replay name, and fieldwise terminal/stage summary.
+ * complete V4 header. V6 appends the packed DOS recording date and time while
+ * retaining the compact packet geometry, native replay name, and fieldwise
+ * terminal/stage summary.
  */
 
 #include "platform.h"
@@ -12,9 +13,11 @@
 #include "th01/common.h"
 
 #define T1REPLAY_VERSION_LEGACY 4
-#define T1REPLAY_VERSION 5
+#define T1REPLAY_VERSION_TELEMETRY 5
+#define T1REPLAY_VERSION 6
 #define T1REPLAY_HEADER_SIZE_LEGACY 258
-#define T1REPLAY_HEADER_SIZE 266
+#define T1REPLAY_HEADER_SIZE_TELEMETRY 266
+#define T1REPLAY_HEADER_SIZE 270
 #define T1REPLAY_START_SIZE 64
 #define T1REPLAY_SUMMARY_SIZE 128
 #define T1REPLAY_STAGE_SUMMARY_SIZE 6
@@ -140,7 +143,7 @@
 #define T1KIK_TRACE (T1KIK_NATURAL_TRACE || T1KIK_DIRECT_TRACE)
 #define T1REPLAY_KIKURI_FIRST_COMBAT_TRACE T1KIK_TRACE
 // Sariel's natural/direct witness also uses separate short selectors. It is a
-// private source-ownership probe and never changes T1RPY5 or public Practice.
+// private source-ownership probe and never changes T1RPY6 or public Practice.
 #if defined(T1SARN)
 	#define T1SAR_NATURAL_TRACE 1
 #else
@@ -384,7 +387,7 @@ struct t1replay_summary_t {
 };
 
 struct t1replay_header_t {
-	char magic[8]; // "T1RPY5\\0\\0"; V4 remains readable.
+	char magic[8]; // "T1RPY6\\0\\0"; V4 and V5 remain readable.
 	uint16_t version;
 	uint16_t header_size;
 	uint16_t packet_size;
@@ -407,6 +410,8 @@ struct t1replay_header_t {
 	t1replay_summary_t summary;
 	uint32_t timed_frames;
 	uint32_t slow_frames;
+	uint16_t dos_date;
+	uint16_t dos_time;
 };
 
 // The native score-registration keyboard accepts full-width ASCII letters and
@@ -576,7 +581,7 @@ struct t1replay_restart_state_t {
 	uint32_t checksum;
 };
 
-// This private, pointer-free guard carrier stays outside T1RPY4/T1RPY5. It
+// This private, pointer-free guard carrier stays outside T1RPY4/T1RPY5/T1RPY6. It
 // lets the REIIDEN and FUUIN processes verify the same physical-disk witness
 // without changing the user replay format.
 struct t1replay_guard_t {
@@ -1117,6 +1122,14 @@ typedef char t1replay_header_timed_frames_offset_check[
 typedef char t1replay_header_slow_frames_offset_check[
 	(offsetof(t1replay_header_t, slow_frames) ==
 	 (T1REPLAY_HEADER_SIZE_LEGACY + 4)) ? 1 : -1
+];
+typedef char t1replay_header_dos_date_offset_check[
+	(offsetof(t1replay_header_t, dos_date) ==
+	 T1REPLAY_HEADER_SIZE_TELEMETRY) ? 1 : -1
+];
+typedef char t1replay_header_dos_time_offset_check[
+	(offsetof(t1replay_header_t, dos_time) ==
+	 (T1REPLAY_HEADER_SIZE_TELEMETRY + 2)) ? 1 : -1
 ];
 typedef char t1replay_checkpoint_groups_offset_check[
 	(offsetof(t1replay_checkpoint_t, groups) == T1REPLAY_CHECKPOINT_HEADER_SIZE) ? 1 : -1

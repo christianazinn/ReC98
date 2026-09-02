@@ -311,6 +311,10 @@ void op_animate(void)
 			if(snd_midi_possible) {
 				door_x = snd_midi_active;
 				snd_midi_active = true;
+				// gminit.m is played during OP startup. Stop that MIDI-side
+				// initializer before replacing it with the title song; snd_load()
+				// alone leaves the old MIDI sequence running alongside FM.
+				snd_kaja_func(KAJA_SONG_STOP, 0);
 				snd_load(BGM_MENU_MAIN_FN, SND_LOAD_SONG);
 			}
 			snd_midi_active = false;

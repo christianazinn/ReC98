@@ -908,6 +908,7 @@ void main(int argc, const char *argv[])
 {
 	int bgm_mode_cur = 0;
 	int hit_key_frame = 0;
+	bool pending_save_flow = false;
 	const char* arg2; // ZUN bloat
 	const char* arg4; // ZUN bloat
 	uint8_t bios_flag;
@@ -962,6 +963,7 @@ void main(int argc, const char *argv[])
 
 	key_start();
 	if(t1replay_op_pending_enter()) {
+		pending_save_flow = true;
 		menu_id = MID_REPLAY;
 	} else {
 		title_init();
@@ -1016,6 +1018,11 @@ void main(int argc, const char *argv[])
 			t1replay_op_result_t result = t1replay_op_replay_update();
 			if(result.action == T1ROA_RETURN) {
 				t1replay_op_restore();
+				if(pending_save_flow) {
+					mdrv2_bgm_load("reimu.mdt");
+					mdrv2_bgm_play();
+					pending_save_flow = false;
+				}
 				menu_sel = 4;
 				menu_id = MID_DELAY__SWITCH_TO_MAIN;
 			} else if(result.action == T1ROA_PLAYBACK) {

@@ -9,7 +9,7 @@ typedef uint8_t far *replay_op_font_t;
 extern replay_op_font_t replay_op_font;
 
 enum replay_op_font_fixed_t {
-	REPLAY_OP_FONT_NUMERIC_CELL_W = 10,
+	REPLAY_OP_FONT_NUMERIC_CELL_W = 13,
 	REPLAY_OP_FONT_ONE_INSET = 2,
 };
 

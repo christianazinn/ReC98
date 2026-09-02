@@ -742,12 +742,35 @@ static unsigned t1replay_header_wire_size(void)
 	}
 	if(
 		t1replay_magic_matches(t1replay_header.magic, '5') &&
+		(t1replay_header.version == T1REPLAY_VERSION_TELEMETRY) &&
+		(t1replay_header.header_size == T1REPLAY_HEADER_SIZE_TELEMETRY)
+	) {
+		return T1REPLAY_HEADER_SIZE_TELEMETRY;
+	}
+	if(
+		t1replay_magic_matches(t1replay_header.magic, '6') &&
 		(t1replay_header.version == T1REPLAY_VERSION) &&
 		(t1replay_header.header_size == T1REPLAY_HEADER_SIZE)
 	) {
 		return T1REPLAY_HEADER_SIZE;
 	}
 	return 0;
+}
+
+static bool t1replay_dos_datetime_valid(unsigned header_size)
+{
+	uint16_t date = t1replay_header.dos_date;
+	uint16_t time = t1replay_header.dos_time;
+
+	if(header_size < T1REPLAY_HEADER_SIZE) {
+		return (date == 0) && (time == 0);
+	}
+	return (
+		((date & 0x1F) >= 1) && ((date & 0x1F) <= 31) &&
+		(((date >> 5) & 0x0F) >= 1) && (((date >> 5) & 0x0F) <= 12) &&
+		((time >> 11) < 24) && (((time >> 5) & 0x3F) < 60) &&
+		((time & 0x1F) < 30)
+	);
 }
 
 static bool t1replay_header_read(bool finalized)
@@ -816,6 +839,7 @@ static bool t1replay_header_read(bool finalized)
 		) ||
 		(t1replay_header.reserved_0 != 0) ||
 		(t1replay_header.slow_frames > t1replay_header.timed_frames) ||
+		!t1replay_dos_datetime_valid(header_size) ||
 		(finalized ?
 			(t1replay_header.end_reason != T1REPLAY_END_CLEAR) :
 			(t1replay_header.end_reason != 0)) ||

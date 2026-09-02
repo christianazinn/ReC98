@@ -1552,12 +1552,35 @@ static unsigned t1replay_header_wire_size(void)
 	}
 	if(
 		t1replay_magic_matches(t1replay_header.magic, '5') &&
+		(t1replay_header.version == T1REPLAY_VERSION_TELEMETRY) &&
+		(t1replay_header.header_size == T1REPLAY_HEADER_SIZE_TELEMETRY)
+	) {
+		return T1REPLAY_HEADER_SIZE_TELEMETRY;
+	}
+	if(
+		t1replay_magic_matches(t1replay_header.magic, '6') &&
 		(t1replay_header.version == T1REPLAY_VERSION) &&
 		(t1replay_header.header_size == T1REPLAY_HEADER_SIZE)
 	) {
 		return T1REPLAY_HEADER_SIZE;
 	}
 	return 0;
+}
+
+static bool t1replay_dos_datetime_valid(unsigned header_size)
+{
+	uint16_t date = t1replay_header.dos_date;
+	uint16_t time = t1replay_header.dos_time;
+
+	if(header_size < T1REPLAY_HEADER_SIZE) {
+		return (date == 0) && (time == 0);
+	}
+	return (
+		((date & 0x1F) >= 1) && ((date & 0x1F) <= 31) &&
+		(((date >> 5) & 0x0F) >= 1) && (((date >> 5) & 0x0F) <= 12) &&
+		((time >> 11) < 24) && (((time >> 5) & 0x3F) < 60) &&
+		((time & 0x1F) < 30)
+	);
 }
 
 static bool t1replay_header_write(bool create)
@@ -1812,6 +1835,7 @@ static bool t1replay_header_read(bool finalized)
 		) ||
 		(t1replay_header.reserved_0 != 0) ||
 		(t1replay_header.slow_frames > t1replay_header.timed_frames) ||
+		!t1replay_dos_datetime_valid(header_size) ||
 		((t1replay_header.status == T1REPLAY_STATUS_FINALIZED) ?
 			((t1replay_header.end_reason != T1REPLAY_END_MENU) &&
 			 (t1replay_header.end_reason != T1REPLAY_END_CLEAR) &&
@@ -2267,11 +2291,17 @@ static void t1replay_start_apply(void)
 static void t1replay_header_capture(void)
 {
 	int i;
+	uint16_t date_year;
+	uint8_t date_month;
+	uint8_t date_day;
+	uint8_t time_hour;
+	uint8_t time_minute;
+	uint8_t time_second;
 
 	t1replay_memclear(&t1replay_header, sizeof(t1replay_header));
 	t1replay_header.magic[0] = 'T'; t1replay_header.magic[1] = '1';
 	t1replay_header.magic[2] = 'R'; t1replay_header.magic[3] = 'P';
-	t1replay_header.magic[4] = 'Y'; t1replay_header.magic[5] = '5';
+	t1replay_header.magic[4] = 'Y'; t1replay_header.magic[5] = '6';
 	t1replay_header.version = T1REPLAY_VERSION;
 	t1replay_header.header_size = T1REPLAY_HEADER_SIZE;
 	t1replay_header.packet_size = T1REPLAY_PACKET_SIZE;
@@ -2284,6 +2314,29 @@ static void t1replay_header_capture(void)
 		t1replay_header.name[i] = ' ';
 	}
 	t1replay_header.summary.final_stage_id = T1REPLAY_FINAL_STAGE_NONE;
+	_asm {
+		mov ah, 2Ah
+		int 21h
+		mov date_year, cx
+		mov date_month, dh
+		mov date_day, dl
+		mov ah, 2Ch
+		int 21h
+		mov time_hour, ch
+		mov time_minute, cl
+		mov time_second, dh
+	}
+	if(date_year >= 1980) {
+		t1replay_header.dos_date = static_cast<uint16_t>(
+			((date_year - 1980) << 9) |
+			(static_cast<uint16_t>(date_month) << 5) | date_day
+		);
+	}
+	t1replay_header.dos_time = static_cast<uint16_t>(
+		(static_cast<uint16_t>(time_hour) << 11) |
+		(static_cast<uint16_t>(time_minute) << 5) |
+		(time_second >> 1)
+	);
 	t1replay_start_capture();
 	if(t1replay_practice_from_restart(&t1replay_header.start)) {
 		t1replay_header.flags |= T1REPLAY_FLAG_PRACTICE;

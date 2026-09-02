@@ -1980,9 +1980,28 @@ static bool t2op_replay_surface_prepare(enum t2op_replay_surface_t surface)
 
 	t2op_title_pictures_free();
 	replay_op_font_free();
-	if(pi_load(0, fn) != 0) {
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(51);
+#endif
+	// Match TH04/TH05's proven ownership order: reserve the small persistent
+	// font before decoding the much larger transient PI. Loading it afterward
+	// can fail on a fragmented OP heap even though both allocations fit when
+	// acquired in this order.
+	if((surface != T2ORS_NAME) && !replay_op_font_load()) {
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+		replay_practice_diag_boot(55);
+#endif
 		return false;
 	}
+	if(pi_load(0, fn) != 0) {
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+		replay_practice_diag_boot(52);
+#endif
+		return false;
+	}
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(53);
+#endif
 	if(t2op_title_return_fade) {
 		palette_settone(0);
 	}
@@ -2003,9 +2022,10 @@ static bool t2op_replay_surface_prepare(enum t2op_replay_surface_t surface)
 	pi_buffers[0] = 0;
 	if(surface == T2ORS_NAME) {
 		t2op_title_font_restore();
-	} else if(!replay_op_font_load()) {
-		return false;
 	}
+#if T2REPLAY_PRACTICE_DIAGNOSTICS
+	replay_practice_diag_boot(56);
+#endif
 	text_clear();
 	return true;
 }
@@ -3411,8 +3431,22 @@ static void t2op_practice_start(void)
 void far replay_practice_diag_autostart(void)
 {
 	static const char fn[] = "T2PAUTO.CFG";
+	static const char ui_fn[] = "T2UI.CFG";
 	uint8_t config[3];
-	int fd = t2op_dos_open(fn, T2OP_DOS_ACCESS_READ);
+	int fd = t2op_dos_open(ui_fn, T2OP_DOS_ACCESS_READ);
+
+	if(fd >= 0) {
+		if(t2op_dos_read(fd, config, 1) == 1) {
+			t2op_replay_surface_prepare(
+				(config[0] == T2ORS_PRACTICE) ? T2ORS_PRACTICE :
+				T2ORS_BROWSER
+			);
+			t2op_title_return_request();
+		}
+		t2op_dos_close(fd);
+		return;
+	}
+	fd = t2op_dos_open(fn, T2OP_DOS_ACCESS_READ);
 
 	if(fd < 0) {
 		return;
@@ -3961,7 +3995,11 @@ static void t2op_practice_menu(void)
 	// patch-owned Practice surface used by the later games.
 	resident->stage = 0;
 	sel = 1;
-	t2op_title_pictures_free();
+	// Stock OP enters shottype_menu() with ts2.pi and ts3.pi still resident in
+	// slots 1 and 2. Only slot 0 is unused here; discarding all three title
+	// pictures made the selector decode B/C from freed memory.
+	pi_free(0);
+	pi_buffers[0] = 0;
 	pi_load(0, "ts1.pi");
 	text_clear();
 	t2_language_op_bridge(T2LOB_SHOTTYPE_MENU, 0, 0);

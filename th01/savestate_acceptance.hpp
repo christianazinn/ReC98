@@ -2,7 +2,7 @@
 #define TH01_SAVESTATE_ACCEPTANCE_HPP
 
 // Private acceptance evidence for the savestate guard. This profile is never
-// selected by a release build and does not alter T1RPY5 or the resident ABI.
+// selected by a release build and does not alter T1RPY6 or the resident ABI.
 #ifndef T1REPLAY_SAVESTATE_ACCEPTANCE
 #ifdef T1SGA
 #define T1REPLAY_SAVESTATE_ACCEPTANCE T1SGA
