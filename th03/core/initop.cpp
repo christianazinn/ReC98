@@ -7,11 +7,12 @@
 
 #if (GAME <= 3)
 #if (GAME == 3)
-// Replay Patch: Leave conventional memory for MMD's compact resident song
-// buffer. The original 352,000-byte master.lib arena is overprovisioned
-// relative to observed OP allocation demand; release boot and intro-skip
-// probes exercise the process transition against this 12,000-byte reduction.
-#define mem_assign_paras (340000 >> 4)
+// Replay Patch: Leave conventional memory for the simultaneous compact MMD
+// and stock-size PMD residents. The original 352,000-byte master.lib arena is
+// overprovisioned relative to OP's observed allocation demand. Requiring 80
+// KiB beyond the exact executable image and this arena in the staged-HDI boot
+// gate keeps emulator-specific DOS/driver overhead away from the failure edge.
+#define mem_assign_paras (308000 >> 4)
 #else
 #define mem_assign_paras (352000 >> 4)
 #endif
