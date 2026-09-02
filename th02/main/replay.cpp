@@ -125,6 +125,8 @@ static bool t2replay_timing_pause_opened;
 static uint8_t t2replay_timing_target;
 static bool t2replay_rank_lock_active;
 static int16_t t2replay_rank_lock_value;
+static bool t2replay_autofire_active;
+static bool t2replay_autofire_release_frame;
 
 #ifdef T2SGA
 static int t2replay_debug_midboss_step;
@@ -4036,7 +4038,6 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 		(start->rem_lives > 5) ||
 		(start->rem_bombs < 0) ||
 		(start->rem_bombs > 5) ||
-		(start->start_lives < 1) ||
 		(start->start_lives > 5) ||
 		(start->start_bombs < 1) ||
 		(start->start_bombs > 5) ||
@@ -4054,6 +4055,7 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 			start->reserved[T2REPLAY_PRACTICE_PLAYPERF_OFFSET]
 		) > ((start->rank == RANK_EASY) ? 4 : 16)) ||
 		(start->reserved[T2REPLAY_PRACTICE_RANK_LOCK_OFFSET] > 1) ||
+		(start->reserved[T2REPLAY_AUTOFIRE_OFFSET] > 1) ||
 		!practice_target_valid
 	) {
 		return false;
@@ -5520,6 +5522,9 @@ static void t2replay_header_capture(void)
 	t2replay_header.start.reduce_effects = (resident->reduce_effects ? 1 : 0);
 	t2replay_header.start.reserved[T2REPLAY_PRACTICE_PLAYPERF_OFFSET] =
 		t2replay_practice_playperf_encode(playperf);
+	t2replay_header.start.reserved[T2REPLAY_AUTOFIRE_OFFSET] =
+		(t2replay_autofire_active ? 1 : 0);
+	t2replay_autofire_release_frame = false;
 	_asm {
 		mov ah, 2Ah
 		int 21h
@@ -5589,6 +5594,10 @@ static void t2replay_start_apply(const t2replay_start_t far *start)
 		start->reserved[T2REPLAY_PRACTICE_RANK_LOCK_OFFSET] != 0
 	);
 	t2replay_rank_lock_value = playperf;
+	t2replay_autofire_active = (
+		start->reserved[T2REPLAY_AUTOFIRE_OFFSET] != 0
+	);
+	t2replay_autofire_release_frame = false;
 }
 
 static void t2replay_header_apply(void)
@@ -5627,19 +5636,21 @@ static bool t2replay_command_valid(const t2replay_command_t far *command)
 			)
 		);
 	}
-	if(command->mode == T2REPLAY_COMMAND_PRACTICE) {
+	if(command->flags & T2REPLAY_COMMAND_FLAG_PRACTICE) {
 		return (
-			(command->flags == T2REPLAY_COMMAND_FLAG_PRACTICE) &&
-			t2replay_practice_start_valid(&command->start)
+			(command->mode != T2REPLAY_COMMAND_PLAYBACK) &&
+			t2replay_practice_start_valid(&command->start) &&
+			(((command->flags & T2REPLAY_COMMAND_FLAG_AUTOFIRE) != 0) ==
+			 (command->start.reserved[T2REPLAY_AUTOFIRE_OFFSET] != 0))
 		);
 	}
-	if(command->flags == 0) {
+	if(command->mode == T2REPLAY_COMMAND_RECORD) {
 		return t2replay_bytes_zero(
 			reinterpret_cast<const uint8_t far *>(&command->start),
 			sizeof(command->start)
 		);
 	}
-	return t2replay_practice_start_valid(&command->start);
+	return false;
 }
 
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
@@ -5913,6 +5924,8 @@ void replay_entry(void)
 	t2replay_timing_armed = false;
 	t2replay_timing_pause_opened = false;
 	t2replay_timing_target = 0;
+	t2replay_autofire_active = false;
+	t2replay_autofire_release_frame = false;
 #if T2REPLAY_EXACT_APPLY
 	t2replay_exact_pending = false;
 	t2replay_exact_active = false;
@@ -5948,6 +5961,9 @@ void replay_entry(void)
 		bool guard_admitted;
 
 		t2replay_mode = T2RM_RECORD;
+		t2replay_autofire_active = (
+			(command_flags & T2REPLAY_COMMAND_FLAG_AUTOFIRE) != 0
+		);
 		t2replay_pending_files_delete();
 		guard_admitted = t2replay_guard_begin();
 		t2practice_diag_lifecycle(
@@ -6807,6 +6823,21 @@ void replay_rank_lock_apply(void)
 	}
 }
 
+static void t2replay_autofire_apply(uint8_t phase)
+{
+	if(phase != T2REPLAY_PHASE_GAMEPLAY) {
+		return;
+	}
+	if(!t2replay_autofire_active || !(key_det & INPUT_SHOT)) {
+		t2replay_autofire_release_frame = false;
+		return;
+	}
+	if(t2replay_autofire_release_frame) {
+		key_det &= ~INPUT_SHOT;
+	}
+	t2replay_autofire_release_frame = !t2replay_autofire_release_frame;
+}
+
 void replay_input_sample(uint8_t phase)
 {
 	input_t host_input;
@@ -6856,6 +6887,7 @@ void replay_input_sample(uint8_t phase)
 		if(!t2replay_failed && !t2replay_record_sample(phase)) {
 			t2replay_failed = true;
 		}
+		t2replay_autofire_apply(phase);
 		if(phase == T2REPLAY_PHASE_GAMEPLAY) {
 			t2replay_timing_gameplay_sample(host_input);
 		}
@@ -6864,6 +6896,7 @@ void replay_input_sample(uint8_t phase)
 			t2replay_fail();
 			return;
 		}
+		t2replay_autofire_apply(phase);
 #if T2REPLAY_EXACT_APPLY
 		if(t2replay_exact_first_sample_pending) {
 			t2replay_exact_first_sample_pending = false;
@@ -7013,6 +7046,9 @@ bool replay_pause_restart(void)
 		(t2replay_header.flags & T2REPLAY_FLAG_PRACTICE)
 		? T2REPLAY_COMMAND_FLAG_PRACTICE : 0
 	);
+	if(t2replay_header.start.reserved[T2REPLAY_AUTOFIRE_OFFSET]) {
+		command.flags |= T2REPLAY_COMMAND_FLAG_AUTOFIRE;
+	}
 	command.start = t2replay_header.start;
 	seed = static_cast<uint32_t>(resident->frame);
 	command.start.resident_frame = seed;

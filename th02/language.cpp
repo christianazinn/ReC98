@@ -11,6 +11,9 @@
 
 #define T2LANG_CONFIG_SIZE 8
 #define T2LANG_CONFIG_VERSION 1
+#define T2_SETTINGS_LANGUAGE_MASK 0x01
+#define T2_SETTINGS_AUTOFIRE 0x80
+#define T2_SETTINGS_KNOWN_MASK (T2_SETTINGS_LANGUAGE_MASK | T2_SETTINGS_AUTOFIRE)
 #define T2LANG_DOS_ACCESS_READ 0
 #define T2LANG_FP_SEG(p) ((unsigned)(((unsigned long)(void far *)(p)) >> 16))
 #define T2LANG_FP_OFF(p) ((unsigned)((unsigned long)(void far *)(p)))
@@ -29,6 +32,7 @@ typedef char t2_language_config_size_check[
 
 // Zero-initialization intentionally means Japanese before the first load.
 static t2_language_preference_t t2_language_runtime;
+static bool t2_autofire_runtime;
 
 static void t2_language_config_fn_set(char *fn)
 {
@@ -291,6 +295,7 @@ void far t2_language_load(void)
 	// A receiver must never retain a stale selection after a missing or invalid
 	// file. The all-zero BSS state also deliberately means Japanese.
 	t2_language_runtime = T2LANG_JAPANESE;
+	t2_autofire_runtime = false;
 	t2_language_config_fn_set(fn);
 	fh = t2_language_dos_open(fn);
 	if(fh < 0) {
@@ -310,15 +315,17 @@ void far t2_language_load(void)
 		(config->magic[2] != 'L') ||
 		(config->magic[3] != 'G') ||
 		(config->version != T2LANG_CONFIG_VERSION) ||
-		(config->preference > T2LANG_ENGLISH) ||
+		((config->preference & ~T2_SETTINGS_KNOWN_MASK) != 0) ||
+		((config->preference & T2_SETTINGS_LANGUAGE_MASK) > T2LANG_ENGLISH) ||
 		(config->checksum != checksum) ||
 		(config->checksum_inverse != static_cast<uint8_t>(~checksum))
 	) {
 		return;
 	}
 	t2_language_runtime = static_cast<t2_language_preference_t>(
-		config->preference
+		config->preference & T2_SETTINGS_LANGUAGE_MASK
 	);
+	t2_autofire_runtime = ((config->preference & T2_SETTINGS_AUTOFIRE) != 0);
 }
 
 t2_language_preference_t far t2_language_get(void)
@@ -326,7 +333,9 @@ t2_language_preference_t far t2_language_get(void)
 	return t2_language_runtime;
 }
 
-bool far t2_language_set(t2_language_preference_t preference)
+static bool t2_settings_set(
+	t2_language_preference_t preference, bool autofire
+)
 {
 	t2_language_config_t config;
 	char fn[11];
@@ -347,7 +356,9 @@ bool far t2_language_set(t2_language_preference_t preference)
 	config.magic[2] = 'L';
 	config.magic[3] = 'G';
 	config.version = T2LANG_CONFIG_VERSION;
-	config.preference = preference;
+	config.preference = static_cast<uint8_t>(
+		preference | (autofire ? T2_SETTINGS_AUTOFIRE : 0)
+	);
 	config.checksum = t2_language_config_checksum(&config);
 	config.checksum_inverse = static_cast<uint8_t>(~config.checksum);
 
@@ -396,7 +407,23 @@ bool far t2_language_set(t2_language_preference_t preference)
 	}
 	t2_language_dos_flush();
 	t2_language_runtime = preference;
+	t2_autofire_runtime = autofire;
 	return true;
+}
+
+bool far t2_language_set(t2_language_preference_t preference)
+{
+	return t2_settings_set(preference, t2_autofire_runtime);
+}
+
+bool far t2_autofire_get(void)
+{
+	return t2_autofire_runtime;
+}
+
+bool far t2_autofire_set(bool enabled)
+{
+	return t2_settings_set(t2_language_runtime, enabled);
 }
 
 #include "th02/language_overlay.cpp"

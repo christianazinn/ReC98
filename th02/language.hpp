@@ -18,6 +18,11 @@ t2_language_preference_t far t2_language_get(void);
 // replay, resident, score-file, and gameplay state.
 bool far t2_language_set(t2_language_preference_t preference);
 
+// Autofire shares the patch-owned settings record rather than growing TH02's
+// fixed native configuration structure.
+bool far t2_autofire_get(void);
+bool far t2_autofire_set(bool enabled);
+
 // T2EN.DAT is presentation-only. Its directory must have the exact audited
 // shape before any later scoped packfile transaction may select English.
 bool far t2_language_overlay_valid(void);

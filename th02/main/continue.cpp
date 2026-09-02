@@ -19,6 +19,7 @@
 #include "th02/main/hud/overlay.hpp"
 #include "th02/main/item/item.hpp"
 #include "th02/main/player/player.hpp"
+#include "th02/main/replay.hpp"
 #include "th02/main/score.hpp"
 #include "th02/main/stage/stage.hpp"
 
@@ -114,7 +115,6 @@ bool16 near continue_prompt(void)
 	}
 	overlay_wipe();
 	regist_menu();
-	t2gosave_post_regist();
 
 	// No prompt on the last credit, and none in Extra Stage.
 	if((resident->continues_used < CONTINUES_MAX) && (rank < RANK_EXTRA)) {
@@ -162,6 +162,12 @@ bool16 near continue_prompt(void)
 	// makes at the prompt and the two that skip it - through this single
 	// store, which is why it is a label rather than an `else` branch.
 resume:
+	if(ret) {
+		replay_save_request_discard();
+	} else if(replay_save_request_prompt_needed()) {
+		palette_black_out(1);
+		t2gosave_post_regist();
+	}
 	// A ternary, not `if(a < b) { a = b; }`: the original reloads [resident]
 	// for the else operand and merges into a single store.
 	resident->score_highest = (
