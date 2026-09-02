@@ -7,6 +7,7 @@
 
 #pragma option -zCT1REPLAY_TEXT -G-
 
+#include <alloc.h>
 #include "platform.h"
 #include "libs/master.lib/master.hpp"
 #include "th01/replay.hpp"
@@ -155,7 +156,7 @@ static uint8_t t1replay_decode_run;
 static bool t1replay_pending_valid;
 static uint8_t t1replay_keys[T1REPLAY_INPUT_GROUP_COUNT];
 static bool t1replay_checkpoint_capture_attempted;
-static t1replay_checkpoint_t t1replay_checkpoint;
+static t1replay_checkpoint_t far *t1replay_checkpoint;
 static bool t1replay_checkpoint_restore_is_pending;
 #if T1REPLAY_WORLD_CAPTURE
 	static t1replay_checkpoint_t t1replay_exact_snapshot;
@@ -183,6 +184,25 @@ static bool t1replay_checkpoint_restore_is_pending;
 	);
 	static bool t1replay_exact_trace_flush(void);
 #endif
+
+static bool t1replay_checkpoint_allocate(void)
+{
+	if(t1replay_checkpoint) {
+		return true;
+	}
+	t1replay_checkpoint = reinterpret_cast<t1replay_checkpoint_t far *>(
+		farmalloc(sizeof(*t1replay_checkpoint))
+	);
+	return (t1replay_checkpoint != 0);
+}
+
+static void t1replay_checkpoint_free(void)
+{
+	if(t1replay_checkpoint) {
+		farfree(t1replay_checkpoint);
+		t1replay_checkpoint = 0;
+	}
+}
 
 static void t1replay_fast_forward_boundary_reset(void)
 {
@@ -1857,21 +1877,29 @@ static bool t1replay_checkpoint_read(uint8_t slot, uint8_t process_seq)
 	int fd;
 	bool valid;
 
-	if(!t1replay_checkpoint_path_set(slot, process_seq)) {
+	t1replay_checkpoint_free();
+	if(
+		!t1replay_checkpoint_path_set(slot, process_seq) ||
+		!t1replay_checkpoint_allocate()
+	) {
 		return false;
 	}
 	fd = t1replay_dos_open(t1replay_checkpoint_fn, T1REPLAY_DOS_ACCESS_READ);
 	if(fd < 0) {
+		t1replay_checkpoint_free();
 		return false;
 	}
 	valid = (
 		t1replay_dos_size(fd, &size) && t1replay_dos_seek(fd, 0) &&
-		(size == sizeof(t1replay_checkpoint)) &&
+		(size == sizeof(*t1replay_checkpoint)) &&
 		(t1replay_dos_read(
-			fd, &t1replay_checkpoint, sizeof(t1replay_checkpoint)
-		) == sizeof(t1replay_checkpoint))
+			fd, t1replay_checkpoint, sizeof(*t1replay_checkpoint)
+		) == sizeof(*t1replay_checkpoint))
 	);
 	t1replay_dos_close(fd);
+	if(!valid) {
+		t1replay_checkpoint_free();
+	}
 	return valid;
 }
 
@@ -1882,17 +1910,21 @@ static bool t1replay_checkpoint_probe_prepare(
 )
 {
 	t1replay_stream_state_t state;
-	const t1replay_checkpoint_pacing_t far *pacing =
-		&t1replay_checkpoint.pacing;
-	const t1replay_checkpoint_scenario_t far *scenario =
-		&t1replay_checkpoint.scenario;
+	const t1replay_checkpoint_pacing_t far *pacing;
+	const t1replay_checkpoint_scenario_t far *scenario;
 
 	if(
 		!start_resident ||
-		!t1replay_checkpoint_read(slot, process_seq) ||
-		!t1replay_checkpoint_valid(&t1replay_checkpoint) ||
-		!t1replay_checkpoint_cross_groups_valid(&t1replay_checkpoint) ||
-		!t1replay_ckpt_present_valid(&t1replay_checkpoint) ||
+		!t1replay_checkpoint_read(slot, process_seq)
+	) {
+		return false;
+	}
+	pacing = &t1replay_checkpoint->pacing;
+	scenario = &t1replay_checkpoint->scenario;
+	if(
+		!t1replay_checkpoint_valid(t1replay_checkpoint) ||
+		!t1replay_checkpoint_cross_groups_valid(t1replay_checkpoint) ||
+		!t1replay_ckpt_present_valid(t1replay_checkpoint) ||
 		(pacing->process_seq != process_seq) ||
 		(pacing->replay_packet_anchor > t1replay_header.packet_count) ||
 		(pacing->replay_sample_anchor > t1replay_header.sample_count) ||
@@ -1908,9 +1940,14 @@ static bool t1replay_checkpoint_probe_prepare(
 		(state.process_seq != process_seq) ||
 		(state.source_process != source_process)
 	) {
+		t1replay_checkpoint_free();
 		return false;
 	}
-	return t1replay_pixel_probe_arm(&t1replay_checkpoint);
+	if(!t1replay_pixel_probe_arm(t1replay_checkpoint)) {
+		t1replay_checkpoint_free();
+		return false;
+	}
+	return true;
 }
 #endif
 
@@ -1920,18 +1957,22 @@ static bool t1replay_checkpoint_restore_prepare(
 )
 {
 	t1replay_stream_state_t state;
-	const t1replay_checkpoint_pacing_t far *pacing =
-		&t1replay_checkpoint.pacing;
-	const t1replay_checkpoint_scenario_t far *scenario =
-		&t1replay_checkpoint.scenario;
+	const t1replay_checkpoint_pacing_t far *pacing;
+	const t1replay_checkpoint_scenario_t far *scenario;
 
 	if(
 		!start_resident ||
-		!t1replay_checkpoint_read(slot, process_seq) ||
-		!t1replay_checkpoint_valid(&t1replay_checkpoint) ||
-		!t1replay_checkpoint_cross_groups_valid(&t1replay_checkpoint) ||
+		!t1replay_checkpoint_read(slot, process_seq)
+	) {
+		return false;
+	}
+	pacing = &t1replay_checkpoint->pacing;
+	scenario = &t1replay_checkpoint->scenario;
+	if(
+		!t1replay_checkpoint_valid(t1replay_checkpoint) ||
+		!t1replay_checkpoint_cross_groups_valid(t1replay_checkpoint) ||
 #if T1REPLAY_CHECKPOINT_RESTORE
-		!t1replay_ckpt_present_valid(&t1replay_checkpoint) ||
+		!t1replay_ckpt_present_valid(t1replay_checkpoint) ||
 #endif
 		(pacing->process_seq != process_seq) ||
 		(pacing->replay_packet_anchor > t1replay_header.packet_count) ||
@@ -1948,6 +1989,7 @@ static bool t1replay_checkpoint_restore_prepare(
 		(state.process_seq != process_seq) ||
 		(state.source_process != source_process)
 	) {
+		t1replay_checkpoint_free();
 		return false;
 	}
 
@@ -1995,7 +2037,8 @@ static bool t1replay_checkpoint_restore_prepare(
 	t1replay_pending_valid = false;
 	t1replay_memclear(t1replay_keys, sizeof(t1replay_keys));
 #if T1REPLAY_PIXEL_TRACE
-	if(!t1replay_pixel_probe_arm(&t1replay_checkpoint)) {
+	if(!t1replay_pixel_probe_arm(t1replay_checkpoint)) {
+		t1replay_checkpoint_free();
 		return false;
 	}
 #endif
@@ -2294,13 +2337,17 @@ static void t1replay_checkpoint_scenario_capture(
 #if T1REPLAY_CHECKPOINT_EMIT
 static bool t1replay_checkpoint_write(void)
 {
-	int fd = t1replay_dos_create(t1replay_checkpoint_fn);
+	int fd;
 
+	if(!t1replay_checkpoint) {
+		return false;
+	}
+	fd = t1replay_dos_create(t1replay_checkpoint_fn);
 	if(fd < 0) {
 		return false;
 	}
-	if(t1replay_dos_write(fd, &t1replay_checkpoint,
-		sizeof(t1replay_checkpoint)) != sizeof(t1replay_checkpoint)) {
+	if(t1replay_dos_write(fd, t1replay_checkpoint,
+		sizeof(*t1replay_checkpoint)) != sizeof(*t1replay_checkpoint)) {
 		t1replay_dos_close(fd);
 		return false;
 	}
@@ -2308,22 +2355,23 @@ static bool t1replay_checkpoint_write(void)
 	return true;
 }
 
-// This optional write is deliberately process-end-only. First-frame capture is
-// BSS-only so release recording has no sidecar I/O or startup disk stutter.
+// Persist the first-frame snapshot while its transient far allocation is still
+// available, then release that memory before the next process loads resources.
 static void t1replay_checkpoint_flush_if_enabled(void)
 {
 	if(
 		!t1replay_checkpoint_capture_attempted ||
+		!t1replay_checkpoint ||
 		!t1replay_res ||
-		!t1replay_checkpoint_valid(&t1replay_checkpoint) ||
+		!t1replay_checkpoint_valid(t1replay_checkpoint) ||
 	#if T1REPLAY_CHECKPOINT_RELEASE
 		// Public direct starts are available only for the presentation state
 		// covered by the fresh-process two-page oracle. All other captures stay
-		// BSS-only and therefore cannot advertise a sidecar to OP.
-		!t1replay_ckpt_present_valid(&t1replay_checkpoint) ||
+		// transient and therefore cannot advertise a sidecar to OP.
+		!t1replay_ckpt_present_valid(t1replay_checkpoint) ||
 	#endif
 		!t1replay_checkpoint_path_set(
-			t1replay_res->slot, t1replay_checkpoint.pacing.process_seq
+			t1replay_res->slot, t1replay_checkpoint->pacing.process_seq
 		)
 	) {
 		return;
@@ -2527,6 +2575,7 @@ static t1replay_mode_t t1replay_command_load(
 
 static void t1replay_state_reset(void)
 {
+	t1replay_checkpoint_free();
 	t1replay_buffer_len = 0;
 	t1replay_buffer_pos = 0;
 	t1replay_payload_written = 0;
@@ -2753,6 +2802,7 @@ static bool t1replay_control_playback(uint8_t control, uint8_t value)
 
 static void t1replay_fail(void)
 {
+	t1replay_checkpoint_free();
 	if(t1replay_mode == T1RM_PLAYBACK) {
 		t1replay_abort_pending = true;
 	}
@@ -2777,6 +2827,7 @@ static void t1replay_fail_and_abort_if_playback(void)
 // replay handoff, so it must fail closed rather than reach native input.
 static void t1replay_abort_before_start(void)
 {
+	t1replay_checkpoint_free();
 	t1replay_res_clear();
 	t1replay_mode = T1RM_DISABLED;
 	t1replay_abort_pending = true;
@@ -3323,7 +3374,7 @@ static bool t1replay_practice_boss_phase_restore_apply(
 
 bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 {
-	const t1replay_checkpoint_t far *checkpoint = &t1replay_checkpoint;
+	const t1replay_checkpoint_t far *checkpoint = t1replay_checkpoint;
 
 	if(t1replay_header.start.practice_boss_phase != T1RPBPT_NONE) {
 #if T1SAR_DIRECT_TRACE
@@ -3383,7 +3434,7 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 
 	if(
 		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
-		(t1replay_mode != T1RM_PLAYBACK) || !resident ||
+		(t1replay_mode != T1RM_PLAYBACK) || !resident || !checkpoint ||
 		!t1replay_checkpoint_valid(checkpoint) ||
 		!t1replay_checkpoint_cross_groups_valid(checkpoint) ||
 		(resident->stage_id != checkpoint->scenario.resident_stage_id) ||
@@ -3391,12 +3442,14 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 		(boss_id != checkpoint->boss.boss_id)
 	) {
 		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_checkpoint_free();
 		t1replay_fail();
 		return false;
 	}
 	if((boss_id == BID_NONE) &&
 		!t1replay_stage_checkpoint_import(&checkpoint->stage)) {
 		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_checkpoint_free();
 		t1replay_fail();
 		return false;
 	}
@@ -3414,6 +3467,7 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 	t1replay_particles_checkpoint_import(&checkpoint->particles);
 	if(!t1replay_checkpoint_boss_apply(&checkpoint->boss)) {
 		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_checkpoint_free();
 		t1replay_fail();
 		return false;
 	}
@@ -3429,6 +3483,7 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 #if T1REPLAY_CHECKPOINT_RESTORE
 	if(!t1replay_ckpt_present_apply(checkpoint)) {
 		t1replay_checkpoint_restore_is_pending = false;
+		t1replay_checkpoint_free();
 		t1replay_fail();
 		return false;
 	}
@@ -3452,6 +3507,7 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 	}
 #endif
 	t1replay_checkpoint_restore_is_pending = false;
+	t1replay_checkpoint_free();
 	return true;
 }
 
@@ -3659,7 +3715,7 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	}
 #endif
 	if(!t1replay_checkpoint_snapshot_capture(
-		&t1replay_checkpoint, pellet_speed_raise_cycle,
+		&t1replay_exact_snapshot, pellet_speed_raise_cycle,
 		t1replay_header.sample_count, t1replay_header.packet_count,
 		t1replay_header.input_size, t1replay_payload_checksum,
 		t1replay_res->process_seq
@@ -3918,7 +3974,7 @@ void far t1replay_exact_terminal_capture(uint8_t end_reason)
 #else
 void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 {
-	t1replay_checkpoint_t far *checkpoint = &t1replay_checkpoint;
+	t1replay_checkpoint_t far *checkpoint;
 	uint32_t digest = T1REPLAY_FNV1A_BASIS;
 
 #if T1KIK_TRACE
@@ -3954,17 +4010,23 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	) {
 		return;
 	}
-	// Capture exactly once. Release only flushes a presentation-eligible
-	// snapshot at process end; this input seam remains BSS-only.
+	// Capture exactly once. The snapshot is persisted immediately and released
+	// before this process can hand off to the next scene's resource loaders.
 	t1replay_checkpoint_capture_attempted = true;
+	if(!t1replay_checkpoint_allocate()) {
+		return;
+	}
+	checkpoint = t1replay_checkpoint;
 #if T1REPLAY_CHECKPOINT_EMIT
 	// Exact restore starts at a packet boundary. Splitting an RLE run is a
 	// private-capture format cost and never affects release packetization.
 	if(!t1replay_pending_commit()) {
+		t1replay_checkpoint_free();
 		return;
 	}
 #else
 	if(t1replay_pending_valid) {
+		t1replay_checkpoint_free();
 		return;
 	}
 #endif
@@ -4002,6 +4064,7 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	t1replay_player_checkpoint_export(&checkpoint->player);
 	t1replay_orb_checkpoint_export(&checkpoint->orb);
 	if(!t1replay_stage_checkpoint_export(&checkpoint->stage)) {
+		t1replay_checkpoint_free();
 		return;
 	}
 	t1replay_items_checkpoint_export(&checkpoint->items);
@@ -4011,6 +4074,7 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	t1replay_lasers_checkpoint_export(&checkpoint->lasers);
 	t1replay_particles_checkpoint_export(&checkpoint->particles);
 	if(!t1replay_checkpoint_boss_capture(&checkpoint->boss)) {
+		t1replay_checkpoint_free();
 		return;
 	}
 
@@ -4042,6 +4106,10 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	checkpoint->header.container_checksum = t1replay_checkpoint_checksum(
 		checkpoint
 	);
+#if T1REPLAY_CHECKPOINT_EMIT
+	t1replay_checkpoint_flush_if_enabled();
+#endif
+	t1replay_checkpoint_free();
 }
 #endif
 
