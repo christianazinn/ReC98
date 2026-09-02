@@ -53,7 +53,7 @@
 #define REPLAY_OP_ACCESS_RW 2
 #define REPLAY_OP_SLOT_ROWS 10
 #define REPLAY_OP_SLOT_CELL_W 13
-#define REPLAY_OP_SLOT_CELL_STEP REPLAY_OP_SLOT_CELL_W
+#define REPLAY_OP_SLOT_CELL_STEP (REPLAY_OP_SLOT_CELL_W + 1)
 #define REPLAY_OP_SLOT_ONE_INSET 3
 #define REPLAY_OP_LINE_CAPACITY 80
 #define REPLAY_OP_LINE_TOP 112
@@ -145,6 +145,7 @@ enum replay_op_word_t {
 	ROW_TURBO,
 	ROW_ON,
 	ROW_OFF,
+	ROW_ADVANCED_SETTINGS,
 };
 
 enum practice_field_t {
@@ -195,6 +196,11 @@ static char replay_op_line[REPLAY_OP_LINE_CAPACITY + 1];
 static replay_user_header_t replay_op_header;
 static bool replay_op_paths_ready;
 static uint8_t replay_op_page_shown;
+
+static char *practice_field_append(char *p, practice_field_t field);
+static char *practice_value_append(
+	char *p, practice_field_t field, const replay_start_config_t far *start
+);
 
 static void replay_op_patch_archive_name_set(char *fn)
 {
@@ -1978,6 +1984,9 @@ static char *replay_op_word_append(char *p, replay_op_word_t word)
 		P('O'); P('n'); break;
 	case ROW_OFF:
 		P('O'); P('f'); P('f'); break;
+	case ROW_ADVANCED_SETTINGS:
+		P('A'); P('d'); P('v'); P('a'); P('n'); P('c'); P('e'); P('d'); P(' ');
+		P('S'); P('e'); P('t'); P('t'); P('i'); P('n'); P('g'); P('s'); break;
 	}
 	#undef P
 	return p;
@@ -2372,7 +2381,7 @@ static char *replay_op_end_reason_append(char *p)
 	}
 }
 
-static void replay_detail_left_put(uint8_t slot)
+static void replay_detail_left_put(uint8_t slot, bool settings_focused)
 {
 	char *p;
 	uint16_t date = replay_op_header.dos_date;
@@ -2487,6 +2496,14 @@ static void replay_detail_left_put(uint8_t slot)
 	replay_op_line_put_right(
 		REPLAY_DETAIL_VALUE_RIGHT, ((GAME == 4) ? 232 : 208), V_WHITE, p
 	);
+	if(replay_op_header.mode == RUM_PRACTICE) {
+		p = replay_op_line;
+		p = replay_op_word_append(p, ROW_ADVANCED_SETTINGS);
+		replay_op_line_put(
+			REPLAY_DETAIL_LEFT, 280,
+			(settings_focused ? REPLAY_OP_COL_SELECTED : REPLAY_OP_COL_ACTIVE), p
+		);
+	}
 }
 
 static void replay_detail_splits_put(uint8_t selected_stage)
@@ -2528,17 +2545,97 @@ static void replay_detail_splits_put(uint8_t selected_stage)
 	}
 }
 
-static void replay_detail_render(uint8_t slot, uint8_t selected_stage)
+static void replay_detail_render(
+	uint8_t slot, uint8_t selected_stage, bool settings_focused
+)
 {
 	uint8_t page_drawn = (1 - replay_op_page_shown);
 
 	graph_accesspage(page_drawn);
 	pi_put_8(0, 0, 0);
 	graph_putsa_fx_func = FX_WEIGHT_NORMAL;
-	replay_detail_left_put(slot);
+	replay_detail_left_put(slot, settings_focused);
 	replay_detail_splits_put(selected_stage);
 	graph_showpage(page_drawn);
 	replay_op_page_shown = page_drawn;
+}
+
+static void replay_detail_settings_modal(uint8_t slot, uint8_t selected_stage)
+{
+	uint8_t page_drawn = (1 - replay_op_page_shown);
+	char *p;
+	vram_y_t top = 88;
+	vram_y_t y;
+	unsigned i;
+	unsigned x;
+	practice_field_t field;
+	uint8_t far *vram;
+
+	graph_accesspage(page_drawn);
+	pi_put_8(0, 0, 0);
+	grcg_setcolor(GC_RMW, 0);
+	for(y = 64; y <= 336; y++) {
+		vram = reinterpret_cast<uint8_t far *>(
+			MK_FP(SEG_PLANE_B, (y * ROW_SIZE) + (64 / BYTE_DOTS))
+		);
+		for(x = 0; x < ((576 - 64) / BYTE_DOTS); x++) {
+			vram[x] = 0xFF;
+		}
+	}
+	grcg_off();
+	p = replay_op_line;
+	p = replay_op_word_append(p, ROW_ADVANCED_SETTINGS);
+	replay_op_line_put_centered(top, REPLAY_OP_COL_ACTIVE, p);
+	top += 32;
+	for(i = 0; i < ((GAME == 5) ? 9 : 8); i++) {
+		#if (GAME == 5)
+			switch(i) {
+			case 0: field = PF_LIVES; break;
+			case 1: field = PF_BOMBS; break;
+			case 2: field = PF_POWER; break;
+			case 3: field = PF_DREAM; break;
+			case 4: field = PF_PLAYPERF; break;
+			case 5: field = PF_RANK_LOCK; break;
+			case 6: field = PF_SCORE; break;
+			case 7: field = PF_SEED; break;
+			default: field = PF_TIMEDOWN; break;
+			}
+		#else
+			switch(i) {
+			case 0: field = PF_LIVES; break;
+			case 1: field = PF_BOMBS; break;
+			case 2: field = PF_POWER; break;
+			case 3: field = PF_PLAYPERF; break;
+			case 4: field = PF_RANK_LOCK; break;
+			case 5: field = PF_SCORE; break;
+			case 6: field = PF_SEED; break;
+			default: field = PF_TIMEDOWN; break;
+			}
+		#endif
+		p = replay_op_line;
+		p = practice_field_append(p, field);
+		replay_op_line_put(112, top, V_WHITE, p);
+		p = replay_op_line;
+		p = practice_value_append(p, field, &replay_op_header.start);
+		replay_op_line_put_right(520, top, V_WHITE, p);
+		top += 24;
+	}
+	graph_showpage(page_drawn);
+	replay_op_page_shown = page_drawn;
+
+	do {
+		input_reset_sense_interface();
+		frame_delay(1);
+	} while(key_det != INPUT_NONE);
+	do {
+		input_reset_sense_interface();
+		frame_delay(1);
+	} while(key_det == INPUT_NONE);
+	do {
+		input_reset_sense_interface();
+		frame_delay(1);
+	} while(key_det != INPUT_NONE);
+	replay_detail_render(slot, selected_stage, true);
 }
 
 static bool replay_detail(uint8_t slot)
@@ -2564,35 +2661,51 @@ static bool replay_detail(uint8_t slot)
 	#endif
 	uint8_t command_flags;
 	bool input_allowed = false;
+	bool settings_focused = false;
 
-	replay_detail_render(slot, selected_stage);
+	replay_detail_render(slot, selected_stage, settings_focused);
 	while(1) {
 		input_reset_sense_interface();
 		if(key_det == INPUT_NONE) {
 			input_allowed = true;
 		}
 		if(input_allowed) {
-			if(key_det & INPUT_UP) {
+			if((key_det & INPUT_UP) && !settings_focused) {
 				selected_stage = ((selected_stage == replay_op_header.start.stage)
 					? last_selectable_stage
 					: static_cast<uint8_t>(selected_stage - 1)
 				);
-				replay_detail_render(slot, selected_stage);
+				replay_detail_render(slot, selected_stage, settings_focused);
 				snd_se_play_force(1);
-			} else if(key_det & INPUT_DOWN) {
+			} else if((key_det & INPUT_DOWN) && !settings_focused) {
 				selected_stage = ((selected_stage == last_selectable_stage)
 					? replay_op_header.start.stage
 					: static_cast<uint8_t>(selected_stage + 1)
 				);
-				replay_detail_render(slot, selected_stage);
+				replay_detail_render(slot, selected_stage, settings_focused);
 				snd_se_play_force(1);
-				} else if(key_det & INPUT_CANCEL) {
-					while(key_det != INPUT_NONE) {
-						input_reset_sense_interface();
-						frame_delay(1);
-					}
-					return false;
+			} else if(
+				(key_det & INPUT_LEFT) &&
+				(replay_op_header.mode == RUM_PRACTICE) &&
+				!settings_focused
+			) {
+				settings_focused = true;
+				replay_detail_render(slot, selected_stage, settings_focused);
+			} else if((key_det & INPUT_RIGHT) && settings_focused) {
+				settings_focused = false;
+				replay_detail_render(slot, selected_stage, settings_focused);
+			} else if(key_det & INPUT_CANCEL) {
+				while(key_det != INPUT_NONE) {
+					input_reset_sense_interface();
+					frame_delay(1);
+				}
+				return false;
 			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
+				if(settings_focused) {
+					replay_detail_settings_modal(slot, selected_stage);
+					input_allowed = false;
+					continue;
+				}
 				command_flags = 0;
 				if(
 					(replay_op_header.mode == RUM_STORY) &&
@@ -4573,7 +4686,7 @@ static void replay_main_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20312E31UL); // "1.1 "
+	TITLE_CREDIT_QUAD(4, 0x20322E31UL); // "1.2 "
 	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
@@ -5178,9 +5291,9 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 // The final Advanced-setting consolidation changes the generated target-menu
 // code size. Preserve the stock CRT paragraph phase in each game build.
 #if (GAME == 4)
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #else
-	#pragma codestring "\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90"
 #endif
 
 #pragma codeseg

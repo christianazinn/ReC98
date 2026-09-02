@@ -19,6 +19,9 @@ void far replay_op_restart_or_snd_load(const char *fn, int func);
 // allocations before OP overwrites those slot pointers with selector assets.
 void far replay_op_animate_finish(void);
 
+// Consumes a terminal save handoff before OP begins its title animation.
+bool far replay_op_pending_save(void);
+
 #ifdef T2PD
 void far replay_practice_diag_boot(unsigned char milestone);
 void far replay_practice_diag_autostart(void);

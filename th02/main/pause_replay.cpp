@@ -9,18 +9,16 @@
 
 #include "platform.h"
 #include "pc98.h"
+#include "x86real.h"
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/hardware/input.hpp"
 #include "th02/main/execl.hpp"
 #include "th02/main/language_presentation.hpp"
-#include "th02/main/frames.hpp"
 #include "th02/main/pause_replay.hpp"
 #include "th02/main/replay.hpp"
-#include "th02/main/stage/stage.hpp"
-#include "th02/main/stage/callback.hpp"
-#include "th02/resident.hpp"
+#include "th02/snd/snd.h"
 
 #define T2PAUSE_TITLE_LEFT 18
 #define T2PAUSE_TITLE_Y 12
@@ -30,6 +28,9 @@
 #define T2PAUSE_CHOICE_COUNT 4
 #define T2PAUSE_LEGACY_CHOICE_COUNT 3
 #define T2PAUSE_CLEAR_RIGHT 44
+#define T2PAUSE_BACKING_W (T2PAUSE_CLEAR_RIGHT - T2PAUSE_CHOICE_LEFT)
+#define T2PAUSE_BACKING_H 6
+#define T2PAUSE_BACKING_CELLS (T2PAUSE_BACKING_W * T2PAUSE_BACKING_H)
 
 #define T2PAUSE_RESUME 0
 #define T2PAUSE_RESTART 1
@@ -39,51 +40,52 @@
 #define T2PAUSE_ATRB_SELECTED (TX_WHITE | TX_UNDERLINE)
 #define T2PAUSE_ATRB_UNSELECTED TX_MAGENTA
 
+static uint16_t t2pause_backing_jis[T2PAUSE_BACKING_CELLS];
+static uint16_t t2pause_backing_attr[T2PAUSE_BACKING_CELLS];
+
+static void t2pause_backing_capture(void)
+{
+	unsigned index = 0;
+	tram_y_t y;
+	tram_x_t x;
+
+	for(y = T2PAUSE_TITLE_Y; y < (T2PAUSE_TITLE_Y + T2PAUSE_BACKING_H); y++) {
+		for(x = T2PAUSE_CHOICE_LEFT; x < T2PAUSE_CLEAR_RIGHT; x++) {
+			t2pause_backing_jis[index] = *reinterpret_cast<uint16_t far *>(
+				MK_FP((0xA000 + (y * 10)), (x * 2))
+			);
+			t2pause_backing_attr[index] = *reinterpret_cast<uint16_t far *>(
+				MK_FP((0xA000 + (y * 10)), ((x * 2) + 0x2000))
+			);
+			index++;
+		}
+	}
+}
+
+static void t2pause_backing_restore(void)
+{
+	unsigned index = 0;
+	tram_y_t y;
+	tram_x_t x;
+
+	for(y = T2PAUSE_TITLE_Y; y < (T2PAUSE_TITLE_Y + T2PAUSE_BACKING_H); y++) {
+		for(x = T2PAUSE_CHOICE_LEFT; x < T2PAUSE_CLEAR_RIGHT; x++) {
+			*reinterpret_cast<uint16_t far *>(
+				MK_FP((0xA000 + (y * 10)), (x * 2))
+			) = t2pause_backing_jis[index];
+			*reinterpret_cast<uint16_t far *>(
+				MK_FP((0xA000 + (y * 10)), ((x * 2) + 0x2000))
+			) = t2pause_backing_attr[index];
+			index++;
+		}
+	}
+}
+
 // The original native title and its matching blank gaiji string stay in the
 // protected MAIN data contribution; the patch only references them.
 extern char gPAUSE_MENU[];
 extern char g11SPACES[];
 extern const char arg0[];
-extern "C" void far stage_title_unput(void);
-extern "C" const shiftjis_t aEMPTY[];
-extern "C" uint8_t stage1_gaiji_halflen;
-extern "C" const char gStage1[];
-extern "C" const char gEXTRA_STAGE[];
-extern "C" shiftjis_t near *stage_title;
-extern "C" uint8_t stage_title_halflen;
-
-static bool t2pause_stage_title_hide(void)
-{
-	if(
-		resident->demo_num ||
-		(stage_title_unput_func != stage_title_unput) ||
-		(stage_frame >= 160)
-	) {
-		return false;
-	}
-	text_putsa(16, 12, aEMPTY, TX_WHITE);
-	text_putsa(16, 13, aEMPTY, TX_WHITE);
-	return true;
-}
-
-static void t2pause_stage_title_restore(void)
-{
-	if(stage_title_unput_func != stage_title_unput) {
-		return;
-	}
-	if(stage_id == 5) {
-		gaiji_putsa(16, 12, gEXTRA_STAGE, TX_YELLOW);
-	} else {
-		gaiji_putsa(
-			static_cast<tram_x_t>(28 - stage1_gaiji_halflen),
-			12, gStage1, TX_YELLOW
-		);
-	}
-	text_putsa(
-		static_cast<tram_x_t>(28 - stage_title_halflen),
-		13, stage_title, TX_WHITE
-	);
-}
 
 static void t2pause_label_put(uint8_t option, tram_y_t y, unsigned atrb)
 {
@@ -205,9 +207,12 @@ static bool t2pause_input_sample(void)
 	return replay_playback_exit_requested();
 }
 
-static bool16 t2pause_playback_exit(void)
+static bool16 t2pause_playback_exit(bool bgm_paused)
 {
 	t2pause_clear();
+	if(bgm_paused) {
+		snd_kaja_func(PMD_UNPAUSE, 0);
+	}
 	return true;
 }
 
@@ -260,11 +265,16 @@ bool16 far t2pause_menu(void)
 	);
 	bool restart_available = replay_pause_restart_available();
 	bool save_available = replay_pause_save_available();
-	bool stage_title_hidden = t2pause_stage_title_hide();
+	bool bgm_paused = (snd_bgm_active() && snd_bgm_is_fm());
+
+	t2pause_backing_capture();
+	if(bgm_paused) {
+		snd_kaja_func(PMD_PAUSE, 0);
+	}
 
 	while((key_det != INPUT_NONE) || t2pause_restart_pressed()) {
 		if(t2pause_input_sample()) {
-			return t2pause_playback_exit();
+			return t2pause_playback_exit(bgm_paused);
 		}
 		frame_delay(1);
 	}
@@ -277,7 +287,7 @@ bool16 far t2pause_menu(void)
 	);
 	while(1) {
 		if(t2pause_input_sample()) {
-			return t2pause_playback_exit();
+			return t2pause_playback_exit(bgm_paused);
 		}
 		if(
 			(key_det != INPUT_NONE) &&
@@ -288,7 +298,7 @@ bool16 far t2pause_menu(void)
 		) {
 			while(key_det != INPUT_NONE) {
 				if(t2pause_input_sample()) {
-					return t2pause_playback_exit();
+					return t2pause_playback_exit(bgm_paused);
 				}
 				frame_delay(1);
 			}
@@ -329,7 +339,7 @@ bool16 far t2pause_menu(void)
 		if(key_det != INPUT_NONE) {
 			while(key_det != INPUT_NONE) {
 				if(t2pause_input_sample()) {
-					return t2pause_playback_exit();
+					return t2pause_playback_exit(bgm_paused);
 				}
 				frame_delay(1);
 			}
@@ -338,16 +348,17 @@ bool16 far t2pause_menu(void)
 	}
 	while((key_det != INPUT_NONE) || t2pause_restart_pressed()) {
 		if(t2pause_input_sample()) {
-			return t2pause_playback_exit();
+			return t2pause_playback_exit(bgm_paused);
 		}
 		frame_delay(1);
 	}
 	t2pause_clear();
+	if(bgm_paused) {
+		snd_kaja_func(PMD_UNPAUSE, 0);
+	}
 	action = t2pause_action(selected, restart_semantics);
 	if(action == T2PAUSE_RESUME) {
-		if(stage_title_hidden) {
-			t2pause_stage_title_restore();
-		}
+		t2pause_backing_restore();
 		palette_settone(100);
 		key_det = INPUT_NONE;
 		return false;

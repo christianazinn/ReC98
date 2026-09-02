@@ -218,11 +218,6 @@ static void t2replay_fast_forward_boundary_reset(void)
 	t2replay_timing_target = 0;
 }
 
-static bool t2replay_fast_forward_key_held(void)
-{
-	return ((peekb(0, KEYGROUP_5) & K5_Z) != 0);
-}
-
 static void t2replay_fast_forward_wait_skip(bool held)
 {
 	uint8_t phase;
@@ -2451,6 +2446,45 @@ static bool t2replay_bytes_zero(const uint8_t far *p, unsigned size)
 	return true;
 }
 
+static uint16_t t2replay_reserved_u16_get(unsigned offset)
+{
+	return static_cast<uint16_t>(
+		t2replay_header.reserved[offset] |
+		(static_cast<uint16_t>(t2replay_header.reserved[offset + 1]) << 8)
+	);
+}
+
+static void t2replay_reserved_u16_set(unsigned offset, uint16_t value)
+{
+	t2replay_header.reserved[offset] = static_cast<uint8_t>(value);
+	t2replay_header.reserved[offset + 1] = static_cast<uint8_t>(value >> 8);
+}
+
+static bool t2replay_dos_datetime_valid(void)
+{
+	uint16_t date = t2replay_reserved_u16_get(
+		T2REPLAY_RESERVED_DOS_DATE_OFFSET
+	);
+	uint16_t time = t2replay_reserved_u16_get(
+		T2REPLAY_RESERVED_DOS_TIME_OFFSET
+	);
+
+	// Zero is the compatible representation used by T2RPY1/2 and early T2RPY3
+	// captures. New captures store an ordinary packed DOS date and time.
+	if((date == 0) && (time == 0)) {
+		return true;
+	}
+	return (
+		(((date >> 5) & 0x0F) >= 1) &&
+		(((date >> 5) & 0x0F) <= 12) &&
+		((date & 0x1F) >= 1) &&
+		((date & 0x1F) <= 31) &&
+		((time >> 11) <= 23) &&
+		(((time >> 5) & 0x3F) <= 59) &&
+		((time & 0x1F) <= 29)
+	);
+}
+
 // The name is written only by OP after terminal capture. An all-zero field is
 // the pre-name pending state and also keeps earlier T2RPY1 files playable.
 // Stored glyphs mirror the native TH02 high-score alphabet, excluding its
@@ -4252,12 +4286,7 @@ static bool t2replay_header_read(void)
 				t2replay_header.reserved + T2REPLAY_RESERVED_NAME_OFFSET
 			)
 		) ||
-		!t2replay_bytes_zero(
-			reinterpret_cast<const uint8_t far *>(
-				t2replay_header.reserved + T2REPLAY_RESERVED_TAIL_OFFSET
-			),
-			T2REPLAY_RESERVED_TAIL_SIZE
-		)
+		!t2replay_dos_datetime_valid()
 	) {
 		t2replay_dos_close(fd);
 		return false;
@@ -5437,6 +5466,13 @@ static void t2replay_fail(void)
 
 static void t2replay_header_capture(void)
 {
+	uint16_t date_year;
+	uint8_t date_month;
+	uint8_t date_day;
+	uint8_t time_hour;
+	uint8_t time_minute;
+	uint8_t time_second;
+
 	t2replay_memclear(&t2replay_header, sizeof(t2replay_header));
 	t2replay_header.magic[0] = 'T';
 	t2replay_header.magic[1] = '2';
@@ -5474,6 +5510,35 @@ static void t2replay_header_capture(void)
 	t2replay_header.start.reduce_effects = (resident->reduce_effects ? 1 : 0);
 	t2replay_header.start.reserved[T2REPLAY_PRACTICE_PLAYPERF_OFFSET] =
 		t2replay_practice_playperf_encode(playperf);
+	_asm {
+		mov ah, 2Ah
+		int 21h
+		mov date_year, cx
+		mov date_month, dh
+		mov date_day, dl
+		mov ah, 2Ch
+		int 21h
+		mov time_hour, ch
+		mov time_minute, cl
+		mov time_second, dh
+	}
+	if(date_year >= 1980) {
+		t2replay_reserved_u16_set(
+			T2REPLAY_RESERVED_DOS_DATE_OFFSET,
+			static_cast<uint16_t>(
+				((date_year - 1980) << 9) |
+				(static_cast<uint16_t>(date_month) << 5) | date_day
+			)
+		);
+	}
+	t2replay_reserved_u16_set(
+		T2REPLAY_RESERVED_DOS_TIME_OFFSET,
+		static_cast<uint16_t>(
+			(static_cast<uint16_t>(time_hour) << 11) |
+			(static_cast<uint16_t>(time_minute) << 5) |
+			(time_second >> 1)
+		)
+	);
 }
 
 // cfg_load() has already copied these fields into MAIN globals when replay_entry()
@@ -6637,8 +6702,16 @@ static bool16 near t2practice_target_apply_explicit(uint8_t target)
 }
 
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
-static bool16 near t2practice_target_finish(bool16 result)
+static bool16 near t2practice_target_finish(uint8_t target, bool16 result)
 {
+	if(
+		result && (target != T2RPT_STAGE_START) &&
+		(stage_title_unput_func == stage_title_unput)
+	) {
+		stage_frame = 160;
+		stage_title_unput();
+		stage_frame = 0;
+	}
 	if(result) {
 		t2practice_diag_lifecycle(
 			T2PDLM_PRACTICE_TARGET_APPLIED, 0, 0,
@@ -6655,13 +6728,24 @@ bool16 replay_practice_target_apply(void)
 
 	t2practice_diag_apply_begin(stage_id, target, map_length, spawn_rows);
 	return t2practice_target_finish(
-		t2practice_target_apply_explicit(target)
+		target, t2practice_target_apply_explicit(target)
 	);
 }
 #else
 bool16 replay_practice_target_apply(void)
 {
-	return t2practice_target_apply_explicit(t2replay_practice_target);
+	uint8_t target = t2replay_practice_target;
+	bool16 result = t2practice_target_apply_explicit(target);
+
+	if(
+		result && (target != T2RPT_STAGE_START) &&
+		(stage_title_unput_func == stage_title_unput)
+	) {
+		stage_frame = 160;
+		stage_title_unput();
+		stage_frame = 0;
+	}
+	return result;
 }
 #endif
 
@@ -6790,7 +6874,7 @@ void replay_input_sample(uint8_t phase)
 		}
 		if(phase == T2REPLAY_PHASE_GAMEPLAY) {
 			t2replay_fast_forward_wait_skip(
-				t2replay_fast_forward_key_held()
+				(host_input & INPUT_SHOT) != 0
 			);
 		} else {
 			t2replay_fast_forward_wait_skip(false);

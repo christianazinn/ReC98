@@ -922,6 +922,7 @@ int main(void)
 #ifdef T2PD
 	replay_practice_diag_boot(39);
 #endif
+	replay_op_pending_save();
 	op_animate();
 #ifdef T2PD
 	replay_practice_diag_boot(4);
