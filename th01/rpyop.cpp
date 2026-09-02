@@ -1879,6 +1879,22 @@ static void t1replay_op_background_fn(char *fn, bool name_entry)
 	}
 }
 
+static void t1replay_op_panel_palette_import(void far *buffer)
+{
+	unsigned aligned_seg = static_cast<unsigned>(
+		FP_SEG(buffer) + ((FP_OFF(buffer) + 15) >> 4)
+	);
+	uint8_t far *p = reinterpret_cast<uint8_t far *>(MK_FP(aligned_seg, 0x100));
+	svc2 col;
+	int comp;
+
+	for(col = 0; col < COLOR_COUNT; col++) {
+		for(comp = 0; comp < COMPONENT_COUNT; comp++) {
+			z_Palettes[col].v[comp] = *p++;
+		}
+	}
+}
+
 static bool t1replay_op_panel_load(const char *fn, uint8_t panel_kind)
 {
 	void far *buffer = farmalloc(0x4000UL);
@@ -1894,15 +1910,20 @@ static bool t1replay_op_panel_load(const char *fn, uint8_t panel_kind)
 		t1replay_process_milestone(T1RPM_PRACTICE_PANEL_DECODE_BEGIN);
 	#endif
 	graph_accesspage_func(1);
-	ret = PiLoadL(fn, buffer, 0x4000, 0, 0, 100, 1);
-	farfree(buffer);
+	// PiLoadL's palette option writes the hardware palette immediately while
+	// page 0 still contains the title. Decode without that write, then import
+	// the PI palette into TH01's fade owner before releasing the work buffer.
+	ret = PiLoadL(fn, buffer, 0x4000, 0, 0, 100, 0);
 	if(ret != PILOAD_ERR_OK) {
+		farfree(buffer);
 		#if T1REPLAY_PROCESS_MILESTONES
 			t1replay_process_milestone(T1RPM_PRACTICE_PANEL_DECODE_FAILED);
 		#endif
 		graph_accesspage_func(0);
 		return false;
 	}
+	t1replay_op_panel_palette_import(buffer);
+	farfree(buffer);
 	#if T1REPLAY_PROCESS_MILESTONES
 		t1replay_process_milestone(T1RPM_PRACTICE_PANEL_DECODE_READY);
 	#endif
@@ -1922,7 +1943,9 @@ static bool t1replay_op_panel_show(const char *fn, uint8_t panel_kind)
 	graph_copy_accessed_page_to_other();
 	graph_accesspage_func(0);
 	// All patch surfaces reserve color 7 for the active row.
-	z_palette_set_show(T1REPLAY_OP_COL_SELECTED, 0xF, 0xF, 0x0);
+	z_Palettes[T1REPLAY_OP_COL_SELECTED].c.r = 0xF;
+	z_Palettes[T1REPLAY_OP_COL_SELECTED].c.g = 0xF;
+	z_Palettes[T1REPLAY_OP_COL_SELECTED].c.b = 0x0;
 	return true;
 }
 
@@ -1968,6 +1991,9 @@ static void t1replay_op_title_backing_restore(void)
 	win_fn[8] = 'r'; win_fn[9] = 'p'; win_fn[10] = '\0';
 	graph_accesspage_func(1);
 	grp_put_palette_show(fn);
+	// grp_put_palette_show() updates the fade owner and the hardware together.
+	// Keep the already-faded transition black until the title backing is ready.
+	z_palette_black();
 	graph_copy_accessed_page_to_other();
 	grp_put(overlay_fn);
 	graph_copy_accessed_page_to_other();

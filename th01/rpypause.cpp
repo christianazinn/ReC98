@@ -150,15 +150,12 @@ static bool t1replay_pause_restart_pressed(void)
 	);
 }
 
-// Like Esc+R, Esc+Q is deliberately physical Pause control rather than part
-// of REIIDEN's canonical replay input groups. It discards the current capture
-// before returning to OP.
+// Q is deliberately physical Pause control rather than part of REIIDEN's
+// canonical replay input groups. It discards the current capture before
+// returning to OP, matching the later games' Pause shortcut.
 static bool t1replay_pause_discard_exit_pressed(void)
 {
-	return (
-		((peekb(0, KEYGROUP_0) & K0_ESC) != 0) &&
-		((peekb(0, KEYGROUP_2) & K2_Q) != 0)
-	);
+	return ((peekb(0, KEYGROUP_2) & K2_Q) != 0);
 }
 
 // Keep the physical shortcut from surviving the EXE handoff. Any
@@ -302,6 +299,12 @@ bool16 far t1replay_pause_menu(void)
 			return true;
 		}
 		input_sense(false);
+		// input_sense() owns the canonical Escape edge. Act on that edge here,
+		// before any menu refresh can leave the outer gameplay loop seeing a
+		// second paused frame and reopening this surface.
+		if(!paused) {
+			break;
+		}
 		if(
 			t1replay_pause_input_seen() &&
 			t1replay_pause_save_refresh()
@@ -346,6 +349,7 @@ bool16 far t1replay_pause_menu(void)
 		frame_delay(1);
 	}
 
+	paused = false;
 	t1replay_pause_escape_release();
 	z_palette_set_all_show(stage_palette);
 	input_reset_sense();
