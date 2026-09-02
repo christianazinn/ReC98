@@ -5,6 +5,22 @@
 #include "th02/snd/snd.h"
 #include "th03/language.hpp"
 #include "th03/snd/options.hpp"
+#include "x86real.h"
+
+#if (BINARY != 'M')
+static bool16 th03_snd_mmd_resident(void)
+{
+	_ES = 0;
+	_asm { les bx, dword ptr es:[MMD * 4]; }
+	if(kaja_isr_magic_matches(MK_FP(_ES, _BX), 'M', 'M', 'D')) {
+		snd_interrupt_if_midi = MMD;
+		snd_midi_possible = true;
+		return true;
+	}
+	snd_midi_possible = false;
+	return false;
+}
+#endif
 
 static unsigned char language_ascii_upper(unsigned char c)
 {
@@ -152,7 +168,11 @@ void far th03_snd_process_init(void)
 	// while MMD owns MIDI BGM. Re-probe both after every executable transition
 	// because each process starts with a fresh copy of these globals.
 	snd_pmd_resident();
+	#if (BINARY == 'M')
 	snd_mmd_resident();
+	#else
+	th03_snd_mmd_resident();
+	#endif
 	snd_midi_active = (
 		(resident->bgm_mode == SND_BGM_MIDI) && snd_midi_possible
 	);

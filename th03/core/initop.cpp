@@ -6,7 +6,15 @@
 #include "th03/core/initexit.h"
 
 #if (GAME <= 3)
+#if (GAME == 3)
+// Replay Patch: Leave conventional memory for MMD's compact resident song
+// buffer. The original 352,000-byte master.lib arena is overprovisioned
+// relative to observed OP allocation demand; release boot and intro-skip
+// probes exercise the process transition against this 12,000-byte reduction.
+#define mem_assign_paras (340000 >> 4)
+#else
 #define mem_assign_paras (352000 >> 4)
+#endif
 #endif
 
 int game_init_op(const unsigned char *pf_fn)

@@ -6,7 +6,14 @@
 #include "th03/core/initexit.h"
 
 #if (GAME <= 3)
+#if (GAME == 3)
+// Replay Patch: Reserve conventional memory for the simultaneous MMD and PMD
+// residents. The original arena contains enough unused capacity to return the
+// resident footprint without changing any gameplay allocation.
+#define mem_assign_paras (268000 >> 4)
+#else
 #define mem_assign_paras (288000 >> 4)
+#endif
 #endif
 
 int pascal game_init_main(const unsigned char *pf_fn)

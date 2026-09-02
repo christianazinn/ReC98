@@ -615,7 +615,6 @@ local th03_op_inputs = {
 	"th01/vplanset.cpp",
 	"th02/snd_mode.c",
 	"th02/snd_pmdr.c",
-	"th02/snd_mmdr.c",
 	"th03/snd_load.cpp",
 	"th03/exit.cpp",
 	"th03/polar.cpp",
@@ -640,6 +639,7 @@ local th03_op_inputs = {
 	"th03/opfont.cpp",
 	"th03/mnufont.cpp",
 	"th03/language.cpp",
+	"th03/snd_midi.cpp",
 	"th03/lang_op.cpp",
 	"th03/scorio.cpp",
 }
@@ -824,7 +824,6 @@ local th03_mainl_inputs = {
 	"th01/vplanset.cpp",
 	"th02/snd_mode.c",
 	"th02/snd_pmdr.c",
-	"th02/snd_mmdr.c",
 	"th02/snd_dlyv.c",
 	"th03/snd_load.cpp",
 	"th03/vector.cpp",
@@ -851,6 +850,7 @@ local th03_mainl_inputs = {
 	"th03/keycfg_i.cpp",
 	"th03/mnufont.cpp",
 	"th03/language.cpp",
+	"th03/snd_midi.cpp",
 	"th03/lang_ml.cpp",
 	"th03/scrml.cpp",
 }
