@@ -1990,8 +1990,17 @@ static void t2replay_handoff_fn_set(char *fn)
 
 static void t2replay_slot_set(uint8_t slot)
 {
+	t2replay_slot_fn[0] = 'T';
+	t2replay_slot_fn[1] = 'H';
+	t2replay_slot_fn[2] = '2';
+	t2replay_slot_fn[3] = 'R';
 	t2replay_slot_fn[4] = static_cast<char>('0' + (slot / 10));
 	t2replay_slot_fn[5] = static_cast<char>('0' + (slot % 10));
+	t2replay_slot_fn[6] = '.';
+	t2replay_slot_fn[7] = 'R';
+	t2replay_slot_fn[8] = 'P';
+	t2replay_slot_fn[9] = 'Y';
+	t2replay_slot_fn[10] = '\0';
 #if T2REPLAY_EXACT_APPLY
 	t2replay_public_seek_sidecar_fn[4] = t2replay_slot_fn[4];
 	t2replay_public_seek_sidecar_fn[5] = t2replay_slot_fn[5];
@@ -4277,6 +4286,7 @@ static bool t2replay_header_read(void)
 		 (T2REPLAY_INPUT_SIZE_MAX / T2REPLAY_PACKET_SIZE)) ||
 		(t2replay_header.input_size !=
 		 (t2replay_header.packet_count * T2REPLAY_PACKET_SIZE)) ||
+		(t2replay_header.continues_final > 9) ||
 		(stored_checksum != computed_checksum) ||
 		(t2replay_header.slow_frames > t2replay_header.timed_frames) ||
 		!t2replay_start_valid(&t2replay_header.start) ||
@@ -5787,6 +5797,9 @@ static void t2replay_final_score_capture(void)
 	t2replay_header.lives_final = lives;
 	t2replay_header.bombs_final = bombs;
 	t2replay_header.power_final = power;
+	t2replay_header.continues_final = static_cast<uint8_t>(
+		resident->continues_used
+	);
 	t2replay_header.terminal_stage = static_cast<uint8_t>(stage_id);
 }
 

@@ -460,7 +460,7 @@ struct t2replay_header_t {
 	int8_t lives_final;
 	int8_t bombs_final;
 	uint8_t power_final;
-	uint8_t reserved_0;
+	uint8_t continues_final;
 	uint8_t reserved[12];
 	uint32_t timed_frames;
 	uint32_t slow_frames;
