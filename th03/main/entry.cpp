@@ -28,11 +28,11 @@ int pascal GameExecl(const char *binary_fn);
 extern "C" void far main_entry(void)
 {
 	register int route;
-	#if defined(TH03_MIDI_DIAGNOSTICS)
-	th03_midi_diag_log(T3MD_MAIN_ENTER, 0, 0);
-	#endif
 
 	game_init_main(aCOul);
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_MAIN_INIT_DONE, _AX, 0);
+	#endif
 	if(!cfg_load_resident_ptr()) {
 		return;
 	}

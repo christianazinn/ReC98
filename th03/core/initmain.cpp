@@ -6,19 +6,19 @@
 #include "th03/core/initexit.h"
 
 #if (GAME <= 3)
+#define mem_assign_paras (288000 >> 4)
 #if (GAME == 3)
-// Replay Patch: The simultaneous compact MMD and PMD residents still leave
-// enough conventional memory for the original gameplay arena. Keep the
-// original allocation because TH03 does not check every later far allocation.
-#define mem_assign_paras (288000 >> 4)
-#else
-#define mem_assign_paras (288000 >> 4)
+int pascal th03_midi_mem_assign_dos(unsigned paras);
 #endif
 #endif
 
 int pascal game_init_main(const unsigned char *pf_fn)
 {
+	#if (GAME == 3)
+	if(th03_midi_mem_assign_dos(mem_assign_paras)) {
+	#else
 	if(mem_assign_dos(mem_assign_paras)) {
+	#endif
 		return 1;
 	}
 #if (GAME >= 4)
