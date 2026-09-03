@@ -802,6 +802,7 @@ local th03_main_inputs = {
 	"th03/lang_m.cpp",
 	"th03/scrmain.cpp",
 	"th03/snd/midi_mem.cpp",
+	"th03/snd/mdpause.cpp",
 }
 th03_main_cfg:link("main", th03_inputs_replace(th03_main_inputs, {
 	["th03/language.cpp"] = th03_main_cfg:branch({

@@ -38,6 +38,7 @@
 #include "th03/replay_handoff.hpp"
 #include "th03/scorefile.hpp"
 #include "th03/resident.hpp"
+#include "th03/snd/mdpause.hpp"
 #include "th03/replay_protect.hpp"
 #include "th03/snd/snd.h"
 #include "x86real.h"
@@ -5510,7 +5511,7 @@ static bool replay_pause_save_disabled(void)
 
 static void replay_pause_save_refresh(void)
 {
-	snd_kaja_func(PMD_SONG_PAUSE, 0);
+	th03_midi_pause_interrupt(PMD_SONG_PAUSE << 8);
 	if(replay_mode == REPLAY_USER_PLAYBACK) {
 		return;
 	}
@@ -5657,7 +5658,7 @@ static void replay_pause_restore_graphics(void)
 {
 	graph_copy_page(page_front);
 	graph_accesspage(page_back);
-	snd_kaja_func(PMD_SONG_RESUME, 0);
+	th03_midi_pause_interrupt(PMD_SONG_RESUME << 8);
 }
 
 static void replay_pause_wait_release(void)
