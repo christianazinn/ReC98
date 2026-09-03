@@ -192,7 +192,7 @@ void far th03_snd_process_init(void)
 }
 
 #if (BINARY == 'M')
-void far th03_snd_process_init_and_play(void)
+void far th03_snd_process_init_from_mainl(void)
 {
 	// MAINL validated the resident drivers and loaded this round's song before
 	// launching MAIN. Reconstruct only MAIN's process-local routing bytes here:
@@ -203,9 +203,8 @@ void far th03_snd_process_init_and_play(void)
 	snd_interrupt_if_midi = (snd_midi_active ? MMD : PMD);
 	snd_active = (resident->bgm_mode != SND_BGM_OFF);
 	snd_fm_possible = th03_snd_se_enabled();
-	snd_kaja_func(KAJA_SONG_PLAY, 0);
 }
-#pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #endif
 
 void far th03_snd_se_toggle(void)
