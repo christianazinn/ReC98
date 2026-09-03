@@ -2,10 +2,15 @@
 
 #include "libs/master.lib/master.hpp"
 #include "th02/formats/pi.h"
+#include "th02/hardware/frmdelay.h"
 #include "th02/snd/snd.h"
 #include "th03/language.hpp"
 #include "th03/snd/options.hpp"
 #include "x86real.h"
+
+#if (BINARY == 'O')
+extern const char BGM_GAME_INIT_FN[];
+#endif
 
 static bool16 th03_snd_mmd_resident(void)
 {
@@ -192,6 +197,25 @@ void far th03_snd_process_init(void)
 	resident->unused_3[T3_SND_MMD_HANDOFF_RES_INDEX] = snd_midi_possible;
 }
 
+#if (BINARY == 'O')
+void far th03_snd_midi_prime(void)
+{
+	// PMD's first FM song reprograms the sound-board timer. Give MMD one silent
+	// initialization song first so either BGM route remains usable afterward.
+	if(!snd_midi_possible) {
+		return;
+	}
+	snd_midi_active = true;
+	snd_interrupt_if_midi = MMD;
+	snd_active = true;
+	snd_load(BGM_GAME_INIT_FN, SND_LOAD_SONG);
+	snd_kaja_func(KAJA_SONG_PLAY, 0);
+	frame_delay(4);
+	snd_kaja_func(KAJA_SONG_STOP, 0);
+	th03_snd_process_init();
+}
+#endif
+
 #if (BINARY == 'M')
 #pragma option -k-
 void far th03_snd_process_adopt(void)
@@ -219,6 +243,11 @@ void far th03_snd_process_adopt(void)
 		snd_active = false;
 	}
 	th03_snd_process_apply();
+	// Keep the following patch-owned sound helper and every later MAIN segment
+	// at the already accepted offsets after removing the PMD interrupt path.
+	#pragma codestring \
+		"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
+		"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 }
 #pragma option -k.
 #endif

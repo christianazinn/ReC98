@@ -143,6 +143,7 @@ enum gaiji_th03_mikoft_t {
 
 // Cached before applying the independent BGM and SFX preferences.
 bool snd_sel_disabled = false;
+extern const char BGM_GAME_INIT_FN[] = "gminit.m";
 static char REPLAY_BINARY_MAINL[] = "mainl";
 static char REPLAY_BINARY_MAIN[] = "main";
 static const char REPLAY_DIR[] = "REPLAY";
@@ -4510,7 +4511,7 @@ void near main_update_and_render(void)
 		th03_snd_process_init(); \
 		if(resident->bgm_mode != SND_BGM_OFF) { \
 			if(snd_midi_active) { \
-				snd_load("gminit.m", SND_LOAD_SONG); \
+				snd_load(BGM_GAME_INIT_FN, SND_LOAD_SONG); \
 				snd_kaja_func(KAJA_SONG_PLAY, 0); \
 				frame_delay(4); \
 			} \
@@ -4693,20 +4694,7 @@ void main(void)
 		reinterpret_cast<const unsigned char far *>(OP_AND_END_PF_FN)
 	);
 	cfg_load();
-	// Prime MMD before PMD gets its first chance to program the sound-board
-	// timer. Without this one-time initialization, a game that boots in FM mode
-	// cannot activate MIDI later from the Option menu. Once primed, both drivers
-	// can be switched freely for the lifetime of their resident processes.
-	if(snd_midi_possible) {
-		snd_midi_active = true;
-		snd_interrupt_if_midi = MMD;
-		snd_active = true;
-		snd_load("gminit.m", SND_LOAD_SONG);
-		snd_kaja_func(KAJA_SONG_PLAY, 0);
-		frame_delay(4);
-		snd_kaja_func(KAJA_SONG_STOP, 0);
-		th03_snd_process_init();
-	}
+	th03_snd_midi_prime();
 	replay_restart_requested = replay_resident_handoff_is(
 		T3_REPLAY_RES_MODE_RESTART
 	);
@@ -4953,6 +4941,9 @@ static int near replay_dev_story_stage_menu(void)
 // eleven bytes from this inert pad.
 // The 8.3-safe language header name corrects the far-call declarations and
 // reclaims another 23 bytes, compensated here to retain the proven layout.
+// Moving cold-start MIDI priming to LANGUAGE_TEXT reclaimed 31 more bytes.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #if defined(TH03_REPLAY_DEVTOOLS)
