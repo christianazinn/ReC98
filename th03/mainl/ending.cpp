@@ -40,7 +40,9 @@ void near gameover_bgm_play_and_fade(void)
 	snd_load(gameover_bgm_fn, SND_LOAD_SONG);
 	snd_kaja_func(KAJA_SONG_PLAY, 0);
 	palette_black_in(1);
-	snd_delay_until_measure(3, 64);
+	// snd_get_song_measure() uses TH03's quarter-note MMD presentation clock.
+	// OVER.M retains regular four-quarter-note measures.
+	snd_delay_until_measure((snd_midi_active ? 12 : 3), 64);
 	palette_black_out(1);
 	snd_kaja_func(KAJA_SONG_STOP, 0);
 }

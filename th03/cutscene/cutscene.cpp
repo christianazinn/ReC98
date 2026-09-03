@@ -211,7 +211,9 @@ static inline uint16_t cutscene_snd_get_song_measure(void) {
 	if(snd_bgm_is_fm()) {
 		geninterrupt(PMD);
 	} else {
-		_DX = (MMD_TICKS_PER_QUARTER_NOTE * 4);
+		// All TH03 cutscene measure waits synchronize DEMO1.M, whose authored
+		// PMD counter advances once per quarter note.
+		_DX = MMD_TICKS_PER_QUARTER_NOTE;
 		geninterrupt(MMD);
 	}
 	return _AX;

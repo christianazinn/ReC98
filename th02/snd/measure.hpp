@@ -14,7 +14,14 @@ static inline uint16_t snd_get_song_measure(void) {
 	if(snd_bgm_is_fm()) {
 		geninterrupt(PMD);
 	} else {
+		#if (GAME == 3)
+		// TH03's generic measure waits synchronize WIN.M, whose authored PMD
+		// counter advances once per quarter note. Its sole standard-measure
+		// caller scales the requested count before reaching this wrapper.
+		_DX = MMD_TICKS_PER_QUARTER_NOTE;
+		#else
 		_DX = (MMD_TICKS_PER_QUARTER_NOTE * 4);	// yes, hardcoded to 4/4
+		#endif
 		geninterrupt(MMD);
 	}
 	return _AX;

@@ -154,7 +154,13 @@ bool16 pascal near staffroll_phase_done(
 		goto phase_not_done;
 	}
 	_AH = KAJA_GET_SONG_MEASURE;
-	asm { int 60h; }
+	if(snd_bgm_is_fm()) {
+		geninterrupt(PMD);
+	} else {
+		// ED.M retains the regular four-quarter-note measure used by MMD.
+		_DX = (MMD_TICKS_PER_QUARTER_NOTE * 4);
+		geninterrupt(MMD);
+	}
 	if(_AX < measure_threshold) {
 		goto phase_not_done;
 	}

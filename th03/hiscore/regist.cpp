@@ -542,14 +542,6 @@ void near regist_game_over_replay_playback_finish(void)
 	);
 }
 
-// Preserve the accepted GROUP_01 phase after replacing the legacy score-file
-// codecs with calls into the expanded score store.
-#pragma codestring \
-	"\x90\x90\x90\x90\x90\x90\x90\x90" \
-	"\x90\x90\x90\x90\x90\x90\x90\x90" \
-	"\x90\x90\x90\x90\x90\x90\x90\x90" \
-	"\x90\x90"
-
 void near regist_menu(void)
 {
 	t3pix_scene_set(T3PIX_SCENE_HISCORE);
