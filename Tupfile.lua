@@ -922,6 +922,8 @@ local function th03_replay_dev_build(
 			main_replacements[fn] = main_objects:build_uncached(fn)
 			mainl_replacements[fn] = mainl_objects:build_uncached(fn)
 		end
+		mainl_replacements["th03/mainl_sc.cpp"] =
+			mainl_objects:build_uncached("th03/mainl_sc.cpp")
 	end
 
 	if with_overlay then
