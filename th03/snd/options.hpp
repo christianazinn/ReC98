@@ -14,8 +14,17 @@ extern bool snd_fm_possible;
 
 #define T3_SND_SE_RES_INDEX (T3_LANGUAGE_RES_INDEX + 1)
 
+// MAIN must not probe either resident sound driver before round_startup():
+// changing that call stack changes original uninitialized gameplay state. OP
+// and MAINL publish the last real MMD probe here for MAIN to adopt without a
+// helper call.
+#define T3_SND_MMD_HANDOFF_RES_INDEX 189
+
 #if (T3_SND_SE_RES_INDEX >= 198)
 #error Sound-effect state exceeds resident scratch space
+#endif
+#if (T3_SND_MMD_HANDOFF_RES_INDEX >= 198)
+#error Sound-driver handoff exceeds resident scratch space
 #endif
 
 inline bool th03_snd_se_enabled(void)

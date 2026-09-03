@@ -33,7 +33,33 @@ extern "C" void far main_entry(void)
 		return;
 	}
 
-	th03_snd_process_init();
+	// Keep the original MAIN startup's single snd_determine_mode() call depth.
+	// MAINL already performed the real driver probe immediately before this
+	// executable handoff; repeating it here perturbs stack bytes later read by
+	// original gameplay code.
+	snd_midi_possible = static_cast<bool>(
+		resident->unused_3[T3_SND_MMD_HANDOFF_RES_INDEX]
+	);
+	snd_midi_active = (
+		(resident->bgm_mode == SND_BGM_MIDI) && snd_midi_possible
+	);
+	snd_interrupt_if_midi = (snd_midi_active ? MMD : PMD);
+	if(
+		(resident->bgm_mode != SND_BGM_OFF) ||
+		th03_snd_se_enabled()
+	) {
+		snd_determine_mode();
+	}
+	th03_snd_process_apply();
+	if(
+		(resident->bgm_mode == SND_BGM_OFF) ||
+		(
+			(resident->bgm_mode == SND_BGM_MIDI) &&
+			!snd_midi_possible
+		)
+	) {
+		snd_active = false;
+	}
 
 	gaiji_backup();
 	gaiji_entry_bfnt(aGameft_bft);

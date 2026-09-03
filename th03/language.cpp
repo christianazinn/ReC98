@@ -7,24 +7,18 @@
 #include "th03/snd/options.hpp"
 #include "x86real.h"
 
-#pragma option -k-
 static bool16 th03_snd_mmd_resident(void)
 {
 	_ES = 0;
 	_asm { les bx, dword ptr es:[MMD * 4]; }
 	if(kaja_isr_magic_matches(MK_FP(_ES, _BX), 'M', 'M', 'D')) {
 		snd_interrupt_if_midi = MMD;
-		snd_midi_active = true;
 		snd_midi_possible = true;
-		// Match the original MMD probe's frame-pointer-free return exactly. MAIN's
-		// startup reads uninitialized stack data after this call.
-		_AX = true;
-		_asm { retf; }
+		return true;
 	}
 	snd_midi_possible = false;
 	return false;
 }
-#pragma option -k.
 
 static unsigned char language_ascii_upper(unsigned char c)
 {
@@ -195,19 +189,8 @@ void far th03_snd_process_init(void)
 	) {
 		snd_active = false;
 	}
+	resident->unused_3[T3_SND_MMD_HANDOFF_RES_INDEX] = snd_midi_possible;
 }
-
-#if (BINARY == 'M')
-// Preserve LANGUAGE_TEXT's accepted size after restoring the shorter original
-// MMD probe and removing the rejected late-routing helper.
-#pragma codestring \
-	"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
-	"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
-	"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
-	"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
-	"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
-	"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#endif
 
 void far th03_snd_se_toggle(void)
 {
