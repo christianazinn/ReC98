@@ -55,12 +55,6 @@ inline void th03_snd_process_apply(void)
 }
 
 void far th03_snd_process_init(void);
-#if (BINARY == 'M')
-void far th03_snd_process_adopt_mainl(void);
-#endif
-#if (BINARY == 'L')
-extern "C" void far th03_snd_mainl_play(void);
-#endif
 void far th03_snd_se_toggle(void);
 
 #endif /* TH03_SND_OPTIONS_HPP */

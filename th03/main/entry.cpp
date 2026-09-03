@@ -33,15 +33,14 @@ extern "C" void far main_entry(void)
 		return;
 	}
 
+	th03_snd_process_init();
+
 	gaiji_backup();
 	gaiji_entry_bfnt(aGameft_bft);
 	round_startup();
 	farfp_20F20();
 	replay_session_start();
-
-round_session_start:
 	replay_round_start();
-	th03_snd_process_adopt_mainl();
 
 round_loop:
 	PaletteTone = 100;
@@ -53,7 +52,8 @@ round_loop:
 	if(route == 1) {
 		replay_round_reset_seed_capture();
 		sub_A21F();
-		goto round_session_start;
+		replay_round_start();
+		goto round_loop;
 	}
 
 	replay_finish(route);
@@ -82,4 +82,4 @@ game_execl:
 // Keeps every later original MAIN_01 contribution at its accepted offset.
 #pragma codestring \
 	"\x90\x90\x90\x90\x90\x90\x90\x90" \
-	"\x90\x90\x90"
+	"\x90\x90\x90\x90\x90\x90\x90\x90"
