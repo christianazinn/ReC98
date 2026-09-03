@@ -601,6 +601,16 @@ th03:zungen("bin/th03/zun.com", {
 	})}
 })
 local th03_op_cfg = th03:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" })
+
+local function th03_inputs_replace(inputs, replacements)
+	local ret = {}
+	for _, input in ipairs(inputs) do
+		local fn = ((type(input) == "string" and input) or input[1])
+		ret += { replacements[fn] or input }
+	end
+	return ret
+end
+
 local th03_op_inputs = {
 	"th03/op_01.cpp",
 	"th03/opsfmdat.asm",
@@ -643,7 +653,11 @@ local th03_op_inputs = {
 	"th03/lang_op.cpp",
 	"th03/scorio.cpp",
 }
-th03_op_cfg:link("op", th03_op_inputs)
+th03_op_cfg:link("op", th03_inputs_replace(th03_op_inputs, {
+	["th03/language.cpp"] = th03_op_cfg:branch({
+		obj_root = "op/"
+	}):build_uncached("th03/language.cpp"),
+}))
 
 local th03_main_cfg = th03:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" })
 local th03_main_inputs = {
@@ -788,7 +802,11 @@ local th03_main_inputs = {
 	"th03/lang_m.cpp",
 	"th03/scrmain.cpp",
 }
-th03_main_cfg:link("main", th03_main_inputs)
+th03_main_cfg:link("main", th03_inputs_replace(th03_main_inputs, {
+	["th03/language.cpp"] = th03_main_cfg:branch({
+		obj_root = "main/"
+	}):build_uncached("th03/language.cpp"),
+}))
 
 local th03_mainl_cfg = th03:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" })
 local th03_mainl_inputs = {
@@ -853,16 +871,11 @@ local th03_mainl_inputs = {
 	"th03/lang_ml.cpp",
 	"th03/scrml.cpp",
 }
-th03_mainl_cfg:link("mainl", th03_mainl_inputs)
-
-local function th03_replay_inputs_replace(inputs, replacements)
-	local ret = {}
-	for _, input in ipairs(inputs) do
-		local fn = ((type(input) == "string" and input) or input[1])
-		ret += { replacements[fn] or input }
-	end
-	return ret
-end
+th03_mainl_cfg:link("mainl", th03_inputs_replace(th03_mainl_inputs, {
+	["th03/language.cpp"] = th03_mainl_cfg:branch({
+		obj_root = "mainl/"
+	}):build_uncached("th03/language.cpp"),
+}))
 
 local function th03_replay_dev_build(
 	dir, cflags, with_overlay, with_stage_select
@@ -871,30 +884,68 @@ local function th03_replay_dev_build(
 	local op = base:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" })
 	local main = base:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" })
 	local mainl = base:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" })
-	local replacements = {}
+	-- language.cpp is binary-specific but otherwise independent of replay
+	-- profile flags.  Avoid feeding the long dev-profile define into TCC for
+	-- this already-large translation unit unless diagnostics actually need it.
+	local binary_objects = base
+	if not cflags:find("TH03_MIDI_DIAGNOSTICS") then
+		binary_objects = th03:branch({ obj_root = dir })
+	end
+	local op_objects = binary_objects:branch(
+		MODEL_LARGE, { cflags = "-DBINARY='O'", obj_root = "op/" }
+	)
+	local main_objects = binary_objects:branch(
+		MODEL_LARGE, { cflags = "-DBINARY='M'", obj_root = "main/" }
+	)
+	local mainl_objects = binary_objects:branch(
+		MODEL_LARGE, { cflags = "-DBINARY='L'", obj_root = "mainl/" }
+	)
+	local op_replacements = {}
+	local main_replacements = {}
+	local mainl_replacements = {}
+
+	op_replacements["th03/language.cpp"] = op_objects:build_uncached(
+		"th03/language.cpp"
+	)
+	main_replacements["th03/language.cpp"] = main_objects:build_uncached(
+		"th03/language.cpp"
+	)
+	mainl_replacements["th03/language.cpp"] = mainl_objects:build_uncached(
+		"th03/language.cpp"
+	)
+	if cflags:find("TH03_MIDI_DIAGNOSTICS") then
+		for fn, stem in pairs({
+			["th03/snd_midi.cpp"] = "snd_midi",
+			["th03/snd_kaja.cpp"] = "snd_kaja",
+		}) do
+			op_replacements[fn] = op_objects:build_uncached(fn)
+			main_replacements[fn] = main_objects:build_uncached(fn)
+			mainl_replacements[fn] = mainl_objects:build_uncached(fn)
+		end
+	end
 
 	if with_overlay then
-		replacements["th03/main/replay.cpp"] = main:build_uncached(
+		main_replacements["th03/main/replay.cpp"] = main:build_uncached(
 			"th03/main/replay.cpp"
 		)
-		replacements["th03/main/rndloop.cpp"] = main:build_uncached(
+		main_replacements["th03/main/rndloop.cpp"] = main:build_uncached(
 			"th03/main/rndloop.cpp"
 		)
 	end
 	if with_stage_select then
-		replacements["th03/op_01.cpp"] = op:build_uncached("th03/op_01.cpp")
-		replacements["th03/mainl/replml.cpp"] = mainl:build_uncached(
+		op_replacements["th03/op_01.cpp"] = op:build_uncached("th03/op_01.cpp")
+		mainl_replacements["th03/mainl/replml.cpp"] = mainl:build_uncached(
 			"th03/mainl/replml.cpp"
 		)
 	end
 
-	local op_inputs = th03_replay_inputs_replace(th03_op_inputs, replacements)
+	local op_inputs = th03_inputs_replace(th03_op_inputs, op_replacements)
 	op:link("op", op_inputs)
 	main:link(
-		"main", th03_replay_inputs_replace(th03_main_inputs, replacements)
+		"main", th03_inputs_replace(th03_main_inputs, main_replacements)
 	)
 	mainl:link(
-		"mainl", th03_replay_inputs_replace(th03_mainl_inputs, replacements)
+		"mainl", th03_inputs_replace(th03_mainl_inputs, mainl_replacements)
 	)
 end
 
@@ -906,6 +957,9 @@ th03_replay_dev_build(
 )
 th03_replay_dev_build(
 	"debug/", "-DTH03_REPLAY_DEVTOOLS", true, true
+)
+th03_replay_dev_build(
+	"midi-diagnostic/", "-DTH03_MIDI_DIAGNOSTICS", false, false
 )
 
 -- Publication-aligned raw visual capture. Unlike the smaller replay debug

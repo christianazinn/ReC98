@@ -9,6 +9,7 @@
 #include "th03/main/replay.hpp"
 #include "th03/main/round.hpp"
 #include "th03/resident.hpp"
+#include "th03/snd/midi_diag.hpp"
 #include "th03/snd/options.hpp"
 
 extern "C" const unsigned char aCOul[];
@@ -38,6 +39,9 @@ extern "C" void far main_entry(void)
 	gaiji_backup();
 	gaiji_entry_bfnt(aGameft_bft);
 	round_startup();
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_MAIN_ROUND_READY, 0, 0);
+	#endif
 	farfp_20F20();
 	replay_session_start();
 	replay_round_start();
@@ -80,6 +84,10 @@ game_execl:
 }
 
 // Keeps every later original MAIN_01 contribution at its accepted offset.
+#if defined(TH03_MIDI_DIAGNOSTICS)
+#pragma codestring "\x90\x90\x90\x90\x90"
+#else
 #pragma codestring \
 	"\x90\x90\x90\x90\x90\x90\x90\x90" \
 	"\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif

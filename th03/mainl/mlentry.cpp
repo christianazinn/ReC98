@@ -16,6 +16,7 @@
 #include "th03/replay_handoff.hpp"
 #include "th03/resident.hpp"
 #include "th03/snd/snd.h"
+#include "th03/snd/midi_diag.hpp"
 #include "th03/snd/options.hpp"
 
 #pragma warn -aus
@@ -64,6 +65,9 @@ extern "C" void far mainl_entry(int argc, const char **argv, const char **envp)
 	unsigned char script_id;
 
 	if(cfg_load_resident_ptr()) {
+		#if defined(TH03_MIDI_DIAGNOSTICS)
+		th03_midi_diag_log(T3MD_MAINL_ENTER, 0, 0);
+		#endif
 		game_init_main(mainl_pf_fn);
 		respal_exist();
 		th03_snd_process_init();
@@ -155,6 +159,9 @@ ending:
 		gaiji_restore();
 
 exit_to_main:
+		#if defined(TH03_MIDI_DIAGNOSTICS)
+		th03_midi_diag_log(T3MD_MAINL_TO_MAIN, 0, 0);
+		#endif
 		mainl_replay_exit_to_main();
 		asm {
 			db  	66h, 6Ah, 0

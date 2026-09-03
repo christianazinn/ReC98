@@ -5,11 +5,96 @@
 #include "th02/hardware/frmdelay.h"
 #include "th02/snd/snd.h"
 #include "th03/language.hpp"
+#include "th03/snd/midi_diag.hpp"
 #include "th03/snd/options.hpp"
 #include "x86real.h"
 
 #if (BINARY == 'O')
 extern const char BGM_GAME_INIT_FN[];
+#endif
+
+#if defined(TH03_MIDI_DIAGNOSTICS)
+
+#if (BINARY != 'M')
+extern char snd_load_fn[PF_FN_LEN];
+#endif
+
+static const char T3_MIDI_DIAG_FN[] = "T3MDI.LOG";
+
+void far th03_midi_diag_log(
+	th03_midi_diag_event_t event, uint16_t arg0, uint16_t arg1
+)
+{
+	unsigned char record[32];
+	uint16_t stack_off = _SP;
+	uint16_t stack_seg = _SS;
+	uint16_t mmd_off;
+	uint16_t mmd_seg;
+	uint16_t pmd_off;
+	uint16_t pmd_seg;
+	int i;
+
+	_ES = 0;
+	_asm {
+		les bx, dword ptr es:[MMD * 4]
+		mov mmd_off, bx
+		mov mmd_seg, es
+	}
+	_ES = 0;
+	_asm {
+		les bx, dword ptr es:[PMD * 4]
+		mov pmd_off, bx
+		mov pmd_seg, es
+	}
+
+	for(i = 0; i < sizeof(record); i++) {
+		record[i] = 0;
+	}
+	record[0] = 'T';
+	record[1] = 'M';
+	record[2] = 1;
+	record[3] = BINARY;
+	record[4] = event;
+	record[5] = resident->bgm_mode;
+	record[6] = (
+		(snd_active ? 0x01 : 0) |
+		(snd_midi_active ? 0x02 : 0) |
+		(snd_midi_possible ? 0x04 : 0) |
+		(snd_fm_possible ? 0x08 : 0) |
+		(th03_snd_se_enabled() ? 0x10 : 0)
+	);
+	record[7] = snd_interrupt_if_midi;
+	record[8] = arg0;
+	record[9] = (arg0 >> 8);
+	record[10] = arg1;
+	record[11] = (arg1 >> 8);
+	record[12] = stack_off;
+	record[13] = (stack_off >> 8);
+	record[14] = stack_seg;
+	record[15] = (stack_seg >> 8);
+	record[16] = mmd_off;
+	record[17] = (mmd_off >> 8);
+	record[18] = mmd_seg;
+	record[19] = (mmd_seg >> 8);
+	record[20] = pmd_off;
+	record[21] = (pmd_off >> 8);
+	record[22] = pmd_seg;
+	record[23] = (pmd_seg >> 8);
+	#if (BINARY != 'M')
+		for(i = 0; i < 8; i++) {
+			record[24 + i] = snd_load_fn[i];
+		}
+	#endif
+
+	if(!file_append(T3_MIDI_DIAG_FN)) {
+		if(!file_create(T3_MIDI_DIAG_FN)) {
+			return;
+		}
+	}
+	file_write(record, sizeof(record));
+	file_close();
+}
+
 #endif
 
 static bool16 th03_snd_mmd_resident(void)
@@ -167,11 +252,24 @@ int far language_pi_load(int slot, const char far *fn)
 
 void far th03_snd_process_init(void)
 {
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	bool16 pmd_resident;
+	bool16 mmd_resident;
+	th03_midi_diag_log(T3MD_PROCESS_INIT_ENTER, 0, 0);
+	#endif
+
 	// GAME.BAT keeps both drivers resident: PMD owns sound effects and FM BGM,
 	// while MMD owns MIDI BGM. Re-probe both after every executable transition
 	// because each process starts with a fresh copy of these globals.
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	pmd_resident = snd_pmd_resident();
+	th03_midi_diag_log(T3MD_PROCESS_INIT_PMD, pmd_resident, 0);
+	mmd_resident = th03_snd_mmd_resident();
+	th03_midi_diag_log(T3MD_PROCESS_INIT_MMD, mmd_resident, 0);
+	#else
 	snd_pmd_resident();
 	th03_snd_mmd_resident();
+	#endif
 	snd_midi_active = (
 		(resident->bgm_mode == SND_BGM_MIDI) && snd_midi_possible
 	);
@@ -179,7 +277,12 @@ void far th03_snd_process_init(void)
 		(resident->bgm_mode != SND_BGM_OFF) ||
 		th03_snd_se_enabled()
 	) {
+		#if defined(TH03_MIDI_DIAGNOSTICS)
+		int mode = snd_determine_mode();
+		th03_midi_diag_log(T3MD_PROCESS_INIT_MODE, mode, _AX);
+		#else
 		snd_determine_mode();
+		#endif
 	}
 	th03_snd_process_apply();
 	// MIDI selection must fail closed. PMD can remain available for sound
@@ -195,11 +298,17 @@ void far th03_snd_process_init(void)
 		snd_active = false;
 	}
 	resident->unused_3[T3_SND_MMD_HANDOFF_RES_INDEX] = snd_midi_possible;
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_PROCESS_INIT_DONE, 0, 0);
+	#endif
 }
 
 #if (BINARY == 'O')
 void far th03_snd_midi_prime(void)
 {
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_PRIME_ENTER, 0, 0);
+	#endif
 	// PMD's first FM song reprograms the sound-board timer. Give MMD one silent
 	// initialization song first so either BGM route remains usable afterward.
 	if(!snd_midi_possible) {
@@ -209,10 +318,25 @@ void far th03_snd_midi_prime(void)
 	snd_interrupt_if_midi = MMD;
 	snd_active = true;
 	snd_load(BGM_GAME_INIT_FN, SND_LOAD_SONG);
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_PRIME_LOAD_DONE, 0, 0);
+	#endif
 	snd_kaja_func(KAJA_SONG_PLAY, 0);
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_PRIME_PLAY_DONE, 0, 0);
+	#endif
 	frame_delay(4);
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_PRIME_WAIT_DONE, 0, 0);
+	#endif
 	snd_kaja_func(KAJA_SONG_STOP, 0);
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_PRIME_STOP_DONE, 0, 0);
+	#endif
 	th03_snd_process_init();
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_PRIME_DONE, 0, 0);
+	#endif
 }
 #endif
 
@@ -220,6 +344,9 @@ void far th03_snd_midi_prime(void)
 #pragma option -k-
 void far th03_snd_process_adopt(void)
 {
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_MAIN_ADOPT_ENTER, 0, 0);
+	#endif
 	// MAINL has already performed the real PMD/MMD probes. Rebuild MAIN's
 	// process-local routing with no driver interrupts or nested helper calls:
 	// the original gameplay startup observes stack residue from this exact call
@@ -243,11 +370,18 @@ void far th03_snd_process_adopt(void)
 		snd_active = false;
 	}
 	th03_snd_process_apply();
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_MAIN_ADOPT_DONE, 0, 0);
+	#endif
 	// Keep the following patch-owned sound helper and every later MAIN segment
 	// at the already accepted offsets after removing the PMD interrupt path.
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#else
 	#pragma codestring \
 		"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
 		"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+	#endif
 }
 #pragma option -k.
 #endif
