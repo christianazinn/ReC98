@@ -924,6 +924,10 @@ local function th03_replay_dev_build(
 		end
 		mainl_replacements["th03/mainl_sc.cpp"] =
 			mainl_objects:build_uncached("th03/mainl_sc.cpp")
+		main_replacements["th03/main/entry.cpp"] =
+			main_objects:build_uncached("th03/main/entry.cpp")
+		mainl_replacements["th03/mainl/mlentry.cpp"] =
+			mainl_objects:build_uncached("th03/mainl/mlentry.cpp")
 	end
 
 	if with_overlay then
@@ -961,7 +965,7 @@ th03_replay_dev_build(
 	"debug/", "-DTH03_REPLAY_DEVTOOLS", true, true
 )
 th03_replay_dev_build(
-	"midi-diagnostic/", "-DTH03_MIDI_DIAGNOSTICS", false, false
+	"md/", "-DTH03_MIDI_DIAGNOSTICS", false, false
 )
 
 -- Publication-aligned raw visual capture. Unlike the smaller replay debug
