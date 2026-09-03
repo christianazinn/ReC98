@@ -1592,9 +1592,26 @@ bool replay_protect_begin(void)
 	return true;
 }
 
-bool replay_protect_checkpoint(void)
+static uint8_t replay_protect_detector_results(replay_protect_event_t event)
 {
-	if(rpg_blocked()) {
+	uint8_t results = RPDR_CLEAR;
+	uint8_t flags = rpg_flags();
+
+	// Future event-selective detectors merge their result here.
+	(void)event;
+
+	if(flags & RPG_FLAG_INVALID) {
+		results |= RPDR_INVALID;
+	}
+	if(flags & RPG_FLAG_ERROR) {
+		results |= RPDR_ERROR;
+	}
+	return results;
+}
+
+bool replay_protect_checkpoint(replay_protect_event_t event)
+{
+	if(replay_protect_detector_results(event) != RPDR_CLEAR) {
 		return false;
 	}
 	if(!rpg_checkpoint(replay_protect_guard_fn)) {
@@ -1604,17 +1621,17 @@ bool replay_protect_checkpoint(void)
 		replay_protect_diag_write();
 		return false;
 	}
-	return true;
+	return (replay_protect_detector_results(event) == RPDR_CLEAR);
 }
 
 bool replay_protect_blocked(void)
 {
-	return rpg_blocked();
+	return (replay_protect_detector_results(RPE_PERIODIC) != RPDR_CLEAR);
 }
 
 void replay_protect_end(void)
 {
-	if(rpg_blocked()) {
+	if(replay_protect_blocked()) {
 		replay_protect_diag_write();
 	}
 	replay_protect_file_delete(replay_protect_guard_fn);

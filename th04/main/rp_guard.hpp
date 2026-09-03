@@ -42,6 +42,24 @@ enum replay_protect_diag_t {
 
 #define REPLAY_PROTECT_INTERVAL_SAMPLES 128UL
 
+// Checkpoint events stay outside the replay wire format. The physical guard
+// is event-agnostic, while future detectors can use these to sample only at
+// lifecycle boundaries they understand.
+enum replay_protect_event_t {
+	RPE_PERIODIC = 0,
+	RPE_PAUSE,
+	RPE_TERMINAL,
+	RPE_HANDOFF,
+};
+
+// Internal detector results are bitwise-aggregated. Add future methods to the
+// aggregator in rp_guard.cpp rather than coupling them to replay metadata.
+enum replay_protect_detector_result_t {
+	RPDR_CLEAR = 0,
+	RPDR_INVALID = 0x01,
+	RPDR_ERROR = 0x02,
+};
+
 struct replay_protect_diag_record_t {
 	char magic[8];
 	uint8_t code;
@@ -73,7 +91,9 @@ void replay_protect_end(void);
 // Verifies the physical guard and advances it by one byte. On rollback, the
 // guard is poisoned in place so repeated loads of the same savestate remain
 // blocked.
-bool replay_protect_checkpoint(void);
+bool replay_protect_checkpoint(
+	replay_protect_event_t event = RPE_PERIODIC
+);
 bool replay_protect_blocked(void);
 
 #endif /* TH04_MAIN_RP_GUARD_HPP */

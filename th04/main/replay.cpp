@@ -1136,7 +1136,7 @@ static bool replay_record_sample(uint8_t phase, input_t input, bool shift)
 		  (REPLAY_PROTECT_INTERVAL_SAMPLES - 1)) == 0) &&
 		!replay_protect_blocked()
 	) {
-		(void)replay_protect_checkpoint();
+		(void)replay_protect_checkpoint(RPE_PERIODIC);
 	}
 	return true;
 }
@@ -2963,6 +2963,17 @@ static void replay_debug_stage_coordinates_reset(void)
 	);
 }
 
+static void replay_indicator_put(void)
+{
+	if(
+		(replay_mode != RRM_PLAYBACK) || replay_private_test || replay_failed
+	) {
+		return;
+	}
+	// The 48-column playfield spans TRAM columns 4 through 51.
+	text_putsa(25, 0, "REPLAY", TX_YELLOW);
+}
+
 void replay_stage_start(void)
 {
 	uint16_t arg;
@@ -3031,6 +3042,7 @@ void replay_stage_start(void)
 	replay_debug_stage_coordinates_reset();
 	replay_last_stage = stage_id;
 	replay_stage_seen = true;
+	replay_indicator_put();
 }
 
 void replay_main_entry_setup(void)
@@ -3274,7 +3286,7 @@ static bool replay_pause_save_refresh(void)
 	bool was_available = replay_pause_save_available();
 
 	if(was_available) {
-		(void)replay_protect_checkpoint();
+		(void)replay_protect_checkpoint(RPE_PAUSE);
 	}
 	return (was_available && !replay_pause_save_available());
 }
@@ -3709,7 +3721,7 @@ bool replay_process_end(void)
 	end_reason = replay_end_reason();
 	if(replay_mode == RRM_RECORD) {
 		if(!replay_protect_blocked()) {
-			(void)replay_protect_checkpoint();
+			(void)replay_protect_checkpoint(RPE_TERMINAL);
 		}
 		protect_blocked = replay_protect_blocked();
 		if(replay_stage_seen && (replay_last_stage < REPLAY_USER_STAGE_COUNT)) {

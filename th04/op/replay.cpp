@@ -7,6 +7,7 @@
 #include "platform.h"
 #include "x86real.h"
 #include <conio.h>
+#include <stddef.h>
 #include <process.h>
 #include <string.h>
 #include "libs/master.lib/master.hpp"
@@ -25,8 +26,10 @@
 #include "th04/end/end.h"
 #include "th04/formats/cdg.h"
 #include "th04/formats/cfg.hpp"
+#include "th04/formats/scoredat/scoredat.hpp"
 #include "th04/gaiji/gaiji.h"
 #include "th04/hardware/grppsafx.h"
+#include "th04/op/clear.hpp"
 #include "th04/op/op.hpp"
 #include "th04/op/replay.hpp"
 #include "th04/op/replay_font.hpp"
@@ -38,6 +41,7 @@
 #include "th04/sprites/op_cdg.hpp"
 #if (GAME == 5)
 	#include "th05/hardware/input.h"
+	#include "th05/op/op.hpp"
 	#include "th05/resident.hpp"
 	#include "th05/shiftjis/fns.hpp"
 #else
@@ -596,6 +600,101 @@ static bool replay_op_dos_seek(int fh, uint32_t pos)
 		mov	failed, ax
 	}
 	return (failed == 0);
+}
+
+static bool replay_op_scoredat_decode(scoredat_section_t far *section)
+{
+	uint8_t far *bytes = reinterpret_cast<uint8_t far *>(section);
+	uint8_t tmp;
+	uint16_t sum = 0;
+	int i = offsetof(scoredat_section_t, score);
+
+	while(i < (sizeof(scoredat_section_t) - 1)) {
+		tmp = bytes[i + 1];
+		_AL = section->key2;
+		_asm { ror tmp, 3 }
+		tmp ^= _AL;
+		bytes[i] += static_cast<uint8_t>(section->key1 + tmp);
+		i++;
+	}
+	bytes[i] += section->key1;
+	for(i = offsetof(scoredat_section_t, score);
+		i < sizeof(scoredat_section_t); i++) {
+		sum += bytes[i];
+	}
+	return (section->score_sum == static_cast<int16_t>(sum));
+}
+
+static void replay_op_scoredat_encode(scoredat_section_t far *section)
+{
+	uint8_t far *bytes = reinterpret_cast<uint8_t far *>(section);
+	uint8_t feedback = 0;
+	uint16_t sum = 0;
+	int i;
+
+	for(i = offsetof(scoredat_section_t, score);
+		i < sizeof(scoredat_section_t); i++) {
+		sum += bytes[i];
+	}
+	section->score_sum = static_cast<int16_t>(sum);
+	for(i = (sizeof(scoredat_section_t) - 1);
+		i >= offsetof(scoredat_section_t, score); i--) {
+		bytes[i] = static_cast<uint8_t>(
+			bytes[i] - static_cast<uint8_t>(section->key1 + feedback)
+		);
+		feedback = bytes[i];
+		_AL = section->key2;
+		_asm { ror feedback, 3 }
+		feedback ^= _AL;
+	}
+}
+
+static uint32_t replay_op_scoredat_offset(uint8_t playchar_id)
+{
+	return static_cast<uint32_t>(
+		(playchar_id * RANK_COUNT) + RANK_NORMAL
+	) * sizeof(scoredat_section_t);
+}
+
+static bool replay_op_scoredat_read(
+	uint8_t playchar_id, scoredat_section_t far *section
+)
+{
+	static const char fn[] = SCOREDAT_FN;
+	int fh = replay_op_dos_open(fn);
+	bool ok;
+
+	if(fh < 0) {
+		return false;
+	}
+	ok = (
+		replay_op_dos_seek(fh, replay_op_scoredat_offset(playchar_id)) &&
+		(replay_op_dos_read(fh, section, sizeof(*section)) == sizeof(*section))
+	);
+	replay_op_dos_close(fh);
+	return (ok && replay_op_scoredat_decode(section));
+}
+
+static bool replay_op_scoredat_write(
+	uint8_t playchar_id, scoredat_section_t far *section
+)
+{
+	static const char fn[] = SCOREDAT_FN;
+	int fh;
+	bool ok;
+
+	replay_op_scoredat_encode(section);
+	fh = replay_op_dos_open_rw(fn);
+	if(fh < 0) {
+		return false;
+	}
+	ok = (
+		replay_op_dos_seek(fh, replay_op_scoredat_offset(playchar_id)) &&
+		(replay_op_dos_write(fh, section, sizeof(*section)) == sizeof(*section))
+	);
+	replay_op_dos_close(fh);
+	replay_op_dos_flush();
+	return ok;
 }
 
 static void replay_op_memclear(void far *buf, unsigned size)
@@ -2539,7 +2638,7 @@ static void replay_detail_splits_put(uint8_t selected_stage)
 		);
 		replay_op_line_put_cells(
 			368, top,
-			((stage == selected_stage) ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
+			((stage == selected_stage) ? REPLAY_OP_COL_SELECTED : V_WHITE), p
 		);
 		top += 28;
 	}
@@ -4621,6 +4720,101 @@ bool replay_record_next_prepare(void)
 	);
 }
 
+static bool replay_extra_fully_unlocked(void)
+{
+	uint8_t playchar_id;
+
+	#if (GAME == 5)
+		for(playchar_id = 0; playchar_id < PLAYCHAR_COUNT; playchar_id++) {
+			if(!extra_playable_with[playchar_id]) {
+				return false;
+			}
+		}
+	#else
+		uint8_t rank_id;
+		uint8_t flags;
+
+		for(playchar_id = 0; playchar_id < PLAYCHAR_COUNT; playchar_id++) {
+			flags = 0;
+			for(rank_id = RANK_NORMAL; rank_id < RANK_EXTRA; rank_id++) {
+				flags |= cleared_with[playchar_id][rank_id];
+			}
+			if((flags & SCOREDAT_CLEARED_BOTH) != SCOREDAT_CLEARED_BOTH) {
+				return false;
+			}
+		}
+	#endif
+	return true;
+}
+
+// Unlock through the same clear bytes read by the native Extra character
+// menu. One Normal clear per character is sufficient and avoids inventing
+// clears on every difficulty.
+static bool replay_extra_unlock(void)
+{
+	scoredat_section_t section;
+	uint8_t playchar_id;
+	bool changed = false;
+	bool complete;
+
+	if(replay_extra_fully_unlocked()) {
+		return false;
+	}
+	for(playchar_id = 0; playchar_id < PLAYCHAR_COUNT; playchar_id++) {
+		#if (GAME == 5)
+			if(extra_playable_with[playchar_id]) {
+				continue;
+			}
+		#else
+			uint8_t rank_id;
+			uint8_t flags = 0;
+
+			for(rank_id = RANK_NORMAL; rank_id < RANK_EXTRA; rank_id++) {
+				flags |= cleared_with[playchar_id][rank_id];
+			}
+			if((flags & SCOREDAT_CLEARED_BOTH) == SCOREDAT_CLEARED_BOTH) {
+				continue;
+			}
+		#endif
+		if(!replay_op_scoredat_read(playchar_id, &section)) {
+			continue;
+		}
+		#if (GAME == 5)
+			if(section.score.cleared == SCOREDAT_CLEARED) {
+				cleared_with[playchar_id][RANK_NORMAL] = SCOREDAT_CLEARED;
+				extra_playable_with[playchar_id] = true;
+				continue;
+			}
+			section.score.cleared = SCOREDAT_CLEARED;
+		#else
+			if(
+				(section.score.cleared & SCOREDAT_CLEARED_BOTH) ==
+				SCOREDAT_CLEARED_BOTH
+			) {
+				cleared_with[playchar_id][RANK_NORMAL] =
+					SCOREDAT_CLEARED_BOTH;
+				continue;
+			}
+			section.score.cleared = SCOREDAT_CLEARED_BOTH;
+		#endif
+		if(!replay_op_scoredat_write(playchar_id, &section)) {
+			continue;
+		}
+		#if (GAME == 5)
+			cleared_with[playchar_id][RANK_NORMAL] = SCOREDAT_CLEARED;
+			extra_playable_with[playchar_id] = true;
+		#else
+			cleared_with[playchar_id][RANK_NORMAL] = SCOREDAT_CLEARED_BOTH;
+		#endif
+		changed = true;
+	}
+	complete = replay_extra_fully_unlocked();
+	if(complete) {
+		extra_unlocked = true;
+	}
+	return (changed && complete);
+}
+
 // Title integration
 // -----------------
 // OP_MAIN_TEXT still contains every native function at its stock offset. Its
@@ -4670,6 +4864,8 @@ static bool replay_main_initialized;
 static bool replay_main_input_allowed;
 static bool replay_main_private_checked;
 static bool replay_main_returning_from_option;
+static uint8_t replay_main_unlock_step;
+static bool replay_main_unlock_input_allowed;
 
 static screen_y_t replay_main_choice_top(int sel)
 {
@@ -4807,6 +5003,46 @@ static void replay_main_selection_move(int8_t direction)
 	}
 	replay_main_unput_and_put(menu_sel, ((GAME == 5) ? 14 : 8));
 	snd_se_play_force(1);
+}
+
+static void replay_main_unlock_update(void)
+{
+	input_t expected;
+	input_t horizontal;
+
+	if(key_det == INPUT_NONE) {
+		replay_main_unlock_input_allowed = true;
+		return;
+	}
+	if(!replay_main_unlock_input_allowed) {
+		return;
+	}
+	replay_main_unlock_input_allowed = false;
+	horizontal = (key_det & (INPUT_LEFT | INPUT_RIGHT));
+	expected = (
+		(replay_main_unlock_step & 1) ? INPUT_RIGHT : INPUT_LEFT
+	);
+
+	if(horizontal == expected) {
+		replay_main_unlock_step++;
+	} else {
+		replay_main_unlock_step = ((horizontal == INPUT_LEFT) ? 1 : 0);
+	}
+	if(replay_main_unlock_step < 4) {
+		return;
+	}
+	replay_main_unlock_step = 0;
+	if(!replay_extra_unlock()) {
+		return;
+	}
+	replay_main_unput_and_put(
+		RMC_EXTRA,
+		((menu_sel == RMC_EXTRA)
+			? ((GAME == 5) ? 14 : 8)
+			: ((GAME == 5) ? 8 : 1)
+		)
+	);
+	snd_se_play_force(7);
 }
 
 void far replay_main_language_assets_reload(void)
@@ -5138,6 +5374,7 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	if(!replay_main_input_allowed) {
 		return;
 	}
+	replay_main_unlock_update();
 	if(key_det & INPUT_UP) {
 		replay_main_selection_move(-1);
 	}
