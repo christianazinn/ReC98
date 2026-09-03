@@ -15,6 +15,7 @@
 #include "th03/sprites/playchar.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th03/snd/snd.h"
+#include "th03/snd/midi_diag.hpp"
 
 extern const char near* PIC_FN[PLAYCHAR_COUNT];
 shiftjis_t win_text[WIN_LINES][WIN_LINE_SIZE + 1];
@@ -359,24 +360,36 @@ void near stage_splash_show_and_wait(void)
 	}
 	bgm_fn[1] += char_id;
 	snd_kaja_func(KAJA_SONG_STOP, 0);
-	// Replay Patch: Keep PMD's sound-effect-bank refresh ahead of the MMD
-	// song-buffer load. Calling back into PMD after MMD has accepted the next
-	// stage song can corrupt the dual-driver handoff before MAIN starts.
-	snd_load(stage_splash_yume_efc_fn, SND_LOAD_SE);
 	if(resident->story_stage != STAGE_DECISIVE) {
 		snd_load(bgm_fn, SND_LOAD_SONG);
 	} else {
 		snd_load(dec_bgm_fn, SND_LOAD_SONG);
 	}
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_MAINL_SPLASH_SONG_DONE, 0, 0);
+	#endif
+	snd_load(stage_splash_yume_efc_fn, SND_LOAD_SE);
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_MAINL_SPLASH_SE_DONE, 0, 0);
+	#endif
 	input_sp = INPUT_NONE;
 	while(vsync_Count1 <= 32) {
 	}
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_MAINL_SPLASH_WAIT32_DONE, vsync_Count1, 0);
+	#endif
 	if(!mainl_replay_initial_stage_splash_skip()) {
 		while((vsync_Count1 <= 96) && (input_sp == INPUT_NONE)) {
 			mainl_replay_input_mode_interface();
 		}
 	}
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_MAINL_SPLASH_WAIT_DONE, vsync_Count1, input_sp);
+	#endif
 	palette_white_out(1);
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_MAINL_SPLASH_FADE_DONE, 0, 0);
+	#endif
 	graph_accesspage(0);
 	graph_clear();
 	palette_white_in(1);
@@ -384,6 +397,9 @@ void near stage_splash_show_and_wait(void)
 	pi_palette_apply(0);
 	pi_free(0);
 	respal_set_palettes();
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_MAINL_SPLASH_DONE, 0, 0);
+	#endif
 }
 
 void pascal near stage_splash_side_shot_put(int pid, char far *fn)
