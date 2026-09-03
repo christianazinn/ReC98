@@ -20,7 +20,14 @@ enum t2savestate_acceptance_event_t {
 	T2SAE_HANDOFF = 3,
 	T2SAE_FINALIZE = 4,
 	T2SAE_END = 5,
+	T2SAE_PERIODIC = 6,
 };
+
+#define T2REPLAY_GUARD_EVENT(event) ( \
+	((event) == T2SAE_PERIODIC) ? RPE_PERIODIC : \
+	((event) == T2SAE_PAUSE) ? RPE_PAUSE : \
+	((event) == T2SAE_FINALIZE) ? RPE_TERMINAL : RPE_HANDOFF \
+)
 
 #if T2REPLAY_SAVESTATE_ACCEPTANCE
 
@@ -55,13 +62,16 @@ static void t2savestate_acceptance_end(void);
 	t2savestate_acceptance_checkpoint(event)
 #define t2replay_guard_observe(event) \
 	t2savestate_acceptance_observe(event)
+#define t2replay_guard_blocked() replay_protect_blocked()
 #define t2replay_guard_end() t2savestate_acceptance_end()
 
 #else
 
 #define t2replay_guard_begin() replay_protect_begin()
-#define t2replay_guard_checkpoint(event) replay_protect_checkpoint()
+#define t2replay_guard_checkpoint(event) \
+	replay_protect_checkpoint(T2REPLAY_GUARD_EVENT(event))
 #define t2replay_guard_observe(event) ((void)0)
+#define t2replay_guard_blocked() replay_protect_blocked()
 #define t2replay_guard_end() replay_protect_end()
 
 #endif

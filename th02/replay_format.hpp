@@ -148,9 +148,10 @@
 	T2REPLAY_EXACT_S5CBRD_CAPTURE_SIZE \
 )
 
-// The public seek wire remains separate from T2RPY1/T2RPY2/T2RPY3 and T2RCFG2. The
-// native reader is compiled only into the private exact-apply profile until its
-// fresh-process equivalence matrix is complete.
+// The seek wire remains separate from T2RPY1/T2RPY2/T2RPY3 and T2RCFG2.
+// Version 1 is the private exact-apply envelope; the compact release sidecar
+// below reuses its fixed header and entry layouts with a distinct version and
+// fingerprint.
 #define T2REPLAY_PUBLIC_SEEK_VERSION 1
 #define T2REPLAY_PUBLIC_SEEK_HEADER_SIZE 64
 #define T2REPLAY_PUBLIC_SEEK_ENTRY_SIZE 48
@@ -160,6 +161,14 @@
 #define T2REPLAY_PUBLIC_SEEK_TARGET_CHAPTER 2
 #define T2REPLAY_PUBLIC_SEEK_TARGET_MIDBOSS 3
 #define T2REPLAY_PUBLIC_SEEK_TARGET_BOSS 4
+
+// Compact clean-stage resume sidecar. This keeps T2RPY3 stable: each entry
+// binds a replay stream boundary to the carried state from which stage_init()
+// deterministically reconstructs the next stage.
+#define T2REPLAY_STAGE_SEEK_VERSION 2
+#define T2REPLAY_STAGE_SEEK_SCHEMA 1
+#define T2REPLAY_STAGE_SEEK_FORMAT_FINGERPRINT 0xD29A5401UL
+#define T2REPLAY_STAGE_SEEK_CAPTURE_GENERATION 1
 
 #if T2REPLAY_EXACT_APPLY
 // Private fresh-process observer wire. It is intentionally unavailable to the
@@ -210,7 +219,8 @@
 #define T2REPLAY_COMMAND_RESTART 4
 #define T2REPLAY_COMMAND_FLAG_PRACTICE 0x01
 #define T2REPLAY_COMMAND_FLAG_AUTOFIRE 0x02
-#define T2REPLAY_COMMAND_KNOWN_FLAGS (T2REPLAY_COMMAND_FLAG_PRACTICE | T2REPLAY_COMMAND_FLAG_AUTOFIRE)
+#define T2REPLAY_COMMAND_FLAG_STAGE_SEEK 0x04
+#define T2REPLAY_COMMAND_KNOWN_FLAGS (T2REPLAY_COMMAND_FLAG_PRACTICE | T2REPLAY_COMMAND_FLAG_AUTOFIRE | T2REPLAY_COMMAND_FLAG_STAGE_SEEK)
 
 #define T2REPLAY_INPUT_SEMANTICS_KEY_DET 1
 #define T2REPLAY_RULESET_STOCK 0
