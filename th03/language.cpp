@@ -7,7 +7,6 @@
 #include "th03/snd/options.hpp"
 #include "x86real.h"
 
-#if (BINARY != 'M')
 static bool16 th03_snd_mmd_resident(void)
 {
 	_ES = 0;
@@ -20,7 +19,6 @@ static bool16 th03_snd_mmd_resident(void)
 	snd_midi_possible = false;
 	return false;
 }
-#endif
 
 static unsigned char language_ascii_upper(unsigned char c)
 {
@@ -168,11 +166,7 @@ void far th03_snd_process_init(void)
 	// while MMD owns MIDI BGM. Re-probe both after every executable transition
 	// because each process starts with a fresh copy of these globals.
 	snd_pmd_resident();
-	#if (BINARY == 'M')
-	snd_mmd_resident();
-	#else
 	th03_snd_mmd_resident();
-	#endif
 	snd_midi_active = (
 		(resident->bgm_mode == SND_BGM_MIDI) && snd_midi_possible
 	);

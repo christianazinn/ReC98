@@ -754,7 +754,6 @@ local th03_main_inputs = {
 	"th01/vplanset.cpp",
 	"th02/snd_mode.c",
 	"th02/snd_pmdr.c",
-	"th02/snd_mmdr.c",
 	"th03/vector.cpp",
 	"th03/exit.cpp",
 	"th03/polar.cpp",

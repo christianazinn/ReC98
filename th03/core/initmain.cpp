@@ -7,10 +7,10 @@
 
 #if (GAME <= 3)
 #if (GAME == 3)
-// Replay Patch: Reserve conventional memory for the simultaneous MMD and PMD
-// residents. The original arena contains enough unused capacity to return the
-// resident footprint without changing any gameplay allocation.
-#define mem_assign_paras (268000 >> 4)
+// Replay Patch: The simultaneous compact MMD and PMD residents still leave
+// enough conventional memory for the original gameplay arena. Keep the
+// original allocation because TH03 does not check every later far allocation.
+#define mem_assign_paras (288000 >> 4)
 #else
 #define mem_assign_paras (288000 >> 4)
 #endif
