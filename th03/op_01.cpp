@@ -184,7 +184,7 @@ void near cfg_load(void)
 	snd_sel_disabled = false;
 	if(
 		!snd_active &&
-		(resident->bgm_mode != SND_BGM_MIDI)
+		(resident->bgm_mode == SND_BGM_FM)
 	) {
 		resident->bgm_mode = SND_BGM_OFF;
 		snd_sel_disabled = true;
