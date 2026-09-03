@@ -6155,6 +6155,9 @@ static void replay_debug_transition_write(
 #endif
 
 // Keep the following C runtime segment at its accepted paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #if !defined(TH03_REPLAY_DEVTOOLS)
 #if defined(TH03_REPLAY_DEV_OVERLAY)
 #pragma codestring "\x90\x90\x90\x90"

@@ -25,9 +25,6 @@
 #define REPLAY_RLE_CHARGE_MASK 0xC0
 #define replay_control_pending \
 	resident->unused_3[T3_REPLAY_RES_MAINL_CONTROL_INDEX]
-#define REPLAY_CONTROL_NONE 0
-#define REPLAY_CONTROL_RELEASE 1
-#define REPLAY_CONTROL_REASSERT 2
 #define mainl_replay_input_vsync (*reinterpret_cast<uint16_t far *>( \
 	&resident->unused_3[T3_REPLAY_RES_MAINL_VSYNC_INDEX] \
 ))
@@ -1212,24 +1209,12 @@ static void mainl_replay_frame_io(void)
 			)
 		) {
 			// MAINL can reach a blocking "release, then press" input loop one
-			// VSync later than it did while recording.  The last stored sample
-			// commonly contains the Shot press that dismissed the scene. Holding
-			// that sample forever after MAINL_END makes the release half of such
-			// a loop impossible and strands playback. Alternate one synthetic
-			// release with the final recorded dismissal input after the payload
-			// ends. This affects no recorded sample or following MAIN keyframe.
-			if(replay_control_pending == REPLAY_CONTROL_NONE) {
-				replay_control_pending = REPLAY_CONTROL_RELEASE;
-			} else if(replay_control_pending == REPLAY_CONTROL_RELEASE) {
-				replay_control_pending = REPLAY_CONTROL_REASSERT;
-			} else {
-				replay_control_pending = REPLAY_CONTROL_RELEASE;
-			}
-			input_mp_p1 = replay_rle_input_mp_p1;
-			input_mp_p2 = replay_rle_input_mp_p2;
-			input_sp = (
-				replay_control_pending == REPLAY_CONTROL_RELEASE
-			) ? INPUT_NONE : replay_rle_input_sp;
+			// VSync later than it did while recording. Alternate a synthetic
+			// release with Shot after the payload ends.
+			replay_control_pending ^= INPUT_SHOT;
+			replay_rle_input_sp = (
+				replay_control_pending ^ INPUT_SHOT
+			);
 			return;
 		}
 		if(replay_user_header.sample_size == T3_REPLAY_USER_SAMPLE_SIZE_RLE) {
@@ -1390,9 +1375,7 @@ void far mainl_replay_input_mode_interface(void)
 	if(mainl_replay_mode == MR_USER_PLAYBACK) {
 		input_mp_p1 = replay_rle_input_mp_p1;
 		input_mp_p2 = replay_rle_input_mp_p2;
-		input_sp = (
-			replay_control_pending == REPLAY_CONTROL_RELEASE
-		) ? INPUT_NONE : replay_rle_input_sp;
+		input_sp = replay_rle_input_sp;
 		resident->input_charge = static_cast<uint8_t>(
 			(replay_rle_phase & REPLAY_RLE_CHARGE_MASK) >>
 			REPLAY_RLE_CHARGE_SHIFT
@@ -1570,4 +1553,5 @@ void far mainl_replay_exit_to_main(void)
 }
 
 // Keep the following shared segment at its accepted paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90"
