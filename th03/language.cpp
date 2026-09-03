@@ -194,9 +194,18 @@ void far th03_snd_process_init(void)
 #if (BINARY == 'M')
 void far th03_snd_process_init_and_play(void)
 {
-	th03_snd_process_init();
+	// MAINL validated the resident drivers and loaded this round's song before
+	// launching MAIN. Reconstruct only MAIN's process-local routing bytes here:
+	// probing either driver in MAIN changes the startup state that reaches the
+	// original gameplay code, and is redundant while both TSRs remain resident.
+	snd_midi_active = (resident->bgm_mode == SND_BGM_MIDI);
+	snd_midi_possible = snd_midi_active;
+	snd_interrupt_if_midi = (snd_midi_active ? MMD : PMD);
+	snd_active = (resident->bgm_mode != SND_BGM_OFF);
+	snd_fm_possible = th03_snd_se_enabled();
 	snd_kaja_func(KAJA_SONG_PLAY, 0);
 }
+#pragma codestring "\x90"
 #endif
 
 void far th03_snd_se_toggle(void)
