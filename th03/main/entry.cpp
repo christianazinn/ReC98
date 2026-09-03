@@ -17,6 +17,9 @@ extern "C" const char aGameft_bft[];
 extern "C" const char aOp[];
 extern "C" const char arg0[];
 
+extern unsigned mem_TopSeg;
+extern unsigned mem_OutSeg;
+
 extern farfunc_t_near farfp_20F20;
 
 extern "C" uint8_t pascal near sub_9778(void);
@@ -31,7 +34,7 @@ extern "C" void far main_entry(void)
 
 	game_init_main(aCOul);
 	#if defined(TH03_MIDI_DIAGNOSTICS)
-	th03_midi_diag_log(T3MD_MAIN_INIT_DONE, _AX, 0);
+	th03_midi_diag_log(T3MD_MAIN_INIT_DONE, mem_TopSeg, mem_OutSeg);
 	#endif
 	if(!cfg_load_resident_ptr()) {
 		return;
