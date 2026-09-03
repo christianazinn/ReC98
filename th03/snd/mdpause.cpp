@@ -93,3 +93,6 @@ int16_t DEFCONV th03_midi_pause_interrupt(int16_t ax)
 	}
 	return snd_kaja_interrupt(ax);
 }
+
+// Keep the following constructor segment at its accepted paragraph phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
