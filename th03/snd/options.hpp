@@ -17,7 +17,7 @@ extern bool snd_fm_possible;
 // MAIN must not probe either resident sound driver before round_startup():
 // changing that call stack changes original uninitialized gameplay state. OP
 // and MAINL publish the last real MMD probe here for MAIN to adopt without a
-// helper call.
+// new driver interrupt.
 #define T3_SND_MMD_HANDOFF_RES_INDEX 189
 
 #if (T3_SND_SE_RES_INDEX >= 198)

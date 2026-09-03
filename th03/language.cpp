@@ -197,8 +197,9 @@ void far th03_snd_process_init(void)
 void far th03_snd_process_adopt(void)
 {
 	// MAINL has already performed the real PMD/MMD probes. Rebuild MAIN's
-	// process-local routing with no nested helper calls: the original gameplay
-	// startup observes stack residue from this exact call depth.
+	// process-local routing with no driver interrupts or nested helper calls:
+	// the original gameplay startup observes stack residue from this exact call
+	// depth, and probing PMD while MMD is active can disturb the MIDI timer.
 	snd_midi_possible = static_cast<bool>(
 		resident->unused_3[T3_SND_MMD_HANDOFF_RES_INDEX]
 	);
@@ -207,15 +208,9 @@ void far th03_snd_process_adopt(void)
 	);
 	snd_interrupt_if_midi = (snd_midi_active ? MMD : PMD);
 
-	snd_fm_possible = false;
-	if(
-		(resident->bgm_mode != SND_BGM_OFF) ||
-		th03_snd_se_enabled()
-	) {
-		_AH = PMD_GET_DRIVER_TYPE_AND_VERSION;
-		geninterrupt(PMD);
-		snd_fm_possible = (_AL != 0xFF);
-	}
+	// GAME.BAT installed PMD before OP, and MAINL's immediately preceding
+	// process initialization verified it. No hardware probe belongs here.
+	snd_fm_possible = th03_snd_se_enabled();
 	if(resident->bgm_mode == SND_BGM_MIDI) {
 		snd_active = snd_midi_possible;
 	} else if(resident->bgm_mode == SND_BGM_FM) {

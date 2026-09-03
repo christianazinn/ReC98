@@ -4693,10 +4693,19 @@ void main(void)
 		reinterpret_cast<const unsigned char far *>(OP_AND_END_PF_FN)
 	);
 	cfg_load();
-	if(snd_midi_active) {
+	// Prime MMD before PMD gets its first chance to program the sound-board
+	// timer. Without this one-time initialization, a game that boots in FM mode
+	// cannot activate MIDI later from the Option menu. Once primed, both drivers
+	// can be switched freely for the lifetime of their resident processes.
+	if(snd_midi_possible) {
+		snd_midi_active = true;
+		snd_interrupt_if_midi = MMD;
+		snd_active = true;
 		snd_load("gminit.m", SND_LOAD_SONG);
 		snd_kaja_func(KAJA_SONG_PLAY, 0);
 		frame_delay(4);
+		snd_kaja_func(KAJA_SONG_STOP, 0);
+		th03_snd_process_init();
 	}
 	replay_restart_requested = replay_resident_handoff_is(
 		T3_REPLAY_RES_MODE_RESTART
