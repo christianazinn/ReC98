@@ -22,6 +22,14 @@ enum t1savestate_acceptance_event_t {
 	T1SAE_END = 5,
 };
 
+// Keep every per-input guard sample behind the same facade as lifecycle
+// events. Later private detector methods can be composed here without changing
+// either REIIDEN/FUUIN callers or the public T1RPY6 format.
+static inline bool t1replay_guard_sample(t1replay_guard_t far *guard)
+{
+	return t1rpg_sample(guard);
+}
+
 #if T1REPLAY_SAVESTATE_ACCEPTANCE
 
 struct t1savestate_acceptance_record_t {

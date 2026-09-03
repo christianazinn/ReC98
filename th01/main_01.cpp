@@ -807,7 +807,7 @@ int main(void)
 	}
 	#endif
 	unnecessary_copy_of_the_initial_value_of_extend_next = extend_next;
-		hud_bg_snap_and_put();
+		t1replay_hud_bg_snap_and_put();
 
 		cardcombo_max = 0;
 		orb_in_portal = false;

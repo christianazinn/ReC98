@@ -14,6 +14,7 @@
 #include "th01/core/initexit.hpp"
 #include "th01/rpyfuuin.hpp"
 #include "th01/rp_guard.hpp"
+#include "th01/savestate_acceptance.hpp"
 #include "th01/resident.hpp"
 #include "th01/shiftjis/fns.hpp"
 #if T1REPLAY_FUUIN_SCORE_PROOF
@@ -334,6 +335,108 @@ static uint32_t t1replay_fnv1a(uint32_t hash, const void far *buf, unsigned size
 	}
 	return hash;
 }
+
+#if T1REPLAY_SAVESTATE_ACCEPTANCE
+static const char T1SAVESTATE_ACCEPTANCE_FN[] = "T1SGA.BIN";
+
+static void t1replay_dos_flush(void)
+{
+	_asm {
+		mov ah, 0Dh
+		int 21h
+	}
+}
+
+static void t1savestate_acceptance_clear(
+	t1savestate_acceptance_record_t *record
+)
+{
+	uint8_t *p = reinterpret_cast<uint8_t *>(record);
+	unsigned i;
+
+	for(i = 0; i < sizeof(*record); i++) {
+		p[i] = 0;
+	}
+}
+
+static uint16_t t1savestate_acceptance_checksum(
+	const t1savestate_acceptance_record_t *record
+)
+{
+	const uint8_t *p = reinterpret_cast<const uint8_t *>(record);
+	uint16_t sum = 0;
+	unsigned i;
+
+	for(i = 0; i < sizeof(*record); i++) {
+		sum = static_cast<uint16_t>(sum + p[i]);
+	}
+	return sum;
+}
+
+static void t1savestate_acceptance_emit(
+	uint8_t event, uint8_t checkpoint_result, t1replay_guard_t far *guard
+)
+{
+	t1savestate_acceptance_record_t record;
+	uint8_t marker = 0;
+	uint32_t disk_size = 0;
+	int fd;
+
+	t1savestate_acceptance_clear(&record);
+	record.magic[0] = 'T'; record.magic[1] = '1';
+	record.magic[2] = 'S'; record.magic[3] = 'G';
+	record.magic[4] = 'A'; record.magic[5] = '0';
+	record.magic[6] = '0'; record.magic[7] = '1';
+	record.schema = T1SAVESTATE_ACCEPTANCE_SCHEMA;
+	record.event = event;
+	record.checkpoint_result = checkpoint_result;
+	record.guard_flags = guard->flags;
+	record.committed_size = guard->committed_size;
+	if(t1rpg_marker_read(guard, &marker, &disk_size)) {
+		record.raw_ok = 1;
+		record.marker = marker;
+		record.expected_size = guard->committed_size;
+		record.actual_size = disk_size;
+	}
+	record.checksum = 0;
+	record.checksum = t1savestate_acceptance_checksum(&record);
+	fd = t1replay_dos_create(T1SAVESTATE_ACCEPTANCE_FN);
+	if(fd < 0) {
+		return;
+	}
+	if(t1replay_dos_write(fd, &record, sizeof(record)) != sizeof(record)) {
+		t1replay_dos_close(fd);
+		return;
+	}
+	t1replay_dos_close(fd);
+	t1replay_dos_flush();
+	(void)t1rpg_commit_process();
+}
+
+static bool t1savestate_acceptance_begin(t1replay_guard_t far *guard)
+{
+	bool ok = t1rpg_begin(guard);
+
+	t1savestate_acceptance_emit(T1SAE_BEGIN, ok, guard);
+	return ok;
+}
+
+static bool t1savestate_acceptance_checkpoint(
+	t1replay_guard_t far *guard, uint8_t event
+)
+{
+	bool ok = t1rpg_checkpoint(guard);
+
+	t1savestate_acceptance_emit(event, ok, guard);
+	return ok;
+}
+
+static void t1savestate_acceptance_end(t1replay_guard_t far *guard)
+{
+	t1savestate_acceptance_emit(T1SAE_END, 0xFF, guard);
+	t1rpg_end(guard);
+}
+#endif
 
 static bool t1replay_save_request_write(
 	t1replay_save_request_source_t source
@@ -1487,7 +1590,7 @@ void far t1replay_fuuin_frame_io(void)
 			(key_sense(7) | key_sense(7)) & T1REPLAY_INPUT_MASK_7
 		);
 		if(!t1replay_record_sample() ||
-			!t1rpg_sample(&t1replay_res->guard)) {
+			!t1replay_guard_sample(&t1replay_res->guard)) {
 			t1replay_fail();
 		}
 	} else if(!t1replay_playback_sample()) {
@@ -1556,7 +1659,9 @@ void far t1replay_fuuin_terminal(void)
 		return;
 	}
 	if((t1replay_mode == T1RM_RECORD) &&
-		!t1rpg_checkpoint(&t1replay_res->guard)) {
+		!t1replay_guard_checkpoint(
+			&t1replay_res->guard, T1SAE_FINALIZE
+		)) {
 		t1replay_fail();
 		return;
 	}
@@ -1601,7 +1706,7 @@ void far t1replay_fuuin_terminal(void)
 		return;
 	}
 	if(t1replay_mode == T1RM_RECORD) {
-		t1rpg_end(&t1replay_res->guard);
+		t1replay_guard_end(&t1replay_res->guard);
 	}
 	t1replay_res_clear();
 	t1replay_mode = T1RM_DISABLED;

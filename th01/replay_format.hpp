@@ -29,8 +29,7 @@
 #define T1REPLAY_INPUT_SIZE_MAX 0x00400000UL
 
 // Private TH01 semantic checkpoint sidecars are intentionally separate from
-// T1RPY4. Each T1CxxYY.CKP
-// is keyed by replay slot xx and REIIDEN process yy.
+// T1RPY6. Each T1CxxSS.CKP is keyed by replay slot xx and reached stage SS.
 #define T1REPLAY_CHECKPOINT_SCHEMA 4
 #define T1REPLAY_CHECKPOINT_HEADER_SIZE 32
 #define T1REPLAY_CHECKPOINT_GROUP_SIZE 16
@@ -93,8 +92,8 @@
 #define T1REPLAY_CHECKPOINT_EMIT (T1REPLAY_CHECKPOINT_PRIVATE_EMIT || T1REPLAY_CHECKPOINT_RELEASE)
 #endif
 
-// Release reads a sidecar only for an explicit process-0 direct command.
-// Ordinary replay playback remains sequential.
+// Release reads a sidecar only for an explicit stage-selected direct command.
+// Playback after that restore remains sequential through the terminal.
 #ifndef T1REPLAY_CHECKPOINT_RESTORE
 #define T1REPLAY_CHECKPOINT_RESTORE (T1REPLAY_CHECKPOINT_PRIVATE_RESTORE || T1REPLAY_CHECKPOINT_RELEASE)
 #endif
@@ -232,7 +231,7 @@ inline bool t1replay_slot_is_pending(uint8_t slot)
 }
 
 // The pending sentinel is a process-local record target, never a playable
-// numbered slot. It keeps the T1RPY4 header and resident carrier ABI stable
+// numbered slot. It keeps the T1RPY6 header and resident carrier ABI stable
 // while OP decides whether a finalized capture should become permanent.
 inline bool t1replay_slot_valid_for_mode(uint8_t mode, uint8_t slot)
 {
@@ -549,6 +548,13 @@ struct t1replay_command_t {
 };
 
 #define T1REPLAY_COMMAND_DIRECT_CHECKPOINT 0xA5
+#define T1REPLAY_COMMAND_DIRECT_MARKER_INDEX 0
+#define T1REPLAY_COMMAND_DIRECT_STAGE_INDEX 1
+#define T1REPLAY_COMMAND_DIRECT_PROCESS_INDEX 2
+#define T1REPLAY_COMMAND_DIRECT_SOURCE_INDEX 3
+#define T1REPLAY_COMMAND_DIRECT_RESERVED_INDEX 4
+#define T1REPLAY_COMMAND_DIRECT_RESERVED_SIZE 2
+#define T1REPLAY_COMMAND_CHECKPOINT_STAGE_NONE 0xFF
 
 struct t1replay_save_request_t {
 	char magic[8]; // "T1RSAV1\\0"
@@ -581,7 +587,7 @@ struct t1replay_restart_state_t {
 	uint32_t checksum;
 };
 
-// This private, pointer-free guard carrier stays outside T1RPY4/T1RPY5/T1RPY6. It
+// This private, pointer-free guard carrier stays outside T1RPY6. It
 // lets the REIIDEN and FUUIN processes verify the same physical-disk witness
 // without changing the user replay format.
 struct t1replay_guard_t {
@@ -590,6 +596,8 @@ struct t1replay_guard_t {
 	uint16_t root_sector;
 	uint16_t root_offset;
 	uint8_t flags;
+	// Private carrier extension room for later detector methods. The current
+	// physical-size witness keeps these bytes zero; T1RPY6 is unaffected.
 	uint8_t reserved[3];
 };
 

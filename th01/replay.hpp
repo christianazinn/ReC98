@@ -29,9 +29,12 @@ void far t1replay_gameplay_input_begin(void);
 void far t1replay_gameplay_input_end(void);
 bool16 far t1replay_gameplay_wait_skip(void);
 
-// Called at the first active-gameplay input boundary of each REIIDEN process.
-// The private sidecar is capture-only until all world codecs can restore it.
+// Called at the first active-gameplay input boundary of each reached stage.
+// A complete sidecar is persisted immediately and its allocation is released.
 void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle);
+
+// Native HUD setup plus the user-playback-only replay indicator.
+void far t1replay_hud_bg_snap_and_put(void);
 
 // Private exact-restore seam. The pending flag is set only after the complete
 // sidecar and replay prefix validate before any gameplay mutation.
