@@ -255,10 +255,9 @@ extern "C" void pascal near round_startup(void)
 	nopcall_noarg(hud_wipe);
 	nopcall_noarg(hud_static_put);
 	grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
-	snd_kaja_func(KAJA_SONG_PLAY, 0);
 }
 
 // Keep all following PLAYFLD_TEXT code at its accepted offsets.
-#pragma codestring "\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #undef nopcall_noarg

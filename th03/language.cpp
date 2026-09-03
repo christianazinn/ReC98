@@ -7,24 +7,18 @@
 #include "th03/snd/options.hpp"
 #include "x86real.h"
 
-#pragma option -k-
 static bool16 th03_snd_mmd_resident(void)
 {
 	_ES = 0;
 	_asm { les bx, dword ptr es:[MMD * 4]; }
 	if(kaja_isr_magic_matches(MK_FP(_ES, _BX), 'M', 'M', 'D')) {
 		snd_interrupt_if_midi = MMD;
-		snd_midi_active = true;
 		snd_midi_possible = true;
-		// Match the original MMD probe's frame-pointer-free return exactly. MAIN's
-		// startup reads uninitialized stack data after this call.
-		_AX = true;
-		_asm { retf; }
+		return true;
 	}
 	snd_midi_possible = false;
 	return false;
 }
-#pragma option -k.
 
 static unsigned char language_ascii_upper(unsigned char c)
 {
@@ -198,12 +192,33 @@ void far th03_snd_process_init(void)
 }
 
 #if (BINARY == 'M')
-// Preserve LANGUAGE_TEXT's accepted size after restoring the shorter original
-// MMD probe and removing the rejected late-routing helper.
+void far th03_snd_process_adopt_mainl(void)
+{
+	// MAINL has already validated both resident drivers, loaded the round song,
+	// and started MMD. Adopt that known state only after MAIN has completed all
+	// stack-sensitive round and replay initialization.
+	snd_midi_active = (resident->bgm_mode == SND_BGM_MIDI);
+	snd_midi_possible = snd_midi_active;
+	snd_interrupt_if_midi = (snd_midi_active ? MMD : PMD);
+	snd_active = (resident->bgm_mode != SND_BGM_OFF);
+	snd_fm_possible = th03_snd_se_enabled();
+}
+#elif (BINARY == 'L')
+extern "C" void far th03_snd_mainl_play(void)
+{
+	snd_kaja_func(KAJA_SONG_PLAY, 0);
+}
+#endif
+
+// Preserve LANGUAGE_TEXT's accepted size in every executable profile.
+#if (BINARY == 'M')
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#elif (BINARY == 'L')
 #pragma codestring \
 	"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
-	"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
-	"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
+	"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#else
+#pragma codestring \
 	"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
 	"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
 	"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

@@ -155,6 +155,10 @@ ending:
 		gaiji_restore();
 
 exit_to_main:
+		// MMD is resident and this process has just loaded the gameplay song.
+		// Start it here so MAIN never issues its first MMD command during the
+		// stack-sensitive gameplay startup window.
+		_asm { call far ptr th03_snd_mainl_play; }
 		mainl_replay_exit_to_main();
 		asm {
 			db  	66h, 6Ah, 0
@@ -214,6 +218,4 @@ stage_splash_load_and_show:
 	}
 }
 
-// Keeps every later original CUTSCENE_TEXT contribution at its accepted offset.
-#pragma codestring "\x90\x90\x90\x90\x90"
 #pragma codeseg
