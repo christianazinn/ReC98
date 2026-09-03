@@ -4942,6 +4942,10 @@ static int near replay_dev_story_stage_menu(void)
 // after moving the localized Replay UI into the patch-owned RPYFONT segment.
 // The range-safe BGM decrement and unavailable-MIDI preservation reclaim
 // eleven bytes from this inert pad.
+// The 8.3-safe language header name corrects the far-call declarations and
+// reclaims another 23 bytes, compensated here to retain the proven layout.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

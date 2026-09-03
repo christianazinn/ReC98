@@ -615,10 +615,6 @@ local th03_op_inputs = {
 	"th01/vplanset.cpp",
 	"th02/snd_mode.c",
 	"th02/snd_pmdr.c",
-	-- While unused in MIDI mode, this object preserves the proven TH03
-	-- executable segment layout. Removing it shifts resident sound code and
-	-- breaks the fixed layout required by the replay patch.
-	"th02/snd_mmdr.c",
 	"th03/snd_load.cpp",
 	"th03/exit.cpp",
 	"th03/polar.cpp",
@@ -828,8 +824,6 @@ local th03_mainl_inputs = {
 	"th01/vplanset.cpp",
 	"th02/snd_mode.c",
 	"th02/snd_pmdr.c",
-	-- See th03_op_inputs above. Keep this layout anchor in MAINL as well.
-	"th02/snd_mmdr.c",
 	"th02/snd_dlyv.c",
 	"th03/snd_load.cpp",
 	"th03/vector.cpp",
