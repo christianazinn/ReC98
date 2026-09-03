@@ -2970,8 +2970,14 @@ static void replay_indicator_put(void)
 	) {
 		return;
 	}
-	// The 48-column playfield spans TRAM columns 4 through 51.
-	text_putsa(25, 0, "REPLAY", TX_YELLOW);
+	// The 48-column playfield spans TRAM columns 4 through 51. Individual
+	// characters keep this playback-only label out of initialized DGROUP.
+	text_putca(25, 0, 'R', TX_YELLOW);
+	text_putca(26, 0, 'E', TX_YELLOW);
+	text_putca(27, 0, 'P', TX_YELLOW);
+	text_putca(28, 0, 'L', TX_YELLOW);
+	text_putca(29, 0, 'A', TX_YELLOW);
+	text_putca(30, 0, 'Y', TX_YELLOW);
 }
 
 void replay_stage_start(void)
@@ -3886,5 +3892,8 @@ bool replay_playback_active(void)
 	#if (GAME == 4)
 		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#endif
+	// v0.1.2 adds the playback HUD label. Keep the following CRT segment on
+	// the foundation paragraph phase in both game builds.
+	#pragma codestring "\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg

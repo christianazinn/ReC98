@@ -656,14 +656,31 @@ static uint32_t replay_op_scoredat_offset(uint8_t playchar_id)
 	) * sizeof(scoredat_section_t);
 }
 
+static void replay_op_scoredat_fn_put(char *fn)
+{
+	fn[0] = 'G';
+	fn[1] = 'E';
+	fn[2] = 'N';
+	fn[3] = 'S';
+	fn[4] = 'O';
+	fn[5] = 'U';
+	fn[6] = '.';
+	fn[7] = 'S';
+	fn[8] = 'C';
+	fn[9] = 'R';
+	fn[10] = '\0';
+}
+
 static bool replay_op_scoredat_read(
 	uint8_t playchar_id, scoredat_section_t far *section
 )
 {
-	static const char fn[] = SCOREDAT_FN;
-	int fh = replay_op_dos_open(fn);
+	char fn[sizeof(SCOREDAT_FN)];
+	int fh;
 	bool ok;
 
+	replay_op_scoredat_fn_put(fn);
+	fh = replay_op_dos_open(fn);
 	if(fh < 0) {
 		return false;
 	}
@@ -679,11 +696,12 @@ static bool replay_op_scoredat_write(
 	uint8_t playchar_id, scoredat_section_t far *section
 )
 {
-	static const char fn[] = SCOREDAT_FN;
+	char fn[sizeof(SCOREDAT_FN)];
 	int fh;
 	bool ok;
 
 	replay_op_scoredat_encode(section);
+	replay_op_scoredat_fn_put(fn);
 	fh = replay_op_dos_open_rw(fn);
 	if(fh < 0) {
 		return false;
@@ -5531,6 +5549,14 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #else
 	#pragma codestring "\x90\x90\x90\x90"
+#endif
+
+// v0.1.2 adds the title unlock sequence. Preserve each game's stock CRT
+// paragraph phase after the shared implementation's game-specific code size.
+#if (GAME == 4)
+	#pragma codestring "\x90\x90\x90\x90"
+#else
+	#pragma codestring "\x90\x90\x90"
 #endif
 
 #pragma codeseg
