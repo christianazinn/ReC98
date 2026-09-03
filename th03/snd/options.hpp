@@ -55,6 +55,7 @@ inline void th03_snd_process_apply(void)
 }
 
 void far th03_snd_process_init(void);
+void far th03_snd_process_init_and_play(void);
 void far th03_snd_se_toggle(void);
 
 #endif /* TH03_SND_OPTIONS_HPP */

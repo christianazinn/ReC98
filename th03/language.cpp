@@ -165,20 +165,8 @@ void far th03_snd_process_init(void)
 	// GAME.BAT keeps both drivers resident: PMD owns sound effects and FM BGM,
 	// while MMD owns MIDI BGM. Re-probe both after every executable transition
 	// because each process starts with a fresh copy of these globals.
-	#if (BINARY == 'M')
-	// MAIN's startup still depends on the stack image that reaches
-	// round_startup(). Additional helper calls here perturb that image and can
-	// corrupt formation initialization. OP and MAINL already verified the
-	// driver before handing control to MAIN, so only reconstruct the
-	// process-local routing globals here.
-	snd_interrupt_if_midi = (
-		(resident->bgm_mode == SND_BGM_MIDI) ? MMD : PMD
-	);
-	snd_midi_possible = (resident->bgm_mode == SND_BGM_MIDI);
-	#else
 	snd_pmd_resident();
 	th03_snd_mmd_resident();
-	#endif
 	snd_midi_active = (
 		(resident->bgm_mode == SND_BGM_MIDI) && snd_midi_possible
 	);
@@ -202,6 +190,14 @@ void far th03_snd_process_init(void)
 		snd_active = false;
 	}
 }
+
+#if (BINARY == 'M')
+void far th03_snd_process_init_and_play(void)
+{
+	th03_snd_process_init();
+	snd_kaja_func(KAJA_SONG_PLAY, 0);
+}
+#endif
 
 void far th03_snd_se_toggle(void)
 {

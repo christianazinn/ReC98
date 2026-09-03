@@ -33,8 +33,6 @@ extern "C" void far main_entry(void)
 		return;
 	}
 
-	th03_snd_process_init();
-
 	gaiji_backup();
 	gaiji_entry_bfnt(aGameft_bft);
 	round_startup();
@@ -82,4 +80,5 @@ game_execl:
 // Keeps every later original MAIN_01 contribution at its accepted offset.
 #pragma codestring \
 	"\x90\x90\x90\x90\x90\x90\x90\x90" \
-	"\x90\x90\x90\x90\x90\x90\x90\x90"
+	"\x90\x90\x90\x90\x90\x90\x90\x90" \
+	"\x90\x90\x90\x90\x90"

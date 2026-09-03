@@ -19,6 +19,7 @@
 #include "th03/main/score.hpp"
 #include "th03/practice.hpp"
 #include "th03/resident.hpp"
+#include "th03/snd/options.hpp"
 
 extern unsigned char score[];
 
@@ -254,10 +255,12 @@ extern "C" void pascal near round_startup(void)
 	nopcall_noarg(hud_wipe);
 	nopcall_noarg(hud_static_put);
 	grc_setclip(0, 0, (RES_X - 1), (SPRITE16_RES_Y - 1));
-	snd_kaja_func(KAJA_SONG_PLAY, 0);
+	// Keep driver probing out of MAIN's stack-sensitive pre-round window. This
+	// helper also starts the song after the process-local driver state is ready.
+	th03_snd_process_init_and_play();
 }
 
 // Keep all following PLAYFLD_TEXT code at its accepted offsets.
-#pragma codestring "\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90"
 
 #undef nopcall_noarg
