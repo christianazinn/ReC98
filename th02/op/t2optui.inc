@@ -1,4 +1,4 @@
-// Patch-owned TH02 Option controller. This file is textually included into
+// Patch-owned TH02 Option controller. This 8.3-safe include is textually included into
 // lang_op.cpp's trailing T2LANGOP_TEXT segment.
 
 #include "th01/rank.h"

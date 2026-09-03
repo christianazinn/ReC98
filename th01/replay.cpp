@@ -39,7 +39,6 @@
 #include "th01/main/stage/item.hpp"
 #include "th01/main/hud/hud.hpp"
 #include "th01/hardware/grppsafx.h"
-#include "th01/v_colors.hpp"
 #include "th01/main/particle.hpp"
 #include "th01/hardware/input.hpp"
 #include "th01/main/boss/boss.hpp"
@@ -4747,7 +4746,7 @@ void far t1replay_hud_bg_snap_and_put(void)
 {
 	char label[7];
 	screen_x_t left;
-	int16_t col_and_fx = (V_YELLOW | FX_WEIGHT_BLACK);
+	int16_t col_and_fx = (V_WHITE | FX_WEIGHT_BLACK);
 
 	hud_bg_snap_and_put();
 	if(t1replay_mode != T1RM_PLAYBACK) {

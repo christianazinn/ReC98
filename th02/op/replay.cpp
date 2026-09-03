@@ -7,9 +7,9 @@
 #pragma codeseg T2OPRPLY_TEXT PATCH
 
 #include <process.h>
+#include "th02/formats/scoredat/scoredat.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
-#include "x86real.h"
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "th01/rank.h"
 #include "th01/hardware/grppsafx.h"
@@ -21,7 +21,7 @@
 #include "th02/core/globals.hpp"
 #include "th02/core/initexit.h"
 #include "th02/formats/cfg.hpp"
-#include "th02/formats/scoredat/scoredat.hpp"
+#include "x86real.h"
 #include "th02/formats/pi.h"
 #include "th02/snd/snd.h"
 #include "th02/gaiji/gaiji.h"

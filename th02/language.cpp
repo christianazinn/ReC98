@@ -426,4 +426,4 @@ bool far t2_autofire_set(bool enabled)
 	return t2_settings_set(t2_language_runtime, enabled);
 }
 
-#include "th02/language_overlay.cpp"
+#include "th02/t2langov.inc"

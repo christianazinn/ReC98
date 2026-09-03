@@ -497,7 +497,7 @@ bool practice_start(void)
 	resident->hiscore = 0;
 	resident->score_highest = 0;
 	resident->point_value = start.point_value;
-	#if defined(T1RB)
+	#if T1REPLAY_PROCESS_MILESTONES
 	t1replay_process_milestone(T1RPM_PRACTICE_CARRIER_COMMITTED);
 	#endif
 	title_exit();
@@ -968,7 +968,7 @@ void main(int argc, const char *argv[])
 	} else {
 		title_init();
 
-		#if defined(T1RB)
+		#if T1REPLAY_PROCESS_MILESTONES
 		if(t1replay_op_milestone_practice_bootstrap(
 			opts.rank,
 			static_cast<int8_t>(opts.credit_lives_extra + 2),

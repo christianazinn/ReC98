@@ -1,4 +1,5 @@
-// Included by th02/language.cpp after its direct-DOS helpers. Runtime
+// Included by th02/language.cpp after its direct-DOS helpers. The 8.3-safe
+// basename avoids a Turbo C++ include-stack collision with language.cpp. Runtime
 // validation is intentionally structural and bounded to T2EN.DAT's directory;
 // the host builder alone verifies every packed and decoded payload hash.
 

@@ -1,33 +1,23 @@
 # TH02 replay seek readiness
 
-The public `T2RPY1`, `T2RPY2`, and `T2RPY3` replay paths start from the recorded
-beginning only. `T2RPY2` adds run-wide slowdown telemetry and `T2RPY3` adds
-replay-owned blocking acknowledgements; none of the public
-carrier adds a checkpoint directory, authenticated restore payload, or a
-later-start command. Stage-score rows and sequential stage-start control
-packets are metadata; they do not carry a semantic restore state.
+TH02's public replay remains `T2RPY3`. Selectable clean-stage starts are stored
+in an additive `T2RSK2` sidecar, not in the replay header or packet stream.
+The original starting stage is always playable without a sidecar.
 
-`T2CKP1` and `T2XCK1` are private checkpoint validation infrastructure. The
-only apply transaction is enabled solely by the `T2REPLAY_EXACT_APPLY` private
-build profile and is not a public replay contract. In particular, no OP menu
-or release command may publish `T2XAP1.BIN` until fresh-process evidence
-establishes the supported state class: first revealed page, both-page
-convergence, callback/palette/HUD state, replay cursor, and forward gameplay
-must match sequential playback.
+Each reached stage contributes a 48-byte directory entry and a 36-byte carried
+start snapshot behind a 64-byte header. Entries bind the selected stage to the
+replay's sample anchor, packet anchor, prefix checksum, finalized header and
+payload checksums, stream totals, and versioned format fingerprint. MAIN
+validates these fields before applying the carried state and entering the
+ordinary stage initializer. OP validates the complete sidecar before exposing
+any later stage; malformed, stale, missing, or swapped sidecars fail closed.
 
-Clean Practice constructors are not replay restore paths. They create legal
-new states, whereas a replay seek must preserve the recorded live pools, RNG,
-actor state, callbacks, page phase, and pending score state.
+Pending replay and sidecar files form one save transaction. Slot overwrite
+backs up, rebinds, renames, and rolls back both files together. Legacy `T2RPY3`
+files therefore keep original-start playback but do not advertise unavailable
+later starts.
 
-The full implementation plan and evidence inventory live in the harness
-alongside the replay campaign. This source note exists to keep release-facing
-code from treating diagnostic exact apply as a production feature.
-
-The only current exact candidate is the private schema-6 Stage 5 Mima
-envelope. It stays private and release-disabled until a separately held,
-finalized replay and matching capture pass the fresh-process matrix: the
-anchor and next-sample cursors, first revealed page, both-page convergence,
-HUD/TRAM, palette, callback registry, logical page/scroll state, semantic
-digest, and natural terminal must agree with uninterrupted playback. The
-harness gate is `tools/replay/verify_th02_selectable_later_stage_start.ps1`;
-its default static result is deliberately not promotion evidence.
+The earlier `T2RSK1` / `T2RSQ1` Stage 5 Mima exact-envelope experiment remains
+private validation infrastructure under `T2REPLAY_EXACT_APPLY`. It is not read
+by the public menu and remains excluded from release media alongside `T2XAP1`,
+`T2XOBQ`, and `T2XOBS`.

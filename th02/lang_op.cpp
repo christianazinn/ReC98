@@ -283,6 +283,6 @@ void far pascal t2_language_option_text(char *label, char *value)
 	*value = '\0';
 }
 
-#include "th02/op/language.cpp"
+#include "th02/op/t2optui.inc"
 
 #pragma codeseg

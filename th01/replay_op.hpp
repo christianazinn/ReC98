@@ -25,7 +25,7 @@ bool t1replay_op_practice_redraw(void);
 void t1replay_op_restore(void);
 void t1replay_op_command_clear(void);
 bool t1replay_op_record_prepare(void);
-#if defined(T1RB)
+#if T1REPLAY_PROCESS_MILESTONES
 // Private no-input bootstrap for the release-blocker process witness only.
 // It is not linked into public builds and consumes T1MIL.CFG before launch.
 bool t1replay_op_milestone_practice_bootstrap(
