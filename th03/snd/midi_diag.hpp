@@ -35,6 +35,7 @@ enum th03_midi_diag_event_t {
 	T3MD_MAIN_ADOPT_ENTER = 0x50,
 	T3MD_MAIN_ADOPT_DONE = 0x51,
 	T3MD_MAIN_ROUND_READY = 0x52,
+	T3MD_MAIN_ENTER = 0x53,
 
 	T3MD_MAINL_ENTER = 0x60,
 	T3MD_MAINL_TO_MAIN = 0x61,
@@ -44,6 +45,7 @@ enum th03_midi_diag_event_t {
 	T3MD_MAINL_SPLASH_WAIT_DONE = 0x65,
 	T3MD_MAINL_SPLASH_FADE_DONE = 0x66,
 	T3MD_MAINL_SPLASH_DONE = 0x67,
+	T3MD_MAINL_EXIT_DONE = 0x68,
 };
 
 void far th03_midi_diag_log(

@@ -28,6 +28,9 @@ int pascal GameExecl(const char *binary_fn);
 extern "C" void far main_entry(void)
 {
 	register int route;
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_MAIN_ENTER, 0, 0);
+	#endif
 
 	game_init_main(aCOul);
 	if(!cfg_load_resident_ptr()) {
@@ -37,9 +40,6 @@ extern "C" void far main_entry(void)
 	gaiji_backup();
 	gaiji_entry_bfnt(aGameft_bft);
 	round_startup();
-	#if defined(TH03_MIDI_DIAGNOSTICS)
-	th03_midi_diag_log(T3MD_MAIN_ROUND_READY, 0, 0);
-	#endif
 	farfp_20F20();
 	replay_session_start();
 	replay_round_start();

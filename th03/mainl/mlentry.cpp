@@ -163,6 +163,9 @@ exit_to_main:
 		th03_midi_diag_log(T3MD_MAINL_TO_MAIN, 0, 0);
 		#endif
 		mainl_replay_exit_to_main();
+		#if defined(TH03_MIDI_DIAGNOSTICS)
+		th03_midi_diag_log(T3MD_MAINL_EXIT_DONE, 0, 0);
+		#endif
 		asm {
 			db  	66h, 6Ah, 0
 			push	ds
