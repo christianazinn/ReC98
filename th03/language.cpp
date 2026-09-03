@@ -192,6 +192,42 @@ void far th03_snd_process_init(void)
 	resident->unused_3[T3_SND_MMD_HANDOFF_RES_INDEX] = snd_midi_possible;
 }
 
+#if (BINARY == 'M')
+#pragma option -k-
+void far th03_snd_process_adopt(void)
+{
+	// MAINL has already performed the real PMD/MMD probes. Rebuild MAIN's
+	// process-local routing with no nested helper calls: the original gameplay
+	// startup observes stack residue from this exact call depth.
+	snd_midi_possible = static_cast<bool>(
+		resident->unused_3[T3_SND_MMD_HANDOFF_RES_INDEX]
+	);
+	snd_midi_active = (
+		(resident->bgm_mode == SND_BGM_MIDI) && snd_midi_possible
+	);
+	snd_interrupt_if_midi = (snd_midi_active ? MMD : PMD);
+
+	snd_fm_possible = false;
+	if(
+		(resident->bgm_mode != SND_BGM_OFF) ||
+		th03_snd_se_enabled()
+	) {
+		_AH = PMD_GET_DRIVER_TYPE_AND_VERSION;
+		geninterrupt(PMD);
+		snd_fm_possible = (_AL != 0xFF);
+	}
+	if(resident->bgm_mode == SND_BGM_MIDI) {
+		snd_active = snd_midi_possible;
+	} else if(resident->bgm_mode == SND_BGM_FM) {
+		snd_active = snd_fm_possible;
+	} else {
+		snd_active = false;
+	}
+	th03_snd_process_apply();
+}
+#pragma option -k.
+#endif
+
 void far th03_snd_se_toggle(void)
 {
 	bool enabled = !th03_snd_se_enabled();
