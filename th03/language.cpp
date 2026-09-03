@@ -342,7 +342,7 @@ void far th03_snd_midi_prime(void)
 
 #if (BINARY == 'M')
 #pragma option -k-
-void far th03_snd_process_adopt(void)
+void far th03_snd_process_init_and_play(void)
 {
 	#if defined(TH03_MIDI_DIAGNOSTICS)
 	th03_midi_diag_log(T3MD_MAIN_ADOPT_ENTER, 0, 0);
@@ -373,14 +373,14 @@ void far th03_snd_process_adopt(void)
 	#if defined(TH03_MIDI_DIAGNOSTICS)
 	th03_midi_diag_log(T3MD_MAIN_ADOPT_DONE, 0, 0);
 	#endif
+	snd_kaja_func(KAJA_SONG_PLAY, 0);
 	// Keep the following patch-owned sound helper and every later MAIN segment
-	// at the already accepted offsets after removing the PMD interrupt path.
+	// at the already accepted offsets after replacing the PMD interrupt path.
 	#if defined(TH03_MIDI_DIAGNOSTICS)
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#else
 	#pragma codestring \
 		"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90" \
-		"\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+		"\x90\x90\x90\x90\x90\x90\x90"
 	#endif
 }
 #pragma option -k.

@@ -68,7 +68,7 @@ void far th03_snd_process_init(void);
 void far th03_snd_midi_prime(void);
 #endif
 #if (BINARY == 'M')
-void far th03_snd_process_adopt(void);
+void far th03_snd_process_init_and_play(void);
 #endif
 void far th03_snd_se_toggle(void);
 
