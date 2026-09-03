@@ -101,4 +101,7 @@ void snd_load(const char fn[PF_FN_LEN], snd_load_func_t func)
 	th03_midi_diag_log(T3MD_LOAD_PMD, func, 0);
 	#endif
 	snd_load_raw(fn, func);
+	#if defined(TH03_MIDI_DIAGNOSTICS)
+	th03_midi_diag_log(T3MD_LOAD_PMD_DONE, func, 0);
+	#endif
 }

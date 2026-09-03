@@ -359,12 +359,15 @@ void near stage_splash_show_and_wait(void)
 	}
 	bgm_fn[1] += char_id;
 	snd_kaja_func(KAJA_SONG_STOP, 0);
+	// Replay Patch: Keep PMD's sound-effect-bank refresh ahead of the MMD
+	// song-buffer load. Calling back into PMD after MMD has accepted the next
+	// stage song can corrupt the dual-driver handoff before MAIN starts.
+	snd_load(stage_splash_yume_efc_fn, SND_LOAD_SE);
 	if(resident->story_stage != STAGE_DECISIVE) {
 		snd_load(bgm_fn, SND_LOAD_SONG);
 	} else {
 		snd_load(dec_bgm_fn, SND_LOAD_SONG);
 	}
-	snd_load(stage_splash_yume_efc_fn, SND_LOAD_SE);
 	input_sp = INPUT_NONE;
 	while(vsync_Count1 <= 32) {
 	}
