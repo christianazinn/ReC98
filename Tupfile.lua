@@ -919,7 +919,11 @@ local function th03_replay_dev_build(
 			["th03/snd_kaja.cpp"] = "snd_kaja",
 		}) do
 			op_replacements[fn] = op_objects:build_uncached(fn)
-			main_replacements[fn] = main_objects:build_uncached(fn)
+			-- MAIN's position-sensitive gameplay segments follow SHARED. Keep its
+			-- ordinary KAJA object so diagnostics don't shift those segments.
+			if fn ~= "th03/snd_kaja.cpp" then
+				main_replacements[fn] = main_objects:build_uncached(fn)
+			end
 			mainl_replacements[fn] = mainl_objects:build_uncached(fn)
 		end
 		mainl_replacements["th03/mainl_sc.cpp"] =
