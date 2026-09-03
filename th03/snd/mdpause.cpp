@@ -8,7 +8,10 @@
 // Its stop function clears this flag after silencing every active MIDI note,
 // but deliberately leaves the song cursor and counters intact.
 static const uint16_t MMD_22G_ISR_OFFSET = 0x0103;
+static const uint16_t MMD_22G_RESUME_DISPATCH_OFFSET = 0x0156;
+static const uint16_t MMD_22G_NOOP_OFFSET = 0x01C5;
 static const uint16_t MMD_22G_STOP_OFFSET = 0x02D9;
+static const uint16_t MMD_22G_INTERFACE_START_OFFSET = 0x0BA7;
 static const uint16_t MMD_22G_PLAYING_OFFSET = 0x0CCC;
 
 static bool mmd_22g_resume(void)
@@ -28,10 +31,41 @@ static bool mmd_22g_resume(void)
 		(static_cast<uint8_t>(peekb(isr_seg, MMD_22G_STOP_OFFSET + 2)) != 0x3E) ||
 		(static_cast<uint8_t>(peekb(isr_seg, MMD_22G_STOP_OFFSET + 3)) != 0xCC) ||
 		(static_cast<uint8_t>(peekb(isr_seg, MMD_22G_STOP_OFFSET + 4)) != 0x0C) ||
-		(static_cast<uint8_t>(peekb(isr_seg, MMD_22G_STOP_OFFSET + 5)) != 0x01)
+		(static_cast<uint8_t>(peekb(isr_seg, MMD_22G_STOP_OFFSET + 5)) != 0x01) ||
+		(static_cast<uint16_t>(peek(
+			isr_seg, MMD_22G_RESUME_DISPATCH_OFFSET
+		)) != MMD_22G_NOOP_OFFSET) ||
+		(static_cast<uint8_t>(peekb(
+			isr_seg, MMD_22G_INTERFACE_START_OFFSET + 0
+		)) != 0x80) ||
+		(static_cast<uint8_t>(peekb(
+			isr_seg, MMD_22G_INTERFACE_START_OFFSET + 1
+		)) != 0x3E) ||
+		(static_cast<uint8_t>(peekb(
+			isr_seg, MMD_22G_INTERFACE_START_OFFSET + 2
+		)) != 0xCB) ||
+		(static_cast<uint8_t>(peekb(
+			isr_seg, MMD_22G_INTERFACE_START_OFFSET + 3
+		)) != 0x0C) ||
+		(static_cast<uint8_t>(peekb(
+			isr_seg, MMD_22G_INTERFACE_START_OFFSET + 4
+		)) != 0x00)
 	) {
 		return false;
 	}
+
+	// STOP also disconnects MMD from its MIDI-interface callback. Temporarily
+	// route an unused service to the resident's own initialization routine so
+	// it runs with the register and segment setup of the normal INT 61h handler.
+	poke(
+		isr_seg,
+		MMD_22G_RESUME_DISPATCH_OFFSET,
+		MMD_22G_INTERFACE_START_OFFSET
+	);
+	snd_kaja_interrupt(0x0300);
+	poke(
+		isr_seg, MMD_22G_RESUME_DISPATCH_OFFSET, MMD_22G_NOOP_OFFSET
+	);
 
 	// A byte store is atomic on the target CPU. The timer interrupt therefore
 	// observes either the stopped or playing state, never a partial update.
