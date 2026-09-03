@@ -24,7 +24,7 @@
 #include "th03/main/player/stuff.hpp"
 #include "th03/main/replay.hpp"
 #include "th03/main/sprite16.hpp"
-#include "th03/language_main.hpp"
+#include "th03/langmain.hpp"
 #include "th03/main/round.hpp"
 #include "th03/main/score.hpp"
 #include "th03/main/v_colors.hpp"

@@ -5,7 +5,7 @@
 #include "th03/common.h"
 #include "th03/hardware/input.h"
 #include "th03/language.hpp"
-#include "th03/language_mainl.hpp"
+#include "th03/lngml.hpp"
 #include "th03/mainl/replay.hpp"
 #include "th03/pixel_capture.hpp"
 #include "th03/resident.hpp"

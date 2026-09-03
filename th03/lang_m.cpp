@@ -1,7 +1,7 @@
 #pragma option -zCLANGUAGE_MAIN_TEXT -zPLANGUAGE_MAIN_TEXT
 
 #include "th03/language.hpp"
-#include "th03/language_main.hpp"
+#include "th03/langmain.hpp"
 
 extern "C" char near aGAUGE_ATTACK_TIMES[];
 extern "C" char near aBOSS_ATTACK_TIMES[];

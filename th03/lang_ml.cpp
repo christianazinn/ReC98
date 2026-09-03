@@ -2,7 +2,7 @@
 
 #include "shiftjis.hpp"
 #include "th03/language.hpp"
-#include "th03/language_mainl.hpp"
+#include "th03/lngml.hpp"
 
 extern const shiftjis_t* CHAR_TITLE[];
 extern const shiftjis_t* CHAR_NAME[];

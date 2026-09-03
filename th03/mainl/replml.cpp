@@ -6,7 +6,7 @@
 #include "th03/core/initexit.h"
 #include "th03/mainl/replay.hpp"
 #include "th03/language.hpp"
-#include "th03/language_mainl.hpp"
+#include "th03/lngml.hpp"
 #include "th03/keyconfig.hpp"
 #include "th03/practice.hpp"
 #include "th03/pixel_capture.hpp"
