@@ -2,7 +2,7 @@
 
 #include "shiftjis.hpp"
 #include "th03/language.hpp"
-#include "th03/language_op.hpp"
+#include "th03/lngop.hpp"
 
 extern const shiftjis_t* MUSIC_CHOICES[];
 

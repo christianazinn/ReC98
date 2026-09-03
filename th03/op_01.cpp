@@ -21,7 +21,7 @@
 #include "th03/hardware/input.h"
 #include "th03/keyconfig.hpp"
 #include "th03/language.hpp"
-#include "th03/language_op.hpp"
+#include "th03/lngop.hpp"
 #include "th03/photosensitivity.hpp"
 #include "th03/pixel_capture.hpp"
 #include "th03/menu_font.hpp"
