@@ -207,6 +207,10 @@ void near select_init_and_load(void)
 	curve_trail_count = 8;
 
 	playchars_available = playchars_available_load();
+	// Selection only needs the unlock flag copied into [hi]. Keeping the
+	// expanded scorefile buffers across Cancel would put them ahead of the
+	// final portrait allocations on the next entry.
+	scorefile_close();
 }
 
 void near select_free(void)

@@ -1590,19 +1590,27 @@ bool16 far scorefile_unlocked(void)
 bool16 far scorefile_extra_unlock(void)
 {
 	uint8_t flags_before;
+	bool16 unlocked = false;
 
 	if(!scorefile_ensure() ||
 		(scorefile->header.flags & T3_SCOREFILE_FLAG_EXTRA_UNLOCKED)) {
-		return false;
+		goto done;
 	}
 	flags_before = scorefile->header.flags;
 	scorefile->header.flags |= T3_SCOREFILE_FLAG_EXTRA_UNLOCKED;
 	if(scorefile_save_atomic()) {
-		return true;
+		unlocked = true;
+		goto done;
 	}
 	scorefile->header.flags = flags_before;
 	scorefile_checksums_set();
-	return false;
+
+done:
+	// The title code calls this before loading the final character-select
+	// portraits. Retaining both 7,812-byte scorefile buffers here can exhaust
+	// the smaller DOS heap left by the resident MMD driver.
+	scorefile_close();
+	return unlocked;
 }
 #endif
 
@@ -1870,8 +1878,7 @@ void far scorefile_close(void)
 // phase. These bytes live entirely in this patch-owned segment.
 #if (BINARY == 'O')
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90"
 #elif (BINARY == 'L')
 #pragma codestring "\x90\x90\x90"
 #elif (BINARY == 'M')
