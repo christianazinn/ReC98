@@ -169,7 +169,6 @@ void near select_init_and_load(void)
 	snd_load("select.m", SND_LOAD_SONG);
 	snd_kaja_func(KAJA_SONG_PLAY, 0);
 
-	curve_unused = 200;
 	random_seed = resident->rand;
 
 	text_clear();
@@ -689,8 +688,12 @@ bool near select_1p_vs_2p_menu(void)
 {
 	select_init_and_load();
 
-	// ZUN bloat: Redundant, already done in select_init_and_load().
-	text_clear();
+	// Keep this segment at its established phase after removing the redundant
+	// text_clear() and the unused curve assignment above.
+	__emit__(0x90);
+	__emit__(0x90);
+	__emit__(0x90);
+	__emit__(0x90);
 
 	sel_init_vs();
 
