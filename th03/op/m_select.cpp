@@ -526,10 +526,54 @@ inline void select_cdg_reload_unselected_pics(void)
 	}
 }
 
+static bool near select_cdg_reload_selected(int slot, const char *fn, int n)
+{
+	CDG loaded;
+	CDG near &allocated = cdg_slots[slot];
+	long image_size;
+
+	if(!allocated.seg_alpha() || !allocated.seg_colors()) {
+		return false;
+	}
+	if(!file_ropen(fn)) {
+		return false;
+	}
+	if(file_read(&loaded, sizeof(loaded)) != sizeof(loaded)) {
+		file_close();
+		return false;
+	}
+	if(
+		(loaded.bitplane_size != allocated.bitplane_size) ||
+		(loaded.pixel_w != allocated.pixel_w) ||
+		(loaded.pixel_h != allocated.pixel_h)
+	) {
+		file_close();
+		return false;
+	}
+	image_size = (loaded.bitplane_size * (PLANE_COUNT + 1L));
+	file_seek((n * image_size), SEEK_CUR);
+	if(
+		(file_read(allocated.seg_alpha(), loaded.bitplane_size) !=
+		 loaded.bitplane_size) ||
+		(file_read(
+			allocated.seg_colors(), (loaded.bitplane_size * PLANE_COUNT)
+		) != (loaded.bitplane_size * PLANE_COUNT))
+	) {
+		file_close();
+		return false;
+	}
+	file_close();
+	allocated.offset_at_bottom_left = loaded.offset_at_bottom_left;
+	allocated.vram_dword_w = loaded.vram_dword_w;
+	allocated.image_count = loaded.image_count;
+	allocated.plane_layout = CDG_COLORS_AND_ALPHA;
+	return true;
+}
+
 void near select_confirm_player(pid2 pid, int palette_id)
 {
 	int playchar = sel[pid];
-	resident->playchar_paletted[pid].v = (
+	int playchar_paletted = (
 		TO_OPTIONAL_PALETTED(playchar) + palette_id
 	);
 	palette_white_in(1);
@@ -541,21 +585,26 @@ void near select_confirm_player(pid2 pid, int palette_id)
 	}
 
 	if(sel_confirmed[1 - pid] && (
-		resident->playchar_paletted[0].v == resident->playchar_paletted[1].v
+		resident->playchar_paletted[1 - pid].v == playchar_paletted
 	)) {
 		if(palette_id) {
-			resident->playchar_paletted[pid].v--;
+			playchar_paletted--;
 		} else {
-			resident->playchar_paletted[pid].v++;
+			playchar_paletted++;
 		}
-		cdg_load_single(
+		if(!select_cdg_reload_selected(
 			(CDG_PIC_SELECTED + pid), PLAYCHAR_PIC_FN[playchar], !palette_id
-		);
+		)) {
+			return;
+		}
 	} else {
-		cdg_load_single(
+		if(!select_cdg_reload_selected(
 			(CDG_PIC_SELECTED + pid), PLAYCHAR_PIC_FN[playchar], palette_id
-		);
+		)) {
+			return;
+		}
 	}
+	resident->playchar_paletted[pid].v = playchar_paletted;
 
 	static_assert(PLAYER_COUNT == 2);
 	if(sel_confirmed[1 - pid]) {
