@@ -173,7 +173,12 @@ void near select_init_and_load(void)
 	random_seed = resident->rand;
 
 	text_clear();
-	super_free();
+	// The title screen preloads most Selection CDGs in an order that depends on
+	// the preceding title transition. In the reduced MMD-era OP arena, reusing
+	// that fragmented layout can leave no 18 KiB block for the final portrait
+	// color planes even though the complete asset set fits. Rebuild Selection
+	// from one empty CDG/Superimpose state on every fresh entry.
+	select_free();
 	{
 		bool16 language_switched = language_archive_begin_if_translated(
 			"chname.bft"
@@ -199,6 +204,9 @@ void near select_init_and_load(void)
 	playchars_available = playchars_available_load();
 	scorefile_close();
 
+	select_cdg_load_part1_of_4();
+	select_cdg_load_part3_of_4();
+	select_cdg_load_part2_of_4();
 	select_cdg_load_part4_of_4();
 
 	// ZUN bug: Is this supposed to be long enough for the player to release
