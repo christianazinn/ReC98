@@ -188,6 +188,15 @@ void near select_init_and_load(void)
 	page_shown = 0;
 
 	palette_entry_rgb_show("TLSL.RGB");
+
+	// Selection only needs the unlock flag copied into [playchars_available].
+	// Load and release
+	// the expanded scorefile before the final portraits consume the remaining
+	// heap; doing this afterward can make scorefile_ensure() fail and silently
+	// fall back to the locked character count.
+	playchars_available = playchars_available_load();
+	scorefile_close();
+
 	select_cdg_load_part4_of_4();
 
 	// ZUN bug: Is this supposed to be long enough for the player to release
@@ -206,11 +215,6 @@ void near select_init_and_load(void)
 	// render and will consequently always decrement the count to 7.
 	curve_trail_count = 8;
 
-	playchars_available = playchars_available_load();
-	// Selection only needs the unlock flag copied into [hi]. Keeping the
-	// expanded scorefile buffers across Cancel would put them ahead of the
-	// final portrait allocations on the next entry.
-	scorefile_close();
 }
 
 void near select_free(void)
