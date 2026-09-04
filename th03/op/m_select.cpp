@@ -102,6 +102,8 @@ static int curve_trail_count;
 static unsigned char playchars_available;
 /// -----
 
+void pascal far select_cdg_reload_selected(int slot, const char *fn, int n);
+
 #include "th03/formats/score_ld.cpp"
 
 unsigned char near playchars_available_load(void)
@@ -171,13 +173,7 @@ void near select_init_and_load(void)
 	random_seed = resident->rand;
 
 	text_clear();
-	// The title screen deliberately preloads most Selection CDGs to hide their
-	// loading time. Treating those allocations as reusable is unsafe after a
-	// translated title-resource swap: master.lib can leave the same live assets
-	// in a different hole layout, and a later unchecked CDG allocation can then
-	// return segment 0. Normalize every entry to the one known-good ownership
-	// state before loading the complete Selection asset set.
-	select_free();
+	super_free();
 	{
 		bool16 language_switched = language_archive_begin_if_translated(
 			"chname.bft"
@@ -203,9 +199,6 @@ void near select_init_and_load(void)
 	playchars_available = playchars_available_load();
 	scorefile_close();
 
-	select_cdg_load_part1_of_4();
-	select_cdg_load_part3_of_4();
-	select_cdg_load_part2_of_4();
 	select_cdg_load_part4_of_4();
 
 	// ZUN bug: Is this supposed to be long enough for the player to release
@@ -526,54 +519,10 @@ inline void select_cdg_reload_unselected_pics(void)
 	}
 }
 
-static bool near select_cdg_reload_selected(int slot, const char *fn, int n)
-{
-	CDG loaded;
-	CDG near &allocated = cdg_slots[slot];
-	long image_size;
-
-	if(!allocated.seg_alpha() || !allocated.seg_colors()) {
-		return false;
-	}
-	if(!file_ropen(fn)) {
-		return false;
-	}
-	if(file_read(&loaded, sizeof(loaded)) != sizeof(loaded)) {
-		file_close();
-		return false;
-	}
-	if(
-		(loaded.bitplane_size != allocated.bitplane_size) ||
-		(loaded.pixel_w != allocated.pixel_w) ||
-		(loaded.pixel_h != allocated.pixel_h)
-	) {
-		file_close();
-		return false;
-	}
-	image_size = (loaded.bitplane_size * (PLANE_COUNT + 1L));
-	file_seek((n * image_size), SEEK_CUR);
-	if(
-		(file_read(allocated.seg_alpha(), loaded.bitplane_size) !=
-		 loaded.bitplane_size) ||
-		(file_read(
-			allocated.seg_colors(), (loaded.bitplane_size * PLANE_COUNT)
-		) != (loaded.bitplane_size * PLANE_COUNT))
-	) {
-		file_close();
-		return false;
-	}
-	file_close();
-	allocated.offset_at_bottom_left = loaded.offset_at_bottom_left;
-	allocated.vram_dword_w = loaded.vram_dword_w;
-	allocated.image_count = loaded.image_count;
-	allocated.plane_layout = CDG_COLORS_AND_ALPHA;
-	return true;
-}
-
 void near select_confirm_player(pid2 pid, int palette_id)
 {
 	int playchar = sel[pid];
-	int playchar_paletted = (
+	resident->playchar_paletted[pid].v = (
 		TO_OPTIONAL_PALETTED(playchar) + palette_id
 	);
 	palette_white_in(1);
@@ -585,26 +534,21 @@ void near select_confirm_player(pid2 pid, int palette_id)
 	}
 
 	if(sel_confirmed[1 - pid] && (
-		resident->playchar_paletted[1 - pid].v == playchar_paletted
+		resident->playchar_paletted[0].v == resident->playchar_paletted[1].v
 	)) {
 		if(palette_id) {
-			playchar_paletted--;
+			resident->playchar_paletted[pid].v--;
 		} else {
-			playchar_paletted++;
+			resident->playchar_paletted[pid].v++;
 		}
-		if(!select_cdg_reload_selected(
+		select_cdg_reload_selected(
 			(CDG_PIC_SELECTED + pid), PLAYCHAR_PIC_FN[playchar], !palette_id
-		)) {
-			return;
-		}
+		);
 	} else {
-		if(!select_cdg_reload_selected(
+		select_cdg_reload_selected(
 			(CDG_PIC_SELECTED + pid), PLAYCHAR_PIC_FN[playchar], palette_id
-		)) {
-			return;
-		}
+		);
 	}
-	resident->playchar_paletted[pid].v = playchar_paletted;
 
 	static_assert(PLAYER_COUNT == 2);
 	if(sel_confirmed[1 - pid]) {

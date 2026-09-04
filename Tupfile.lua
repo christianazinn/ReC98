@@ -652,6 +652,7 @@ local th03_op_inputs = {
 	"th03/snd_midi.cpp",
 	"th03/lang_op.cpp",
 	"th03/scorio.cpp",
+	"th03/op/select_cdg_reload.cpp",
 }
 th03_op_cfg:link("op", th03_inputs_replace(th03_op_inputs, {
 	["th03/language.cpp"] = th03_op_cfg:branch({
