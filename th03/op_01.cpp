@@ -2315,7 +2315,7 @@ static void replay_menu_slot_line_put(
 
 	p = replay_menu_line;
 	*p++ = (((slot == sel) && active) ? '>' : ' ');
-	p = replay_line_append_u8_2(p, slot);
+	p = replay_line_append_u32(p, slot);
 	*p++ = ' ';
 	if(has_replay) {
 		p = replay_line_append_playchar_pair(
@@ -2413,7 +2413,7 @@ static void replay_menu_detail_put_empty(uint8_t slot, bool clear)
 
 	p = replay_menu_line;
 	p = replay_line_append_cstr(p, "Slot ");
-	p = replay_line_append_u8_2(p, slot);
+	p = replay_line_append_u32(p, slot);
 	p = replay_line_append_cstr(p, ": none");
 	replay_menu_detail_line_put(REPLAY_MENU_DETAIL_Y, p);
 
@@ -2819,7 +2819,7 @@ static void replay_menu_detail_put(
 
 	p = replay_menu_line;
 	p = replay_line_append_cstr(p, "Slot ");
-	p = replay_line_append_u8_2(p, slot);
+	p = replay_line_append_u32(p, slot);
 	p = replay_line_append_cstr(p, "  ");
 	if(replay_menu_practice()) {
 		p = replay_line_append_practice_text(p, RPT_PRACTICE);
@@ -2909,8 +2909,11 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 // The proportional-font compositor redraws each hidden page from the PI and
 // must not call the legacy page-1-to-page-0 row restorer for this footer.
 // Preserve the protected OP contribution after removing those two calls.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#if defined(TH03_REPLAY_DEV_STAGE_SELECT) && !defined(TH03_REPLAY_DEVTOOLS)
+#pragma codestring "\x90\x90\x90"
+#else
+#pragma codestring "\x90\x90\x90\x90\x90"
+#endif
 
 static void replay_menu_detail_render(
 	uint8_t slot, uint8_t checkpoint_sel, bool checkpoint_focus,

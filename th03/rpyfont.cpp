@@ -545,7 +545,7 @@ void far replay_font_slot_line_put(
 			">", REPLAY_FONT_SELECTED_COLOR
 		);
 	}
-	p = append_u8_2(replay_menu_line, slot);
+	p = append_u32(replay_menu_line, slot);
 	field_put(SLOT_PIXEL_LEFT, y, p, (atrb | REPLAY_FONT_FIXED_NUMERIC));
 	if(!has_replay) {
 		p = append_cstr(replay_menu_line, "none");
@@ -569,7 +569,7 @@ void far replay_font_slot_line_put(
 }
 
 // Preserve the following public column renderer across slot-layout revisions.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90"
 
 void far replay_font_columns_put(bool clear)
 {
@@ -607,7 +607,7 @@ static void slot_name_put(uint8_t slot, unsigned y)
 
 	field_put(DETAIL_PIXEL_LEFT, y, p, TX_WHITE);
 	p = append_cstr(replay_menu_line, "Slot ");
-	p = append_u8_2(p, slot);
+	p = append_u32(p, slot);
 	field_put_right(DETAIL_PIXEL_RIGHT, y, p, TX_CYAN);
 }
 
@@ -693,7 +693,7 @@ static void detail_tabs_put(uint8_t detail_page)
 }
 
 // Preserve all later replay-browser entry points after shortening the tabs.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90"
 
 static bool clear_bonus_valid(uint8_t stage)
 {
@@ -1342,7 +1342,7 @@ static void practice_put(
 }
 
 // Preserve the following public replay-font entry points across menu revisions.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 
 void far replay_font_detail_put(
 	uint8_t slot,
@@ -1420,7 +1420,7 @@ void far replay_font_detail_empty_put(uint8_t slot)
 {
 	char *p = append_cstr(replay_menu_line, "Slot ");
 
-	p = append_u8_2(p, slot);
+	p = append_u32(p, slot);
 	field_put(DETAIL_PIXEL_LEFT, DETAIL_Y, p, TX_CYAN);
 	text_put(
 		DETAIL_PIXEL_LEFT, (DETAIL_Y + 2), "No replay header found.", TX_WHITE
@@ -1756,7 +1756,7 @@ void far replay_font_save_dialog_put(
 	}
 	if(question == RFSQ_OVERWRITE) {
 		p = append_cstr(p, "Overwrite Slot ");
-		p = append_u8_2(p, slot);
+		p = append_u32(p, slot);
 	} else if(question == RFSQ_SAVE) {
 		p = append_cstr(p, "Save Replay");
 	} else {
@@ -1794,3 +1794,6 @@ void far replay_font_save_complete_put(void)
 		(22 * GLYPH_H), 9, SAVE_JP_COMPLETE
 	);
 }
+
+// Keep the patch-owned segment phase stable for following OP contributions.
+#pragma codestring "\x90"
