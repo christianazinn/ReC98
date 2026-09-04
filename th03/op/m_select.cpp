@@ -171,7 +171,13 @@ void near select_init_and_load(void)
 	random_seed = resident->rand;
 
 	text_clear();
-	super_free();
+	// The title screen deliberately preloads most Selection CDGs to hide their
+	// loading time. Treating those allocations as reusable is unsafe after a
+	// translated title-resource swap: master.lib can leave the same live assets
+	// in a different hole layout, and a later unchecked CDG allocation can then
+	// return segment 0. Normalize every entry to the one known-good ownership
+	// state before loading the complete Selection asset set.
+	select_free();
 	{
 		bool16 language_switched = language_archive_begin_if_translated(
 			"chname.bft"
@@ -197,6 +203,9 @@ void near select_init_and_load(void)
 	playchars_available = playchars_available_load();
 	scorefile_close();
 
+	select_cdg_load_part1_of_4();
+	select_cdg_load_part3_of_4();
+	select_cdg_load_part2_of_4();
 	select_cdg_load_part4_of_4();
 
 	// ZUN bug: Is this supposed to be long enough for the player to release
