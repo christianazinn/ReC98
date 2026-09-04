@@ -526,7 +526,7 @@ static void score_put(
 	field_put_right(right, y, p, atrb);
 }
 
-// Keep enough padding to absorb additions to the fixed-width compositor.
+// Preserve the public slot renderer after replacing its numeric formatter.
 #pragma codestring "\x90"
 
 void far replay_font_slot_line_put(
@@ -546,7 +546,10 @@ void far replay_font_slot_line_put(
 		);
 	}
 	p = append_u32(replay_menu_line, slot);
-	field_put(SLOT_PIXEL_LEFT, y, p, (atrb | REPLAY_FONT_FIXED_NUMERIC));
+	field_put_right(
+		(SLOT_PIXEL_LEFT + (2 * REPLAY_FONT_NUMERIC_CELL_W)),
+		y, p, (atrb | REPLAY_FONT_FIXED_NUMERIC)
+	);
 	if(!has_replay) {
 		p = append_cstr(replay_menu_line, "none");
 		field_put(NAME_PIXEL_LEFT, y, p, atrb);
