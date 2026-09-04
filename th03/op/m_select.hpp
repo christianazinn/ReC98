@@ -12,8 +12,8 @@ void near select_archive_reopen(void);
 
 // Shows the respective character selection menu and writes the selected
 // characters to [resident->playchar_paletted]. Returns `true` if the selection
-// was canceled. A successful [select_vs_cpu_menu()] leaves its resources alive
-// for optional Practice Setup; the caller must eventually call select_free().
+// was canceled. A successful [select_vs_cpu_menu()] leaves its resources live;
+// its caller releases them before entering optional Practice Setup.
 bool near select_1p_vs_2p_menu(void);
 bool near select_vs_cpu_menu(bool resume); // 1P vs. CPU or CPU vs. CPU
 bool near select_story_menu(void);

@@ -1,7 +1,9 @@
 #include "th03/op/m_select.cpp"
 
 // Preserve the paragraph phase of the following original shared segment.
-#pragma codestring "\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg PRACTICEBG_TEXT group_01
 #include "th03/op/practice_bg.hpp"

@@ -1410,13 +1410,17 @@ static bool near vs_start(bool select_characters)
 					resident->game_mode = GM_NONE;
 					return true;
 				}
+				// Practice Setup renders only the curve state and keeps select.m
+				// playing. Drop all 255 KiB of Selection graphics before entering
+				// it rather than retaining a fragmented scene allocation.
+				select_free();
 				if(sel != VS_1P_CPU) {
 					break;
 				}
 				if(!practice_setup_menu()) {
 					break;
 				}
-				// Keep select.m and the selection graphics across this return.
+				// Keep select.m and the curve state across this return.
 				while(input_sp != INPUT_NONE) {
 					frame_delay(1);
 					input_mode_interface();
@@ -1424,7 +1428,6 @@ static bool near vs_start(bool select_characters)
 				palette_100();
 				resume = true;
 			}
-			select_free();
 		}
 	}
 

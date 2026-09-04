@@ -161,13 +161,15 @@ void near select_cdg_load_part3_of_4(void)
 	} \
 } \
 
-void near select_init_and_load(void)
+void near select_init_and_load(bool resume)
 {
 	vsync_Count1 = 0;
 
-	snd_kaja_func(KAJA_SONG_STOP, 0);
-	snd_load("select.m", SND_LOAD_SONG);
-	snd_kaja_func(KAJA_SONG_PLAY, 0);
+	if(!resume) {
+		snd_kaja_func(KAJA_SONG_STOP, 0);
+		snd_load("select.m", SND_LOAD_SONG);
+		snd_kaja_func(KAJA_SONG_PLAY, 0);
+	}
 
 	random_seed = resident->rand;
 
@@ -219,7 +221,9 @@ void near select_init_and_load(void)
 	// that key. Keep holding the Shot key for more than 30 frames and the
 	// menus will still confirm the initial selection on their first frame.
 	// The menu needs [input_locked] anyway; why isn't it set here?!
-	while(vsync_Count1 < 30) {
+	if(!resume) {
+		while(vsync_Count1 < 30) {
+		}
 	}
 
 	// ZUN bug: [vsync_Count1] is not reset after the loop above. This causes
@@ -522,15 +526,6 @@ inline void select_cdg_free_unselected_pics(void)
 	}
 }
 
-inline void select_cdg_reload_unselected_pics(void)
-{
-	for(int playchar = 0; playchar < PLAYCHAR_COUNT; playchar++) {
-		cdg_load_single(
-			(CDG_PIC + playchar), PLAYCHAR_PIC_FN[playchar], 0
-		);
-	}
-}
-
 void near select_confirm_player(pid2 pid, int palette_id)
 {
 	int playchar = sel[pid];
@@ -691,7 +686,7 @@ inline bool select_cancel(void) {
 // ZUN bloat: These three could have been merged into a single function.
 bool near select_1p_vs_2p_menu(void)
 {
-	select_init_and_load();
+	select_init_and_load(false);
 
 	// Keep this segment at its established phase after removing the redundant
 	// text_clear() and the unused curve assignment above.
@@ -734,16 +729,12 @@ done:
 
 bool near select_vs_cpu_menu(bool resume)
 {
-	if(!resume) {
-		select_init_and_load();
-	} else {
-		// Practice Setup keeps the selection assets, BGM, and live page-flip
-		// state. Reload the base portraits released on final confirmation so
-		// that every character is available again after returning.
-		select_cdg_reload_unselected_pics();
-		vsync_Count1 = 0;
-		curve_trail_count = 8;
-	}
+	// Practice Setup keeps select.m playing, but the second confirmation frees
+	// nine base portraits around the still-live selected portraits and BFNT.
+	// Reloading only those freed slots can exhaust the fragmented OP arena on
+	// the ninth portrait. Rebuild the complete scene through the same compact,
+	// ordered transaction as a fresh entry while leaving the song untouched.
+	select_init_and_load(resume);
 	sel_init_vs();
 	input_mode = input_mode_interface;
 	for(int pid_cur = 0; pid_cur < PLAYER_COUNT; pid_cur++) {
@@ -784,13 +775,13 @@ bool near select_vs_cpu_menu(bool resume)
 		}
 done:
 	}
-	// The caller frees resources after the optional Practice Setup flow.
+	// The caller releases the graphics before optional Practice Setup.
 	return false;
 }
 
 bool near select_story_menu(void)
 {
-	select_init_and_load();
+	select_init_and_load(false);
 	sel[0] = PLAYCHAR_REIMU;
 	sel_confirmed[0] = false;
 	sel_confirmed[1] = true;
