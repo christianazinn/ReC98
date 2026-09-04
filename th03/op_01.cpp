@@ -2944,11 +2944,11 @@ static void replay_menu_render(uint8_t sel, uint8_t top)
 		}
 		if(menu_font) {
 			menu_font_put(
-				(4 * GLYPH_HALF_W), 356, replay_menu_line, V_WHITE
+				(8 * GLYPH_HALF_W), 356, replay_menu_line, V_WHITE
 			);
 		} else {
 			text_putsa(
-				4, REPLAY_MENU_FOOT_Y, replay_menu_line, TX_WHITE
+				5, REPLAY_MENU_FOOT_Y, replay_menu_line, TX_WHITE
 			);
 		}
 	}
