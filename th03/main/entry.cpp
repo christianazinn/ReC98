@@ -9,16 +9,12 @@
 #include "th03/main/replay.hpp"
 #include "th03/main/round.hpp"
 #include "th03/resident.hpp"
-#include "th03/snd/midi_diag.hpp"
 #include "th03/snd/options.hpp"
 
 extern "C" const unsigned char aCOul[];
 extern "C" const char aGameft_bft[];
 extern "C" const char aOp[];
 extern "C" const char arg0[];
-
-extern unsigned mem_TopSeg;
-extern unsigned mem_OutSeg;
 
 extern farfunc_t_near farfp_20F20;
 
@@ -33,9 +29,6 @@ extern "C" void far main_entry(void)
 	register int route;
 
 	game_init_main(aCOul);
-	#if defined(TH03_MIDI_DIAGNOSTICS)
-	th03_midi_diag_log(T3MD_MAIN_INIT_DONE, mem_TopSeg, mem_OutSeg);
-	#endif
 	if(!cfg_load_resident_ptr()) {
 		return;
 	}
@@ -85,11 +78,7 @@ game_execl:
 }
 
 // Keeps every later original MAIN_01 contribution at its accepted offset.
-#if defined(TH03_MIDI_DIAGNOSTICS)
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
-#else
 #pragma codestring \
 	"\x90\x90\x90\x90\x90\x90\x90\x90" \
 	"\x90\x90\x90\x90\x90\x90\x90\x90" \
 	"\x90\x90\x90\x90\x90"
-#endif

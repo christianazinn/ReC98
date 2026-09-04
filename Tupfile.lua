@@ -888,12 +888,9 @@ local function th03_replay_dev_build(
 	local main = base:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" })
 	local mainl = base:branch(MODEL_LARGE, { cflags = "-DBINARY='L'" })
 	-- language.cpp is binary-specific but otherwise independent of replay
-	-- profile flags.  Avoid feeding the long dev-profile define into TCC for
-	-- this already-large translation unit unless diagnostics actually need it.
-	local binary_objects = base
-	if not cflags:find("TH03_MIDI_DIAGNOSTICS") then
-		binary_objects = th03:branch({ obj_root = dir })
-	end
+	-- profile flags. Avoid feeding the dev-profile define into this already-large
+	-- translation unit.
+	local binary_objects = th03:branch({ obj_root = dir })
 	local op_objects = binary_objects:branch(
 		MODEL_LARGE, { cflags = "-DBINARY='O'", obj_root = "op/" }
 	)
@@ -916,27 +913,6 @@ local function th03_replay_dev_build(
 	mainl_replacements["th03/language.cpp"] = mainl_objects:build_uncached(
 		"th03/language.cpp"
 	)
-	if cflags:find("TH03_MIDI_DIAGNOSTICS") then
-		for fn, stem in pairs({
-			["th03/snd_midi.cpp"] = "snd_midi",
-			["th03/snd_kaja.cpp"] = "snd_kaja",
-		}) do
-			op_replacements[fn] = op_objects:build_uncached(fn)
-			-- MAIN's position-sensitive gameplay segments follow SHARED. Keep its
-			-- ordinary KAJA object so diagnostics don't shift those segments.
-			if fn ~= "th03/snd_kaja.cpp" then
-				main_replacements[fn] = main_objects:build_uncached(fn)
-			end
-			mainl_replacements[fn] = mainl_objects:build_uncached(fn)
-		end
-		mainl_replacements["th03/mainl_sc.cpp"] =
-			mainl_objects:build_uncached("th03/mainl_sc.cpp")
-		main_replacements["th03/main/entry.cpp"] =
-			main_objects:build_uncached("th03/main/entry.cpp")
-		mainl_replacements["th03/mainl/mlentry.cpp"] =
-			mainl_objects:build_uncached("th03/mainl/mlentry.cpp")
-	end
-
 	if with_overlay then
 		main_replacements["th03/main/replay.cpp"] = main:build_uncached(
 			"th03/main/replay.cpp"
@@ -971,10 +947,6 @@ th03_replay_dev_build(
 th03_replay_dev_build(
 	"debug/", "-DTH03_REPLAY_DEVTOOLS", true, true
 )
-th03_replay_dev_build(
-	"md/", "-DTH03_MIDI_DIAGNOSTICS", false, false
-)
-
 -- Publication-aligned raw visual capture. Unlike the smaller replay debug
 -- profiles above, this must rebuild every C/C++ source so the PC-98 page,
 -- palette, scroll, fade, and wait macros route through the capture tracker.
