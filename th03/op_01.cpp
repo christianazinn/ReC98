@@ -4948,9 +4948,9 @@ void pascal far select_cdg_reload_selected(int slot, const char *fn, int n)
 	long image_size;
 
 	// Selection permanently reserves two full portrait slots. Reusing those
-	// buffers avoids master.lib's unchecked allocation path, which can return
-	// segment 0 after translated archive swaps fragment OP's smaller MIDI-era
-	// heap.
+	// buffers avoids master.lib's unchecked allocation path. Under memory
+	// pressure or fragmentation, that path can return segment 0 and then write
+	// the portrait over low memory.
 	if(!allocated.seg_alpha() || !allocated.seg_colors()) {
 		return;
 	}
