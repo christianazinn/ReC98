@@ -9,6 +9,8 @@ struct cfg_options_t {
 	uint8_t rank;
 	// Replay mod: Reuses the low byte of the original unused word.
 	bool autofire;
+	// Low 6 bits: language. Bit 6: replay recording disabled. Bit 7:
+	// photosensitivity reduction enabled.
 	uint8_t language;
 };
 #endif

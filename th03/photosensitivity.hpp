@@ -4,7 +4,7 @@
 #include "platform.h"
 #include "th03/snd/options.hpp"
 
-#define T3_CFG_LANGUAGE_MASK 0x7F
+#define T3_CFG_LANGUAGE_MASK 0x3F
 #define T3_CFG_PHOTOSENSITIVITY 0x80
 #define T3_PHOTOSENSITIVITY_RES_INDEX (T3_SND_SE_RES_INDEX + 1)
 
