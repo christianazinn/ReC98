@@ -620,6 +620,10 @@ static void keyconfig_background_load(void)
 	pfstart(reinterpret_cast<const unsigned char far *>(keyconfig_text.asset_pf_fn));
 	pi_fn_quads[0] = 0x2E316762UL; // "bg1."
 	pi_fn_quads[1] = 0x00006970UL; // "pi"
+	// The title screen releases slot 0 by value, leaving its pointer stale.
+	// KeyConfig owns a fresh full-screen PI and must not let pi_load() release
+	// whichever CDG or archive block later reused that segment.
+	pi_buffers[0] = nullptr;
 	pi_load(0, pi_fn);
 	pfend();
 	pfstart(reinterpret_cast<const unsigned char far *>(keyconfig_text.restore_pf_fn));
@@ -633,7 +637,7 @@ static void keyconfig_background_load(void)
 // Preserve later menu entry points after removing BG1 palette overrides.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 
 static void keyconfig_background_put(void)
 {

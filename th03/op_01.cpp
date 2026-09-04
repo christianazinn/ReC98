@@ -3012,6 +3012,20 @@ static void fullscreen_menu_resources_clear(void)
 	text_clear();
 }
 
+static void replay_menu_background_free(void)
+{
+	pi_free(0);
+	// graph_pi_free() receives the image pointer by value. Clear the slot so a
+	// later archive-directory allocation at the same segment cannot be freed
+	// again by pi_load().
+	pi_buffers[0] = nullptr;
+}
+
+void near select_archive_reopen(void)
+{
+	language_archive_end(true);
+}
+
 static void replay_menu_background_load(replay_background_t bg)
 {
 	if(bg == REPLAY_BG_NAME) {
@@ -3061,7 +3075,7 @@ static void replay_menu_background_put(
 	graph_accesspage(1);
 	pi_put_8(0, 0, 0);
 	if(!keep) {
-		pi_free(0);
+		replay_menu_background_free();
 	}
 	graph_showpage(0);
 	graph_accesspage(0);
@@ -3071,6 +3085,9 @@ static void replay_menu_background_put(
 static void replay_menu_browser_init(bool start_black)
 {
 	fullscreen_menu_resources_clear();
+	// Title transitions release their PI before the main menu becomes active,
+	// but master.lib leaves the caller-owned pointer stale.
+	pi_buffers[0] = nullptr;
 	replay_menu_background_load(REPLAY_BG_LIST);
 	PaletteTone = (start_black ? 0 : 100);
 	replay_menu_state.page_shown = 0;
@@ -3771,7 +3788,7 @@ static void replay_save_screen_exit(bool free_background)
 	palette_show();
 	replay_menu_state.list_active = false;
 	if(free_background) {
-		pi_free(0);
+		replay_menu_background_free();
 	}
 	fullscreen_menu_resources_clear();
 	graph_accesspage(0);
@@ -3891,7 +3908,7 @@ static void replay_save_pending(bool prompt)
 				return;
 			}
 		}
-		pi_free(0);
+		replay_menu_background_free();
 	}
 	for(i = 0; i < T3_REPLAY_USER_NAME_LEN; i++) {
 		replay_user_menu_header.name[i] = ' ';
@@ -4053,7 +4070,7 @@ bool near replay_menu(void)
 									T3_REPLAY_RES_INPUT_SIZE_INDEX, input_size
 								);
 								replay_checkpoint_handoff_set(checkpoint_sel);
-								pi_free(0);
+								replay_menu_background_free();
 								return switch_to_mainl(false);
 							}
 						} else {
@@ -4062,7 +4079,7 @@ bool near replay_menu(void)
 								T3_REPLAY_RES_MODE_USER_PLAYBACK
 							);
 							replay_resident_handoff_slot_set(sel);
-							pi_free(0);
+							replay_menu_background_free();
 							return switch_to_mainl(false);
 						}
 					}
@@ -4099,7 +4116,7 @@ bool near replay_menu(void)
 					}
 				} else if(input_sp & INPUT_CANCEL) {
 					text_clear();
-					pi_free(0);
+					replay_menu_background_free();
 					return true;
 				}
 			}
@@ -5061,14 +5078,17 @@ void pascal far select_cdg_reload_selected(int slot, const char *fn, int n)
 // Right-aligning unpadded one-digit slots consumes ten bytes of this
 // patch-owned phase reserve.
 #pragma codestring "\x90"
-// The persistent replay-recording switch and its browser UI consume another
-// 436 bytes of this reserve.
+// The Replay recording switch and normalized menu-background ownership consume
+// 446 bytes of this reserve.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90"
+#pragma codestring "\x90\x90"
+// The normalized PI release helper compiles smaller than the repeated far
+// calls it replaces. Keep the following OP_SEL_TEXT additions within the
+// established aggregate phase rather than shifting every later OP segment.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 /// --------

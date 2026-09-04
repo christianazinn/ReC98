@@ -178,6 +178,11 @@ void near select_init_and_load(void)
 	// color planes even though the complete asset set fits. Rebuild Selection
 	// from one empty CDG/Superimpose state on every fresh entry.
 	select_free();
+	// A full-screen menu can leave its freed PI buffer above the still-live
+	// stock archive directory. Reopen the archive now, while no Selection
+	// resource is live, so that directory cannot pin a 128 KiB hole beneath
+	// later BFNT and portrait allocations.
+	select_archive_reopen();
 	{
 		bool16 language_switched = language_archive_begin_if_translated(
 			"chname.bft"
@@ -690,9 +695,6 @@ bool near select_1p_vs_2p_menu(void)
 
 	// Keep this segment at its established phase after removing the redundant
 	// text_clear() and the unused curve assignment above.
-	__emit__(0x90);
-	__emit__(0x90);
-	__emit__(0x90);
 	__emit__(0x90);
 
 	sel_init_vs();

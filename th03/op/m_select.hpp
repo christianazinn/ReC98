@@ -8,6 +8,7 @@ void near select_cdg_load_part1_of_4(void);
 void near select_cdg_load_part2_of_4(void);
 void near select_cdg_load_part3_of_4(void);
 void near select_free(void);
+void near select_archive_reopen(void);
 
 // Shows the respective character selection menu and writes the selected
 // characters to [resident->playchar_paletted]. Returns `true` if the selection
