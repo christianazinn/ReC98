@@ -992,7 +992,9 @@ static void language_option_change(bool increment)
 		}
 #if (GAME == 5)
 		snd_determine_modes(resident->bgm_mode, resident->se_mode);
-		language_asset_snd_load(language_se_fn, SND_LOAD_SE);
+		if(resident->se_mode != SND_SE_OFF) {
+			language_asset_snd_load(language_se_fn, SND_LOAD_SE);
+		}
 #endif
 		break;
 	case LOC_TURBO_OR_SLOW:
@@ -1118,5 +1120,7 @@ void far language_option_update_and_render(void)
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #else
-	#pragma codestring "\x90\x90"
+	// The S.E.-Off archive guard grows TH05 by 11 bytes. Five more keep the
+	// following stock segment on the same paragraph phase.
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #endif
