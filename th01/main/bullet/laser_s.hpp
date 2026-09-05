@@ -30,6 +30,9 @@ public:
 };
 /// ------------------------
 
+struct t1replay_checkpoint_laser_t;
+struct t1replay_checkpoint_lasers_t;
+
 class CShootoutLaser {
 public:
 	LaserPixel origin_left;
@@ -94,6 +97,8 @@ public:
 
 	// Directly sets [done] if the laser collides with the player.
 	void update_hittest_and_render(void);
+	void checkpoint_export(t1replay_checkpoint_laser_t *checkpoint) const;
+	void checkpoint_import(const t1replay_checkpoint_laser_t *checkpoint);
 
 	// Tries to unblit the entire laser, but fails hilariously and potentially
 	// even crashes the game.
@@ -132,6 +137,13 @@ public:
 };
 
 extern CShootoutLaser shootout_lasers[SHOOTOUT_LASER_COUNT];
+
+void t1replay_lasers_checkpoint_export(
+	t1replay_checkpoint_lasers_t *checkpoint
+);
+void t1replay_lasers_checkpoint_import(
+	const t1replay_checkpoint_lasers_t *checkpoint
+);
 
 #define shootout_lasers_init(i) { \
 	for(i = 0; i < SHOOTOUT_LASER_COUNT; i++) { \

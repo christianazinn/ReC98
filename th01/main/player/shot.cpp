@@ -1,5 +1,6 @@
 #include "th01/math/overlap.hpp"
 #include "th01/sprites/pellet.h"
+#include "th01/replay_format.hpp"
 
 bool16 unused_boss_stage_flag = false; // ZUN bloat
 
@@ -161,4 +162,28 @@ bool16 CShots::hittest_boss(
 		}
 	}
 	return false;
+}
+
+void t1replay_shots_checkpoint_export(t1replay_checkpoint_shots_t *checkpoint)
+{
+	for(int i = 0; i < SHOT_COUNT; i++) {
+		checkpoint->shots[i].left = Shots.left[i];
+		checkpoint->shots[i].top = Shots.top[i];
+		checkpoint->shots[i].unknown = Shots.unknown[i];
+		checkpoint->shots[i].moving = Shots.moving[i];
+		checkpoint->shots[i].decay_frame = Shots.decay_frame[i];
+	}
+}
+
+void t1replay_shots_checkpoint_import(
+	const t1replay_checkpoint_shots_t *checkpoint
+)
+{
+	for(int i = 0; i < SHOT_COUNT; i++) {
+		Shots.left[i] = checkpoint->shots[i].left;
+		Shots.top[i] = checkpoint->shots[i].top;
+		Shots.unknown[i] = checkpoint->shots[i].unknown;
+		Shots.moving[i] = checkpoint->shots[i].moving;
+		Shots.decay_frame[i] = checkpoint->shots[i].decay_frame;
+	}
 }

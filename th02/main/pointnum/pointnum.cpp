@@ -1,5 +1,3 @@
-#pragma option -zPmain_01 -G
-
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/rank.h"
 #include "th02/v_colors.hpp"
@@ -13,22 +11,6 @@
 #include "th02/sprites/pointnum.h"
 
 #pragma option -a2
-
-static const int POINTNUM_COUNT = 20;
-
-struct CPointnums {
-	vc_t col;
-	int8_t unused;
-	screen_x_t left[POINTNUM_COUNT];
-	screen_y_t top[POINTNUM_COUNT][PAGE_COUNT];
-	uint16_t points[POINTNUM_COUNT];
-	entity_flag_t flag[POINTNUM_COUNT];
-	uint8_t age[POINTNUM_COUNT];
-	pointnum_cel_t op; // `operator` is a keyword.
-	pointnum_cel_t operand;
-};
-
-extern CPointnums pointnums;
 
 // Function ordering fails
 // -----------------------

@@ -34,6 +34,11 @@
 #include "th01/math/polar.hpp"
 #endif
 #include "th02/op/m_music.hpp"
+#if (GAME >= 4)
+	#include "th04/language_overlay.hpp"
+#elif (GAME == 2)
+	#include "th02/language.hpp"
+#endif
 #if (GAME == 5)
 #include "th01/math/clamp.hpp"
 #include "th05/formats/pi.hpp"
@@ -321,7 +326,16 @@ void near nopoly_B_put(void)
 	_ES = SEG_PLANE_B;
 	_AX = FP_SEG(nopoly_B);
 	_DS = _AX;
-	__memcpy__(MK_FP(_ES, 0), MK_FP(_DS, 0), PLANE_SIZE);
+	// Turbo C++'s memcpy intrinsic zeroes the two index registers as `33 FF` /
+	// `33 F6`; ZUN's build has TASM's `31 FF` / `31 F6`. The target is the
+	// assembler direction, so ordinary inline ASM emits it with no byte pins.
+	// kb/codegen/0037.
+	_asm {
+		xor 	di, di;
+		xor 	si, si;
+		mov 	cx, (PLANE_SIZE / 2);
+		rep 	movsw;
+	}
 	asm { pop ds; }
 #else
 	for(vram_offset_t p = 0; p < PLANE_SIZE; p += int(sizeof(dots32_t))) {
@@ -505,17 +519,27 @@ void pascal near cmt_load(int track)
 	char* FN = "_MUSIC0.TXT";
 
 	FN[6] = ('0' + game_sel);
-	file_ropen(FN);
+	language_asset_music_file_ropen(FN);
 #elif (GAME == 4)
-	file_ropen("_MUSIC.TXT");
+	language_asset_file_ropen("_MUSIC.TXT");
+#elif (GAME == 2)
+	t2_language_file_ropen("MUSIC.TXT");
 #else
 	file_ropen("MUSIC.TXT");
 #endif
 	file_seek((track * int(sizeof(cmt))), SEEK_SET);
 	file_read(cmt, sizeof(cmt));
+#if (GAME == 5)
+	language_asset_music_file_close();
+#elif (GAME == 4)
+	language_asset_file_close();
+#elif (GAME == 2)
+	t2_language_file_close();
+#else
 	file_close();
 #if (GAME == 3)
 	language_archive_end(language_switched);
+#endif
 #endif
 	for(int i = 0; i < CMT_LINES; i++) {
 		cmt[i].c[CMT_LINE_LENGTH] = '\0';
@@ -1087,7 +1111,12 @@ controls:
 	// ZUN bloat: The call site would have been a better place for this,
 	// especially since it has another copy of the same code with the same
 	// landmine.
-	pi_fullres_load_palette_apply_put_free(0, MENU_MAIN_BG_FN);
+	if(t2_language_pi_load(0, MENU_MAIN_BG_FN) == 0) {
+		pi_palette_apply(0);
+		pi_put_8(0, 0, 0);
+		pi_free(0);
+	}
+	pi_buffers[0] = 0;
 	palette_entry_rgb_show(MENU_MAIN_PALETTE_FN);
 	graph_copy_page(0);
 #endif

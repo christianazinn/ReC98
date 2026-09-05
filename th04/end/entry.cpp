@@ -7,6 +7,7 @@
 #include "th03/formats/pi.hpp"
 #include "th04/hardware/input.h"
 #endif
+#include "th04/language_overlay.hpp"
 #include "th03/formats/cfg_impl.hpp"
 #include "th03/core/initexit.h"
 #include "th03/cutscene/cutscene.hpp"
@@ -79,7 +80,10 @@ void near end_animate(void)
 	 * assert() of sorts.) \
 	 */ \
 	graph_accesspage(1); \
-	pi_fullres_load_palette_apply_put_free(0, pic_fn); \
+	language_asset_pi_load(0, pic_fn); \
+	pi_palette_apply(0); \
+	pi_put_8(0, 0, 0); \
+	pi_free(0); \
 	graph_copy_page(0); \
 	\
 	palette_black_in(1); \

@@ -158,7 +158,7 @@ CFG_TEXT segment byte public 'CODE' use16
 		assume cs:op_01
 		assume es:nothing, ss:nothing, ds:_DATA, fs:nothing, gs:nothing
 
-include th04/zunsoft.asm
+	; The ZUN Soft logo now lives in th04/op/zunsoft.cpp.
 CFG_TEXT ends
 
 OP_TITLE_TEXT segment byte public 'CODE' use16

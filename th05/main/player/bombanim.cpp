@@ -4,68 +4,13 @@
 #include "th04/main/playfld.hpp"
 #include "th04/main/frames.h"
 #include "th04/main/circle.hpp"
+#include "th04/main/hud/hud.hpp"
+#include "th04/main/item/item.hpp"
+#include "th04/main/boss/boss.hpp"
 #include "th05/sprites/main_pat.h"
 #include "th05/main/player/bomb.hpp"
 
-// Structures
-// ----------
-static const int REIMU_STAR_TRAILS = 6;
-static const int REIMU_STAR_NODE_COUNT = 8;
-static const int MARISA_LASER_COUNT = 8;
-static const int MIMA_CIRCLE_COUNT = 8;
-
-static const pixel_t REIMU_STAR_W = 64;
-static const pixel_t REIMU_STAR_H = 64;
-
-// Generic type
-struct bomb_anim_t {
-	point_t pos;
-	int16_t val1;
-	int16_t val2;
-	unsigned char angle;
-	int8_t padding;
-};
-
-struct reimu_star_t {
-	struct {
-		Subpixel screen_x;
-		Subpixel screen_y;
-	} topleft;
-	SPPoint velocity;
-	unsigned char angle;
-	int8_t padding;
-};
-
-struct marisa_laser_t {
-	SPPoint center;
-	int16_t unused;
-	pixel_t radius;
-	int16_t padding;
-};
-
-struct mima_circle_t {
-	screen_point_t center;
-	int16_t unused;
-	pixel_t distance;
-	unsigned char angle;
-	int8_t padding;
-};
-
-struct yuuka_heart_t {
-	screen_point_t topleft;
-	int16_t unused;
-	pixel_t distance;
-	unsigned char angle;
-	int8_t padding;
-};
-
-extern union {
-	reimu_star_t reimu[REIMU_STAR_TRAILS][REIMU_STAR_NODE_COUNT];
-	marisa_laser_t marisa[MARISA_LASER_COUNT];
-	mima_circle_t mima[MIMA_CIRCLE_COUNT];
-	yuuka_heart_t yuuka;
-} bomb_anim;
-// ----------
+#include "th05/main/player/bombanim.hpp"
 
 #define reimu_star_put(star, col) \
 	super_roll_put_1plane( \
@@ -75,6 +20,41 @@ extern union {
 		0, \
 		super_plane(col, true) \
 	);
+
+/// Dream meter drain
+/// -----------------
+/// Called at the end of every frame of all four playchars' bomb animations —
+/// bombing costs Dream. The rate is halved outside the [PHASE_HP_FILL] window:
+/// the meter loses a unit every 2nd frame while [boss.phase] is 0, and only
+/// every 4th frame otherwise. The same `(phase == PHASE_HP_FILL) || (frame is
+/// odd-ish)` gate guards the -2 drain in the miss animation, which is still
+/// ZUN's assembly. [inferred; the dump left this function unnamed]
+///
+/// The floor is 1, not 0: a meter that reached 0 here would be re-raised by
+/// the next point item from a different base than the miss path's floor, which
+/// also clamps to 1.
+
+void near bomb_dream_decay(void)
+{
+	// `% 2` and `% 4`, not `& 1` and `& 3`: [bomb_frame] is an
+	// `unsigned char` that promotes to a *signed* `int` before `%`, and
+	// Turbo C++ 4.0J only lowers the modulo to a mask for an unsigned
+	// operand. (kb/codegen/0128; the remainder is consumed out of DX, which
+	// is what proves this is `%` and not `/`.)
+	if((bomb_frame % 2) == 0) {
+		if((boss.phase == PHASE_HP_FILL) || ((bomb_frame % 4) != 0)) {
+			if(dream > 1) {
+				dream--;
+			}
+
+			// kb/codegen/0083: a natural C++ call would be a plain
+			// far `9A`, but the original reaches this same-group
+			// callee through `nop` / `push cs` / `call near`.
+			_asm { nop; push cs; call near ptr hud_dream_put; }
+		}
+	}
+}
+/// -----------------
 
 void near reimu_stars_update_and_render(void)
 {

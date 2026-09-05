@@ -1,3 +1,13 @@
+#ifndef TH02_MATH_RANDRING_HPP
+#define TH02_MATH_RANDRING_HPP
+
+// Guarded for the same reason th04/main/player/shot.hpp is, and stated there
+// in full: that header pulls this one, so any object that includes both it
+// and this file directly expands every `inline` below twice, and Turbo C++
+// 4.02 rejects the second expansion outright. Ordering the includes so only
+// one of them wins is not an invariant across hosts; a guard is.
+// Byte-inert: this file only declares.
+
 #include "platform.h"
 #include "th01/math/subpixel.hpp"
 
@@ -55,3 +65,4 @@ inline subpixel_t randring2_next8_ge_lt_sp(float min, float max) {
 }
 #endif
 /// --------------------------
+#endif /* TH02_MATH_RANDRING_HPP */

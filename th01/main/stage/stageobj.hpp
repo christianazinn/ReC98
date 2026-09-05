@@ -159,10 +159,44 @@ struct CObstacles {
 
 extern CObstacles obstacles;
 
+static const int TURRET_COOLDOWN_FRAMES = 7;
+
+enum turret_flag_t {
+	TF_READY = 0,
+	TF_WARMUP = 1,
+	TF_FIRE = 2,
+	TF_COOLDOWN = 3,
+	TF_DONE = (TF_COOLDOWN + TURRET_COOLDOWN_FRAMES),
+
+	_turret_flag_t_FORCE_INT16 = 0x7FFF
+};
+
+// Semantic stage state that was originally hidden in function statics. The
+// checkpoint tail module needs direct ownership access without adding accessor
+// code to this original gameplay segment.
+extern bool t1replay_stage_vertical_bars_blocked;
+extern int t1replay_stage_entered_portal_slot;
+extern screen_x_t t1replay_stage_portal_dst_left;
+extern screen_y_t t1replay_stage_portal_dst_top;
+extern bool16 t1replay_stage_portals_blocked;
+extern turret_flag_t *t1replay_stage_turret_flag;
+
 // Processes collisions between the Orb and any bumpers, bumper bars, or
 // portals, and handles turret firing on difficulties above Easy. Note that any
 // resetting happens after the regular update and rendering code.
 void obstacles_update_and_render(bool16 reset);
+
+struct t1replay_checkpoint_stage_t;
+
+// The exported slots are pointer-free. Import is implemented in the dedicated
+// replay-stage tail module so this original gameplay segment does not absorb
+// the reconstruction code.
+bool16 t1replay_stage_checkpoint_export(
+	t1replay_checkpoint_stage_t *checkpoint
+);
+bool16 t1replay_stage_checkpoint_import(
+	const t1replay_checkpoint_stage_t *checkpoint
+);
 // -----------
 
 // Initialization
@@ -204,8 +238,7 @@ struct ptn_t;
 //
 // Planar<ptn_plane_t> would have been enough though, since there's no alpha
 // plane to be snapped from VRAM anyway... Assumed by everything to contain
-// [card_count] card backgrounds first, followed by [obstacle_count] obstacle
-// backgrounds.
+// card backgrounds first, followed by obstacle backgrounds.
 extern ptn_t *stageobj_bgs;
 
 extern unsigned long stageobj_bgs_size;

@@ -1,4 +1,5 @@
 #include "th01/math/subpixel.hpp"
+#include "th02/main/entity.hpp"
 #include "th02/sprites/main_pat.h"
 
 #define BULLET_COUNT 150
@@ -182,7 +183,14 @@ void bullets_invalidate(void);
 
 // Marks all active bullets to be removed from VRAM at the beginning of the
 // next frame.
-void bullets_clear(void);
+//
+// C linkage, and not a style choice: the original reaches this function from
+// th02/main/boss/b5.cpp's mima_19C8D() through the linker-relaxed
+// `nop; push cs; call near ptr` form, which only an inline-assembly island
+// can spell (kb/codegen/0083) - and Turbo C++'s inline assembler resolves an
+// identifier as a *C* symbol and rejects the `$` in a mangled one. The five
+// C++ call sites are unaffected.
+extern "C" void bullets_clear(void);
 
 // Sets the bullet stack size to a multiple of the current difficulty's base
 // stack size.

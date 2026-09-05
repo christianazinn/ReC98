@@ -26,6 +26,10 @@
 #include "th02/op/op.h"
 #include "th02/op/menu.hpp"
 #include "th02/op/m_music.hpp"
+#include "th02/op/replay.hpp"
+#include "th02/practice_diag.hpp"
+#include "th02/language.hpp"
+#include "th02/main/memory_budget.hpp"
 
 #pragma option -2 -a2
 
@@ -115,11 +119,18 @@ void text_wipe(void)
 
 void pascal near pi_load_put_8_free_to(const char near *fn, char page)
 {
-	pi_load(0, fn);
+	if(t2_language_pi_load(0, fn) != 0) {
+		pi_buffers[0] = 0;
+		return;
+	}
 	graph_accesspage(page);
 	pi_palette_apply(0);
 	pi_put_8(0, 0, 0);
 	pi_free(0);
+	// TH02's pi_free() does not invalidate the released pointer. Every later
+	// patch-owned slot-0 load must see unowned storage rather than free or reuse
+	// this stale block.
+	pi_buffers[0] = 0;
 }
 
 /// Coordinates
@@ -247,12 +258,33 @@ void op_animate(void)
 	const char gbZUN[] = { g_chr_3(gb, Z,U,N), '\0' };
 
 	text_wipe();
-	snd_load("huuma.efc", SND_LOAD_SE);
+#ifdef T2PD
+	replay_practice_diag_boot(40);
+#endif
+	replay_op_restart_or_snd_load("huuma.efc", SND_LOAD_SE);
+#ifdef T2PD
+	replay_practice_diag_boot(41);
+#endif
 	pi_load_put_8_free_to(MENU_MAIN_BG_FN, 1);
+#ifdef T2PD
+	replay_practice_diag_boot(42);
+#endif
 	pi_load_put_8_free_to("op.pi", 0);
+#ifdef T2PD
+	replay_practice_diag_boot(43);
+#endif
 	pi_load(0, "opa.pi");
+#ifdef T2PD
+	replay_practice_diag_boot(44);
+#endif
 	pi_load(1, "opb.pi");
+#ifdef T2PD
+	replay_practice_diag_boot(45);
+#endif
 	pi_load(2, "opc.pi");
+#ifdef T2PD
+	replay_practice_diag_boot(46);
+#endif
 
 	// ZUN landmine: The black text layer would cover the fact that this will
 	// most certainly happen somewhere within a frame, but not if we
@@ -275,14 +307,20 @@ void op_animate(void)
 
 	if(resident->demo_num == 0) {
 		door_x = 0;
-		if(snd_midi_possible) {
-			door_x = snd_midi_active;
-			snd_midi_active = true;
+		if(!t2practice_diag_no_sound()) {
+			if(snd_midi_possible) {
+				door_x = snd_midi_active;
+				snd_midi_active = true;
+				// gminit.m is played during OP startup. Stop that MIDI-side
+				// initializer before replacing it with the title song; snd_load()
+				// alone leaves the old MIDI sequence running alongside FM.
+				snd_kaja_func(KAJA_SONG_STOP, 0);
+				snd_load(BGM_MENU_MAIN_FN, SND_LOAD_SONG);
+			}
+			snd_midi_active = false;
 			snd_load(BGM_MENU_MAIN_FN, SND_LOAD_SONG);
+			snd_midi_active = door_x;
 		}
-		snd_midi_active = false;
-		snd_load(BGM_MENU_MAIN_FN, SND_LOAD_SONG);
-		snd_midi_active = door_x;
 	}
 
 	frame_delay(18);
@@ -304,7 +342,9 @@ void op_animate(void)
 	}
 	resident->demo_num = 0;
 	palette_entry_rgb_show(MENU_MAIN_PALETTE_FN);
-	palette_white_in(6);
+	replay_op_animate_finish();
+	// Keep the following patch-owned code segment at its accepted address.
+	asm { nop; nop; }
 }
 
 void pascal near start_init(void)
@@ -719,90 +759,94 @@ inline char option_bgm_max()   { return SND_BGM_MIDI; }
 inline char option_lives_max() { return CFG_LIVES_MAX; }
 inline char option_bombs_max() { return CFG_BOMBS_MAX; }
 
+// Keep the stock updater's two initialized static bytes in OP_01's original
+// DATA contribution after moving its state machine into the patch tail.
+static volatile uint8_t t2_language_stock_option_data_pad[2] = { 0, 0 };
+
 void option_update_and_render(void)
 {
-	static bool input_allowed = false;
-	static bool initialized = false;
+	t2_language_option_update_and_render();
+}
 
-	#define option_change(ring_direction) \
-		option_put(menu_sel, TX_YELLOW); \
-		switch(menu_sel) { \
-		case 0: \
-			ring_direction(rank, option_rank_max()); \
-			break; \
-		case 1: \
-			ring_direction((char)snd_bgm_mode, option_bgm_max()); \
-			snd_bgm_restart(); \
-			break; \
-		case 2: \
-			ring_direction(lives, option_lives_max()); \
-			break; \
-		case 3: \
-			ring_direction(bombs, option_bombs_max()); \
-			break; \
-		case 4: \
-			resident->reduce_effects = (true - resident->reduce_effects); \
-			break; \
-		} \
-		option_put(menu_sel, TX_WHITE);
-
-	if(!initialized) {
-		menu_init(initialized, input_allowed, option_put_shadow);
-		for(int i = 0; i < 7; i++) {
-			option_put(i, menu_sel == i ? TX_WHITE : TX_YELLOW);
+void far pascal t2_language_op_bridge(
+	t2_language_op_bridge_func_t func, int sel, int value
+)
+{
+	if(func == T2LOB_OPTION_SHADOW) {
+		option_label_put_shadow(0, gbRANK);
+		option_label_put_shadow(1, gbMUSIC);
+		option_label_put_shadow(2, gbPLAYER);
+		option_label_put_shadow(3, gbBOMB);
+		command_put_shadow(6, gbRESET, 5);
+		command_put_shadow(7, gbQUIT, 4);
+	} else if(func == T2LOB_OPTION_PUT) {
+		if(sel < 4) {
+			option_put(sel, static_cast<tram_atrb2>(value));
+		} else if(sel == 6) {
+			command_put(6, gbRESET, 5, static_cast<tram_atrb2>(value));
+		} else if(sel == 7) {
+			command_put(7, gbQUIT, 4, static_cast<tram_atrb2>(value));
 		}
-		menu_put = option_put;
-	}
-	if(!key_det) {
-		input_allowed = 1;
-	}
-	if(input_allowed) {
-		menu_update_vertical(key_det, 7);
-		if(key_det & INPUT_RIGHT) {
-			option_change(ring_inc);
-		}
-		if(key_det & INPUT_LEFT) {
-			option_change(ring_dec);
-		}
-		if(key_det & INPUT_SHOT || key_det & INPUT_OK) {
-			switch(menu_sel) {
-			case 5:
-				rank = RANK_NORMAL;
-				snd_bgm_mode = SND_BGM_FM;
-				snd_kaja_func(KAJA_SONG_STOP, 0);
-				snd_midi_active = false;
-				snd_determine_mode();
-				snd_kaja_func(KAJA_SONG_PLAY ,0);
-				lives = CFG_LIVES_DEFAULT;
-				bombs = CFG_BOMBS_DEFAULT;
-				resident->unused_2 = 1;
-				resident->reduce_effects = false;
-				option_put(0, TX_YELLOW);
-				option_put(1, TX_YELLOW);
-				option_put(2, TX_YELLOW);
-				option_put(3, TX_YELLOW);
-				option_put(4, TX_YELLOW);
-				break;
-			case 6:
-				option_quit(initialized);
-				break;
-			}
-		}
-		if(key_det & INPUT_CANCEL) {
-			option_quit(initialized);
-		}
-		if(key_det) {
-			input_allowed = false;
-		}
+	} else if(func == T2LOB_BGM_RESTART) {
+		snd_bgm_restart();
+	} else if(func == T2LOB_OPTION_RESET) {
+		rank = RANK_NORMAL;
+		snd_bgm_mode = SND_BGM_FM;
+		snd_kaja_func(KAJA_SONG_STOP, 0);
+		snd_midi_active = false;
+		snd_determine_mode();
+		snd_kaja_func(KAJA_SONG_PLAY, 0);
+		lives = CFG_LIVES_DEFAULT;
+		bombs = CFG_BOMBS_DEFAULT;
+		resident->unused_2 = 1;
+		resident->reduce_effects = false;
+	} else if(func == T2LOB_CFG_SAVE) {
+		cfg_save();
+	} else if(func == T2LOB_START_INIT) {
+		start_init();
+	} else if(func == T2LOB_START_GAME) {
+		start_game();
+	} else if(func == T2LOB_START_EXTRA) {
+		start_extra();
+	} else if(func == T2LOB_START_DEMO) {
+		start_demo();
+	} else if(func == T2LOB_SHOTTYPE_MENU) {
+		shottype_menu();
+	} else if(func == T2LOB_SCORE_MENU) {
+		score_frames = value;
+		score_menu();
+	} else if(func == T2LOB_MUSICROOM_MENU) {
+		musicroom_menu();
+	} else if(func == T2LOB_TITLE_BG_LOAD) {
+		pi_load_put_8_free_to(MENU_MAIN_BG_FN, 1);
 	}
 }
+
+// Keep _main and every following OP_01_TEXT symbol at their stock offsets.
+// The trampoline and expanded native bridge occupy 461 of the original
+// updater's 623 bytes; these 162 bytes preserve the remainder of that span.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90"
+#ifndef T2PD
+// The diagnostic profile's five far calls occupy another 53 bytes. Preserve
+// the same native segment boundary when those calls are absent in release.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#endif
 
 int main(void)
 {
 	unsigned char ret;
+#ifdef T2PD
+	replay_practice_diag_boot(1);
+#endif
 	if(snd_pmd_resident()) {
 		snd_mmd_resident();
-		if(game_init_op()) {
+		if(t2replay_game_init_op()) {
 			zun_error(ERROR_OUT_OF_MEMORY);
 			return 1;
 		}
@@ -810,11 +854,21 @@ int main(void)
 		if(cfg_load() == 1) {
 			return 1;
 		}
+#ifdef T2PD
+		replay_practice_diag_boot(2);
+#endif
 	} else {
 		return 1;
 	}
 	gaiji_backup();
+#ifdef T2PD
 	gaiji_entry_bfnt("MIKOFT.bft");
+#else
+	t2_language_gaiji_entry_bfnt("MIKOFT.bft");
+#endif
+#ifdef T2PD
+	replay_practice_diag_boot(3);
+#endif
 	if(resident->demo_num == 0) {
 		demo_num = 1;
 		snd_kaja_func(KAJA_SONG_STOP, 0);
@@ -830,17 +884,49 @@ int main(void)
 	}
 	key_det = 0;
 
+#ifdef T2PD
+	replay_practice_diag_boot(38);
+#endif
 	snd_active = snd_bgm_mode;
-	if(!resident->demo_num && snd_midi_possible) {
+	if(
+		!resident->demo_num && snd_midi_possible &&
+		!t2practice_diag_no_sound()
+	) {
 		char midi_active = snd_midi_active;
 
 		snd_midi_active = 1;
+#ifdef T2PD
+		replay_practice_diag_boot(37);
+#endif
 		snd_load("gminit.m", SND_LOAD_SONG);
+#ifdef T2PD
+		replay_practice_diag_boot(36);
+#endif
 		snd_kaja_func(KAJA_SONG_PLAY, 0);
+#ifdef T2PD
+		replay_practice_diag_boot(35);
+#endif
 		snd_midi_active = midi_active;
 	}
 
+#ifdef T2PD
+	// Private no-input acceptance runs without an emulated sound driver clock.
+	// T2NSND.CFG scopes this bypass to that disposable harness run; ordinary
+	// debug HDIs retain the same sound path as release builds.
+	if(t2practice_diag_no_sound()) {
+		snd_active = false;
+		snd_fm_possible = false;
+		snd_midi_active = false;
+	}
+#endif
+#ifdef T2PD
+	replay_practice_diag_boot(39);
+#endif
+	replay_op_pending_save();
 	op_animate();
+#ifdef T2PD
+	replay_practice_diag_boot(4);
+#endif
 
 	// ZUN landmine: Screen tearing. Decoding two 192×144 .PI images takes a
 	// while and certainly returns with the CRT beam somewhere in the middle of
@@ -848,13 +934,24 @@ int main(void)
 	// Main menu labels to both TRAM and VRAM on the same frame.
 	pi_load(2, "ts3.pi");
 	pi_load(1, "ts2.pi");
+#ifdef T2PD
+	// The fully populated title menu is the first cross-process acceptance
+	// boundary. All later private milestones append to this fresh trace.
+	t2practice_diag_lifecycle_op_menu_enter();
+	replay_practice_diag_boot(5);
+	// A Practice launch owns the fully initialized title PI and SUPER state.
+	// Running this probe any earlier tests a teardown state that no interactive
+	// title selection can reach.
+	replay_practice_diag_autostart();
+	t2m9diag_op_autostart();
+#endif
 	key_det = 0;
 	idle_frame = 0;
 
 	while(!quit) {
 		input_reset_sense();
 		if(in_option == false) {
-			main_update_and_render();
+			replay_title_update_and_render();
 		} else if(in_option == true) {
 			option_update_and_render();
 		}

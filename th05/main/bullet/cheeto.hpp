@@ -56,11 +56,29 @@ extern cheeto_trail_t cheeto_trails[CHEETO_COUNT + 1];
 // • The GRCG is active, and set to the intended color
 // Beware, [top] is actually interpreted as an unsigned screen-space
 // coordinate! [top] must therefore be between 0 and (RES_Y - 1).
-void __fastcall near cheeto_put(uscreen_x_t left, uscreen_y_t top, int sprite);
+// `extern "C"`, for the same reason cheetos_render() below is, and the same
+// one th04/main/item/splash.hpp gives for item_splash_dot_render(): the module
+// that defines this one (th05/formats/bb_cheeto.asm) publishes the plain
+// `@cheeto_put` that Borland's `__fastcall` decoration produces for C linkage,
+// and nothing anywhere defines the argument-encoded name that C++ linkage
+// would ask for instead. Latent for as long as the only caller was assembly;
+// the first C++ one is cheetos_render().
+extern "C" void __fastcall near cheeto_put(
+	uscreen_x_t left, uscreen_y_t top, int sprite
+);
 
 // Spawns a new cheeto bullet according to the [cheeto_template]. Reads all
 // non-unused fields of the cheeto_template_t structure.
 void near cheetos_add(void);
 
 void near cheetos_update();
-void pascal near cheetos_render();
+
+// The module that used to define this one published it as the bare uppercase
+// `CHEETOS_RENDER`, so the declaration needs C linkage — unlike cheetos_add()
+// and cheetos_update() above, which the dump reaches through the mangled
+// `@cheetos_add$qv` / `@cheetos_update$qv` procdescs. It sat outside an
+// `extern "C"` for as long as this header had no C++ caller; the first one
+// was exalice_custombullets_render(). The definition is now
+// th05/main/bullet/cheetos_render.cpp, which keeps that same spelling, and
+// th05_main.asm declares it with a `procdesc` in the module's place.
+extern "C" void pascal near cheetos_render();

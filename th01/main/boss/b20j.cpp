@@ -1,6 +1,11 @@
 /// Jigoku Stage 20 Boss - Konngara
 /// -------------------------------
 
+#include "th01/main/boss/b20j.hpp"
+#include "th01/replay_format.hpp"
+#if T1REPLAY_KONNGARA_PHASE1_TRACE
+	#include "th01/rpypixel.hpp"
+#endif
 #include <stdio.h>
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/rank.h"
@@ -1595,6 +1600,28 @@ void konngara_main(void)
 		initial_hp_rendered = false;
 		boss_palette_snap();
 		random_seed = frame_rand;
+#if T1REPLAY_KONNGARA_PHASE1_TRACE
+		t1replay_pixel_probe_konngara_phase1_arm(
+			boss_phase,
+			boss_phase_frame,
+			boss_hp,
+			hud_hp_first_white,
+			hud_hp_first_redwhite,
+			pattern_state.group,
+			face_direction,
+			face_expression,
+			face_direction_can_change,
+			hit.invincible,
+			hit.invincibility_frame,
+			pattern_prev,
+			phase.pattern_cur,
+			phase.patterns_done,
+			initial_hp_rendered,
+			ent_head,
+			ent_face_closed_or_glare,
+			ent_face_aim
+		);
+#endif
 	} else if(boss_phase == 1) {
 		// ZUN bug: Since the fight only ends in Phase 7 at the earliest, HP
 		// subtraction in debug mode can lead to this function being called
@@ -1842,3 +1869,161 @@ void konngara_main(void)
 	#undef phase_frame_siddham_flash
 	#undef pattern_choose
 }
+
+#pragma codeseg T1B20JOWN_TEXT
+
+extern uint8_t* rle_streams[GRX_COUNT];
+extern dots8_t* planar_streams[GRX_COUNT][PLANAR_STREAM_PER_GRX_COUNT];
+extern uint8_t planar_stream_count[GRX_COUNT];
+
+static bool16 t1boss_konngara_resources_loaded(void)
+{
+	int i;
+
+	if(
+		(ent_head.bos_slot != 0) || (ent_head.bos_image_count <= FD_CENTER) ||
+		ent_head.loading ||
+		(ent_face_closed_or_glare.bos_slot != 1) ||
+		(ent_face_closed_or_glare.bos_image_count < (FD_COUNT * 2)) ||
+		ent_face_closed_or_glare.loading ||
+		(ent_face_aim.bos_slot != 2) ||
+		(ent_face_aim.bos_image_count < FD_COUNT) || ent_face_aim.loading
+	) {
+		return false;
+	}
+	for(i = 0; i < 7; i++) {
+		if(
+			!rle_streams[i] || !planar_streams[i][0] ||
+			(planar_stream_count[i] == 0)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+#if T1REPLAY_KONNGARA_PHASE1_TRACE
+static uint32_t t1boss_konngara_phase1_resource_digest_add(
+	uint32_t hash, uint16_t value
+)
+{
+	hash ^= static_cast<uint8_t>(value);
+	hash *= 0x01000193UL;
+	hash ^= static_cast<uint8_t>(value >> 8);
+	hash *= 0x01000193UL;
+	return hash;
+}
+
+uint32_t t1boss_konngara_phase1_resource_digest(void)
+{
+	uint32_t digest = T1REPLAY_FNV1A_BASIS;
+	int i;
+
+	if(!t1boss_konngara_resources_loaded()) {
+		return 0;
+	}
+	const CBossEntity *entities[3] = {
+		&ent_head, &ent_face_closed_or_glare, &ent_face_aim,
+	};
+	for(i = 0; i < 3; i++) {
+		digest = t1boss_konngara_phase1_resource_digest_add(
+			digest, entities[i]->bos_slot
+		);
+		digest = t1boss_konngara_phase1_resource_digest_add(
+			digest, entities[i]->bos_image_count
+		);
+		digest = t1boss_konngara_phase1_resource_digest_add(
+			digest, entities[i]->loading
+		);
+	}
+	for(i = 0; i < 7; i++) {
+		digest = t1boss_konngara_phase1_resource_digest_add(
+			digest, (rle_streams[i] != nullptr)
+		);
+		digest = t1boss_konngara_phase1_resource_digest_add(
+			digest, (planar_streams[i][0] != nullptr)
+		);
+		digest = t1boss_konngara_phase1_resource_digest_add(
+			digest, planar_stream_count[i]
+		);
+	}
+	return digest;
+}
+#endif
+
+bool16 t1boss_konngara_checkpoint_validate(
+	const t1boss_konngara_checkpoint_t *checkpoint
+)
+{
+	return (
+		checkpoint &&
+		(checkpoint->owner == T1BOSS_KONNGARA_CHECKPOINT_OWNER) &&
+		(checkpoint->schema == T1BOSS_KONNGARA_CHECKPOINT_SCHEMA) &&
+		(checkpoint->phase == 0) && (checkpoint->reserved == 0)
+	);
+}
+
+static bool16 t1boss_konngara_state_is_canonical(void)
+{
+	return (
+		(boss_phase == 0) && (boss_phase_frame == 0) && (boss_hp == 18) &&
+		(hud_hp_first_white == 16) && (hud_hp_first_redwhite == 10) &&
+		(pattern_state.group == 0) &&
+		(face_direction == FD_CENTER) && (face_expression == FE_NEUTRAL) &&
+		face_direction_can_change && !game_cleared
+	);
+}
+
+bool16 t1boss_konngara_checkpoint_capture(
+	t1boss_konngara_checkpoint_t *checkpoint
+)
+{
+	t1boss_konngara_checkpoint_t live;
+
+	if(!checkpoint || !t1boss_konngara_state_is_canonical()) {
+		return false;
+	}
+	live.owner = T1BOSS_KONNGARA_CHECKPOINT_OWNER;
+	live.schema = T1BOSS_KONNGARA_CHECKPOINT_SCHEMA;
+	live.phase = 0;
+	live.reserved = 0;
+	*checkpoint = live;
+	return true;
+}
+
+bool16 t1boss_konngara_ckpt_apply_loaded(
+	const t1boss_konngara_checkpoint_t *checkpoint
+)
+{
+	if(
+		!t1boss_konngara_checkpoint_validate(checkpoint) ||
+		!t1boss_konngara_resources_loaded()
+	) {
+		return false;
+	}
+
+	// Native startup already owns the entrance, palette, and allocations.
+	konngara_setup();
+	pattern_state.group = 0;
+	game_cleared = false;
+	return true;
+}
+
+#if T1REPLAY_KONNGARA_PHASE1_DIRECT_TRACE
+bool16 t1boss_konngara_phase1_direct_construct(void)
+{
+	if(
+		!t1boss_konngara_state_is_canonical() ||
+		!t1boss_konngara_resources_loaded() ||
+		!t1kpx_direct_prepare()
+	) {
+		return false;
+	}
+
+	// This is the native phase-0 branch, once, after its native entrance.
+	konngara_main();
+	return t1kpx_direct_ready();
+}
+#endif
+
+#pragma codeseg

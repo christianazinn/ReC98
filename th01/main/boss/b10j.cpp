@@ -17,6 +17,7 @@
 #include "th01/main/particle.hpp"
 #include "th01/main/shape.hpp"
 #include "th01/main/boss/defeat.hpp"
+#include "th01/main/boss/b10j.hpp"
 #include "th01/main/boss/entity_a.hpp"
 #include "th01/main/boss/palette.hpp"
 #include "th01/main/bullet/laser_s.hpp"
@@ -413,6 +414,68 @@ struct SquareState {
 	}
 };
 
+// These were originally function-local statics. Naming their semantic owners
+// keeps the checkpoint codec independent of b10j.cpp's BSS layout.
+static SquareState square_aimed_pellets;
+static SquareState square_aimed_missiles;
+static SquareState square_two_pellets;
+static SquareState square_halfcircle_missiles;
+static SquareState square_slow_spray;
+static SquareState square_lasers;
+static screen_x_t mima_target_left;
+static uint8_t mima_hop;
+static x_direction_t mima_hop_direction;
+static unsigned char mima_missile_angle;
+static unsigned char mima_pellet_angle;
+static screen_x_t mima_laser_square_corners_x[SQUARE_POINTS];
+static screen_y_t mima_laser_square_corners_y[SQUARE_POINTS];
+
+static struct {
+	int invincibility_frame;
+	bool16 invincible;
+
+	void update_and_render(const vc_t (&flash_colors)[2]) {
+		boss_hit_update_and_render(
+			invincibility_frame,
+			invincible,
+			boss_hp,
+			flash_colors,
+			(sizeof(flash_colors) / sizeof(flash_colors[0])),
+			5000,
+			boss_nop,
+			ent_still.hittest_orb(),
+			shot_hitbox_t(
+				(ent_still.cur_right() - HITBOX_SHOT_W),
+				(ent_still.cur_top + (MIMA_H / 2) - (HITBOX_SHOT_H / 2)),
+				HITBOX_SHOT_W,
+				HITBOX_SHOT_H
+			)
+		);
+	}
+} mima_hit;
+
+static struct {
+	int pattern_cur;
+
+	void frame_common(void) const {
+		boss_phase_frame++;
+		mima_hit.invincibility_frame++;
+	}
+
+	void pattern_next(int total) {
+		pattern_cur = (pattern_cur == (total - 1)) ? 0 : (pattern_cur + 1);
+	}
+
+	void next(int phase_new) {
+		boss_phase = phase_new;
+		boss_phase_frame = 0;
+		mima_hit.invincibility_frame = 0;
+		pattern_cur = 0;
+	}
+} mima_phase;
+
+static bool mima_initial_hp_rendered;
+
 // Pseudo-structure for all local square data, since the original set of data
 // unfortunately is both partly stored in registers, and located on the stack
 // in a way that prevents even parts of it to be turned into a structure.
@@ -476,22 +539,25 @@ struct SquareState {
 
 void pattern_aimed_then_static_pellets_from_square_corners(void)
 {
-	static SquareState sq;
 	SquareLocal(sql);
 
 	if(boss_phase_frame < 100) {
 		return;
 	}
 	if(boss_phase_frame == 100) {
-		sq.init();
+		square_aimed_pellets.init();
 		select_subpixel_for_rank(pattern_state.speed, 4.0f, 4.5f, 5.0f, 5.5f);
 		mdrv2_se_play(8);
 	}
 	if((boss_phase_frame % SQUARE_INTERVAL) == 0) {
-		square_set_coords_and_unput(sql, sql_corners, sq.radius, sq.angle);
-		sq.angle += ((boss_phase_frame < 260) ? +0x0C : -0x0C);
-		if(sq.radius < SEAL_CIRCUMSQUARE_RADIUS) {
-			sq.radius += SQUARE_RADIUS_STEP;
+		square_set_coords_and_unput(
+			sql, sql_corners, square_aimed_pellets.radius, square_aimed_pellets.angle
+		);
+		square_aimed_pellets.angle += (
+			(boss_phase_frame < 260) ? +0x0C : -0x0C
+		);
+		if(square_aimed_pellets.radius < SEAL_CIRCUMSQUARE_RADIUS) {
+			square_aimed_pellets.radius += SQUARE_RADIUS_STEP;
 		} else if(boss_phase_frame > 280) {
 			// Recurring quirk with all of these patterns: They spawn their
 			// bullets at the *previous* corner positions, i.e., the ones
@@ -524,45 +590,49 @@ void pattern_aimed_then_static_pellets_from_square_corners(void)
 				mdrv2_se_play(7);
 			}
 		}
-		square_set_coords_and_put(sql, sql_corners, sq.radius, sq.angle);
+		square_set_coords_and_put(
+			sql, sql_corners, square_aimed_pellets.radius, square_aimed_pellets.angle
+		);
 	}
 	if(boss_phase_frame > 360) {
-		square_set_coords_and_unput(sql, sql_corners, sq.radius, sq.angle);
+		square_set_coords_and_unput(
+			sql, sql_corners, square_aimed_pellets.radius, square_aimed_pellets.angle
+		);
 		boss_phase_frame = 0;
 	}
 }
 
 void pattern_aimed_missiles_from_square_corners(void)
 {
-	static SquareState sq;
 	SquareLocal(sql);
 	int i;
 	Subpixel velocity_x;
 	Subpixel velocity_y;
-	static screen_x_t target_left;
 
 	if(boss_phase_frame < 100) {
 		return;
 	}
 	if(boss_phase_frame == 100) {
-		sq.init();
+		square_aimed_missiles.init();
 		select_subpixel_for_rank(pattern_state.speed, 6.0f, 6.5f, 7.0f, 7.375f);
 		mdrv2_se_play(8);
 	}
 	if((boss_phase_frame % SQUARE_INTERVAL) == 0) {
-		square_set_coords_and_unput(sql, sql_corners, sq.radius, sq.angle);
-		sq.angle -= 0x0C;
-		if(sq.radius < SEAL_RADIUS) {
-			sq.radius += SQUARE_RADIUS_STEP;
+		square_set_coords_and_unput(
+			sql, sql_corners, square_aimed_missiles.radius, square_aimed_missiles.angle
+		);
+		square_aimed_missiles.angle -= 0x0C;
+		if(square_aimed_missiles.radius < SEAL_RADIUS) {
+			square_aimed_missiles.radius += SQUARE_RADIUS_STEP;
 		} else if(boss_phase_frame == 224) {
-			target_left = player_left;
+			mima_target_left = player_left;
 		} else if(boss_phase_frame > 240) {
 			// Same corner coordinate quirk as seen in the first pattern.
 
 			vector2_between(
 				sql_center_x,
 				sql_center_y,
-				(target_left + (PLAYER_W / 2) - (MISSILE_W / 2)),
+				(mima_target_left + (PLAYER_W / 2) - (MISSILE_W / 2)),
 				player_center_y(),
 				velocity_x.v,
 				velocity_y.v,
@@ -578,17 +648,20 @@ void pattern_aimed_missiles_from_square_corners(void)
 			}
 			mdrv2_se_play(6);
 		}
-		square_set_coords_and_put(sql, sql_corners, sq.radius, sq.angle);
+		square_set_coords_and_put(
+			sql, sql_corners, square_aimed_missiles.radius, square_aimed_missiles.angle
+		);
 	}
 	if(boss_phase_frame > 320) {
-		square_set_coords_and_unput(sql, sql_corners, sq.radius, sq.angle);
+		square_set_coords_and_unput(
+			sql, sql_corners, square_aimed_missiles.radius, square_aimed_missiles.angle
+		);
 		boss_phase_frame = 0;
 	}
 }
 
 void pattern_static_pellets_from_corners_of_two_squares(void)
 {
-	static SquareState sq;
 	SquareLocal2(sql);
 
 	if(boss_phase_frame == 50) {
@@ -598,22 +671,27 @@ void pattern_static_pellets_from_corners_of_two_squares(void)
 		return;
 	}
 	if(boss_phase_frame == 100) {
-		sq.init();
+		square_two_pellets.init();
 		select_subpixel_for_rank(pattern_state.speed, 4.0f, 4.5f, 5.0f, 5.5f);
 		mdrv2_se_play(8);
 	}
 	if((boss_phase_frame % SQUARE_INTERVAL) == 0) {
 		square_center_set(sql);
-		square_corners_set(sql, sql_corners_ccw, sq.radius, sq.angle);
-		square_corners_set(sql, sql_corners_cw, sq.radius, (0x00 - sq.angle));
+		square_corners_set(
+			sql, sql_corners_ccw, square_two_pellets.radius, square_two_pellets.angle
+		);
+		square_corners_set(
+			sql, sql_corners_cw, square_two_pellets.radius,
+			(0x00 - square_two_pellets.angle)
+		);
 		square_unput(sql_corners_ccw);
 		square_unput(sql_corners_cw);
 
-		sq.angle -= 0x06;
+		square_two_pellets.angle -= 0x06;
 		Pellets.spawn_with_cloud = true;
 
-		if(sq.radius < SEAL_CIRCUMSQUARE_RADIUS) {
-			sq.radius += SQUARE_RADIUS_STEP;
+		if(square_two_pellets.radius < SEAL_CIRCUMSQUARE_RADIUS) {
+			square_two_pellets.radius += SQUARE_RADIUS_STEP;
 		} else {
 			// Same corner coordinate quirk as seen in the first pattern.
 
@@ -636,8 +714,13 @@ void pattern_static_pellets_from_corners_of_two_squares(void)
 				mdrv2_se_play(7);
 			}
 		}
-		square_corners_set(sql, sql_corners_ccw, sq.radius, sq.angle);
-		square_corners_set(sql, sql_corners_cw, sq.radius, (0x00 - sq.angle));
+		square_corners_set(
+			sql, sql_corners_ccw, square_two_pellets.radius, square_two_pellets.angle
+		);
+		square_corners_set(
+			sql, sql_corners_cw, square_two_pellets.radius,
+			(0x00 - square_two_pellets.angle)
+		);
 		square_put(sql_corners_ccw);
 		square_put(sql_corners_cw);
 		Pellets.spawn_with_cloud = false;
@@ -646,8 +729,13 @@ void pattern_static_pellets_from_corners_of_two_squares(void)
 		// Not redundant, these are local variables here!
 		square_center_set(sql);
 
-		square_corners_set(sql, sql_corners_ccw, sq.radius, sq.angle);
-		square_corners_set(sql, sql_corners_cw, sq.radius, (0x00 - sq.angle));
+		square_corners_set(
+			sql, sql_corners_ccw, square_two_pellets.radius, square_two_pellets.angle
+		);
+		square_corners_set(
+			sql, sql_corners_cw, square_two_pellets.radius,
+			(0x00 - square_two_pellets.angle)
+		);
 		square_unput(sql_corners_ccw);
 		square_unput(sql_corners_cw);
 		boss_phase_frame = 0;
@@ -668,8 +756,6 @@ void pattern_hop_and_fire_chase_pellets(bool16 do_not_initialize = true)
 		KEYFRAME_SPREADIN_DONE = (KEYFRAME_SPREADIN_START + SPREADIN_FRAMES),
 	};
 
-	static uint8_t hop;
-	static x_direction_t direction;
 	int i;
 	int pellet_count;
 	unsigned char angle;
@@ -677,28 +763,28 @@ void pattern_hop_and_fire_chase_pellets(bool16 do_not_initialize = true)
 	// Most of this could have been statically initialized, and even the random
 	// direction wouldn't have required this separate parameter.
 	if(!do_not_initialize) {
-		hop = -1;
+		mima_hop = -1;
 		spreadin_interval = SPREADIN_INTERVAL;
-		direction = static_cast<x_direction_t>(irand() % 2);
+		mima_hop_direction = static_cast<x_direction_t>(irand() % 2);
 		spreadin_speed = ((MIMA_H / 2) / (SPREADIN_FRAMES / SPREADIN_INTERVAL));
 		return;
 	}
 
-	if(hop == static_cast<uint8_t>(-1)) {
+	if(mima_hop == static_cast<uint8_t>(-1)) {
 		mima_unput_both();
 		meteor_active = false;
-		hop = 0;
+		mima_hop = 0;
 		boss_phase_frame = KEYFRAME_HOP;
 	}
-	if(hop == 0) {
+	if(mima_hop == 0) {
 		ent_still.hitbox_orb_inactive = true;
 		mima_vertical_sprite_transition_broken();
 	} else {
 		if(boss_phase_frame == 4) {
 			ent_still.pos_cur_set(
-				((direction == X_RIGHT)
-					? (PLAYFIELD_LEFT + ((hop - 1) * HOP_DISTANCE))
-					: (PLAYFIELD_RIGHT - (hop * HOP_DISTANCE))
+				((mima_hop_direction == X_RIGHT)
+					? (PLAYFIELD_LEFT + ((mima_hop - 1) * HOP_DISTANCE))
+					: (PLAYFIELD_RIGHT - (mima_hop * HOP_DISTANCE))
 				),
 				(BASE_TOP - (PLAYFIELD_H / 14)) // Yup, not centered!
 			);
@@ -717,8 +803,8 @@ void pattern_hop_and_fire_chase_pellets(bool16 do_not_initialize = true)
 		return;
 	}
 
-	if(hop != 0) {
-		if(hop != 4) {
+	if(mima_hop != 0) {
+		if(mima_hop != 4) {
 			mima_unput_both();
 		}
 
@@ -742,7 +828,7 @@ void pattern_hop_and_fire_chase_pellets(bool16 do_not_initialize = true)
 			);
 		}
 	}
-	if(hop >= 4) {
+	if(mima_hop >= 4) {
 		// MODDERS: Same as mima_put_still_both().
 		graph_accesspage_func(1);	ent_still.put_8(0);
 		graph_accesspage_func(0);	ent_still.put_8(0);
@@ -750,8 +836,10 @@ void pattern_hop_and_fire_chase_pellets(bool16 do_not_initialize = true)
 		z_palette_set_all_show(stage_palette);
 
 		// Prepare a potential next run of this pattern
-		hop = -1;
-		direction = static_cast<x_direction_t>(X_LEFT - direction);
+		mima_hop = -1;
+		mima_hop_direction = static_cast<x_direction_t>(
+			X_LEFT - mima_hop_direction
+		);
 
 		meteor_active = true;
 		boss_phase_frame = 0;
@@ -772,12 +860,39 @@ void pattern_hop_and_fire_chase_pellets(bool16 do_not_initialize = true)
 				(z_Palettes[i].c.b - 0x4)
 			);
 		}
-		hop++;
+		mima_hop++;
 		boss_phase_frame = KEYFRAME_HOP;
 	}
 }
 
 #include "th01/sprites/pillar.csp"
+
+static const int MIMA_PILLAR_COUNT = 8;
+static const int MIMA_PILLAR_DELAY_PER_CIRCLE = 20;
+static const int MIMA_PILLAR_KEYFRAME_CIRCLES = 100;
+static const int MIMA_PILLAR_TIME = 32;
+static const int MIMA_PILLAR_SEGMENTS_PER_FRAME = 2;
+static const int MIMA_PILLAR_SEGMENTS_INITIAL = 4;
+
+static struct {
+	int time[MIMA_PILLAR_COUNT];
+	screen_x_t center_x[MIMA_PILLAR_COUNT];
+	screen_y_t bottom[MIMA_PILLAR_COUNT];
+
+	int first_circle_frame_for(int i) const {
+		return (MIMA_PILLAR_KEYFRAME_CIRCLES + (i * MIMA_PILLAR_DELAY_PER_CIRCLE));
+	}
+
+	screen_x_t left(int i) const {
+		return (center_x[i] - (PILLAR_W / 2));
+	}
+
+	pixel_t pillar_h(int i) const {
+		return (PILLAR_SEGMENT_H * MIMA_PILLAR_SEGMENTS_PER_FRAME * (
+			(MIMA_PILLAR_TIME + (MIMA_PILLAR_SEGMENTS_INITIAL / 2)) - time[i]
+		));
+	}
+} mima_pillars;
 
 inline pixel_t pillar_sprite_row(pixel_t y) {
 	return ((PILLAR_SEGMENT_H - 1) - (y % PILLAR_SEGMENT_H));
@@ -814,13 +929,13 @@ void pillar_put_8(screen_x_t left, vram_y_t bottom, pixel_t h)
 void pattern_pillars_and_aimed_spreads(void)
 {
 	enum {
-		PILLAR_COUNT = 8,
-		DELAY_PER_CIRCLE = 20,
+	PILLAR_COUNT = 8,
+		DELAY_PER_CIRCLE = MIMA_PILLAR_DELAY_PER_CIRCLE,
 		CIRCLE_ANGLE_STEP = 0x04,
 
 		PILLAR_FRAMES = 16,
-		PILLAR_SEGMENTS_PER_FRAME = 2, // (Only rendered every 8 though.)
-		PILLAR_SEGMENTS_INITIAL = 4,
+		PILLAR_SEGMENTS_PER_FRAME = MIMA_PILLAR_SEGMENTS_PER_FRAME, // Only rendered every 8 though.
+		PILLAR_SEGMENTS_INITIAL = MIMA_PILLAR_SEGMENTS_INITIAL,
 
 		// We (sadly) only render pillars on frames 0 and 8, which means that
 		// we miss out on half the height. ZUN already accounted for that and
@@ -831,40 +946,21 @@ void pattern_pillars_and_aimed_spreads(void)
 		PILLAR_UNBLIT_H = (PILLAR_SEGMENTS_TOTAL * PILLAR_SEGMENT_H),
 
 		KEYFRAME_PREPARE = 50,
-		KEYFRAME_CIRCLES = 100,
+		KEYFRAME_CIRCLES = MIMA_PILLAR_KEYFRAME_CIRCLES,
 		KEYFRAME_CIRCLE_LAST = (
 			KEYFRAME_CIRCLES + ((PILLAR_COUNT - 1) * DELAY_PER_CIRCLE)
 		),
 
 		TIME_CIRCLES = 128, // doubles as the circle radius until...
-		TIME_PILLARS = 32,
+		TIME_PILLARS = MIMA_PILLAR_TIME,
 		TIME_PILLARS_DONE = (TIME_PILLARS - PILLAR_FRAMES),
 	};
 
-	static struct {
-		int time[PILLAR_COUNT];
-		screen_x_t center_x[PILLAR_COUNT];
-		screen_y_t bottom[PILLAR_COUNT]; // could have been a constant
-
-		int first_circle_frame_for(int i) const {
-			return (KEYFRAME_CIRCLES + (i * DELAY_PER_CIRCLE));
-		}
-
-		screen_x_t left(int i) const {
-			return (center_x[i] - (PILLAR_W / 2));
-		}
-
-		pixel_t pillar_h(int i) const {
-			return (PILLAR_SEGMENT_H * PILLAR_SEGMENTS_PER_FRAME * (
-				(TIME_PILLARS + (PILLAR_SEGMENTS_INITIAL / 2)) - time[i]
-			));
-		}
-	} ent;
 	int i;
 
 	#define is_circle_frame_for(i) ( \
 		((boss_phase_frame % PILLAR_COUNT) == i) && \
-		(boss_phase_frame > ent.first_circle_frame_for(i)) \
+		(boss_phase_frame > mima_pillars.first_circle_frame_for(i)) \
 	)
 
 	if(boss_phase_frame == KEYFRAME_PREPARE) {
@@ -875,11 +971,11 @@ void pattern_pillars_and_aimed_spreads(void)
 	}
 	if(boss_phase_frame == KEYFRAME_CIRCLES) {
 		for(i = 0; i < PILLAR_COUNT; i++) {
-			ent.time[i] = TIME_CIRCLES;
-			ent.bottom[i] = PLAYFIELD_BOTTOM;
+			mima_pillars.time[i] = TIME_CIRCLES;
+			mima_pillars.bottom[i] = PLAYFIELD_BOTTOM;
 		}
 
-		ent.center_x[0] = playfield_rand_x(0.025f, 0.100f);
+		mima_pillars.center_x[0] = playfield_rand_x(0.025f, 0.100f);
 
 		// Translation: (playfield_rand_x(0.925f, 1.000f) - (PILLAR_W / 32)).
 		// This is the only randomized coordinate that could have possibly come
@@ -887,16 +983,16 @@ void pattern_pillars_and_aimed_spreads(void)
 		// and pillar_put_8() doesn't clip anything. Therefore, the above
 		// translation calculates a random position at the right edge of VRAM,
 		// and then shifts it over to make sure that the sprite fits.
-		ent.center_x[1] = ((PLAYFIELD_RIGHT - PILLAR_W) -
+		mima_pillars.center_x[1] = ((PLAYFIELD_RIGHT - PILLAR_W) -
 			playfield_rand_x(0.0f, 0.075f) + (PILLAR_W / 2)
 		);
 
-		ent.center_x[2] = playfield_rand_x(0.100f, 0.450f);
-		ent.center_x[3] = playfield_rand_x(0.525f, 0.875f);
-		ent.center_x[4] = playfield_rand_x(0.200f, 0.450f);
-		ent.center_x[5] = playfield_rand_x(0.525f, 0.775f);
-		ent.center_x[6] = playfield_rand_x(0.100f, 0.450f);
-		ent.center_x[7] = playfield_rand_x(0.525f, 0.875f);
+		mima_pillars.center_x[2] = playfield_rand_x(0.100f, 0.450f);
+		mima_pillars.center_x[3] = playfield_rand_x(0.525f, 0.875f);
+		mima_pillars.center_x[4] = playfield_rand_x(0.200f, 0.450f);
+		mima_pillars.center_x[5] = playfield_rand_x(0.525f, 0.775f);
+		mima_pillars.center_x[6] = playfield_rand_x(0.100f, 0.450f);
+		mima_pillars.center_x[7] = playfield_rand_x(0.525f, 0.875f);
 
 		// That's the same values as in the next pattern…?
 		select_for_rank(pattern_state.unused, 40, 45, 50, 55);
@@ -905,11 +1001,12 @@ void pattern_pillars_and_aimed_spreads(void)
 
 	// Unblit and update
 	for(i = 0; i < PILLAR_COUNT; i++) {
-		if(is_circle_frame_for(i) && (ent.time[i] > TIME_PILLARS)) {
+		if(is_circle_frame_for(i) && (mima_pillars.time[i] > TIME_PILLARS)) {
 			shape_circle_sloppy_unput(
-				ent.center_x[i], ent.bottom[i], ent.time[i], CIRCLE_ANGLE_STEP
+				mima_pillars.center_x[i], mima_pillars.bottom[i],
+				mima_pillars.time[i], CIRCLE_ANGLE_STEP
 			);
-			ent.time[i] -= PILLAR_COUNT;
+			mima_pillars.time[i] -= PILLAR_COUNT;
 		}
 	}
 
@@ -938,11 +1035,11 @@ void pattern_pillars_and_aimed_spreads(void)
 		if(!is_circle_frame_for(i)) {
 			continue;
 		}
-		if(ent.time[i] > TIME_PILLARS) {
+		if(mima_pillars.time[i] > TIME_PILLARS) {
 			shape_circle_put(
-				ent.center_x[i],
-				ent.bottom[i],
-				ent.time[i],
+				mima_pillars.center_x[i],
+				mima_pillars.bottom[i],
+				mima_pillars.time[i],
 				V_WHITE,
 				CIRCLE_ANGLE_STEP
 			);
@@ -952,30 +1049,33 @@ void pattern_pillars_and_aimed_spreads(void)
 				BASE_CENTER_X,
 				BASE_CENTER_Y,
 
-				ent.center_x[i],
-				ent.bottom[i],
+				mima_pillars.center_x[i],
+				mima_pillars.bottom[i],
 				COL_SPAWNRAY
 			);
-		} else if(ent.time[i] > TIME_PILLARS_DONE) {
-			if(ent.time[i] == TIME_PILLARS) {
+		} else if(mima_pillars.time[i] > TIME_PILLARS_DONE) {
+			if(mima_pillars.time[i] == TIME_PILLARS) {
 				mdrv2_se_play(7);
 				graph_r_line_unput(
-					BASE_CENTER_X, BASE_CENTER_Y, ent.center_x[i], ent.bottom[i]
+					BASE_CENTER_X, BASE_CENTER_Y, mima_pillars.center_x[i],
+					mima_pillars.bottom[i]
 				);
 			}
-			pillar_put_8(ent.left(i), ent.bottom[i], ent.pillar_h(i));
+			pillar_put_8(
+				mima_pillars.left(i), mima_pillars.bottom[i], mima_pillars.pillar_h(i)
+			);
 
 			// Translation: Reimu's center point has to be at least
 			// (32 - 8) = 24 pixels away from the pillar's center.
 			if(
 				!player_invincible &&
-				(player_left > (ent.center_x[i] - PLAYER_W - (PILLAR_W / 4))) &&
-				(player_left < (ent.center_x[i] + (PILLAR_W / 4)))
+				(player_left > (mima_pillars.center_x[i] - PLAYER_W - (PILLAR_W / 4))) &&
+				(player_left < (mima_pillars.center_x[i] + (PILLAR_W / 4)))
 			) {
 				player_is_hit = true;
 			}
-			ent.time[i] -= PILLAR_COUNT;
-		} else if(ent.time[i] != PIXEL_NONE) {
+			mima_pillars.time[i] -= PILLAR_COUNT;
+		} else if(mima_pillars.time[i] != PIXEL_NONE) {
 			Pellets.add_group(
 				ent_still.cur_center_x(),
 				ent_still.cur_center_y(),
@@ -983,20 +1083,20 @@ void pattern_pillars_and_aimed_spreads(void)
 				to_sp(2.25f)
 			);
 			egc_copy_rect_1_to_0_16(
-				ent.left(i),
+				mima_pillars.left(i),
 				(PLAYFIELD_BOTTOM - PILLAR_UNBLIT_H),
 				PILLAR_W,
 				PILLAR_UNBLIT_H
 			);
-			ent.time[i] = PIXEL_NONE;
+			mima_pillars.time[i] = PIXEL_NONE;
 		}
 	}
 	// MODDERS: Loop, obviously.
 	if(
-		(ent.time[0] == PIXEL_NONE) && (ent.time[1] == PIXEL_NONE) &&
-		(ent.time[2] == PIXEL_NONE) && (ent.time[3] == PIXEL_NONE) &&
-		(ent.time[4] == PIXEL_NONE) && (ent.time[5] == PIXEL_NONE) &&
-		(ent.time[6] == PIXEL_NONE) && (ent.time[7] == PIXEL_NONE)
+		(mima_pillars.time[0] == PIXEL_NONE) && (mima_pillars.time[1] == PIXEL_NONE) &&
+		(mima_pillars.time[2] == PIXEL_NONE) && (mima_pillars.time[3] == PIXEL_NONE) &&
+		(mima_pillars.time[4] == PIXEL_NONE) && (mima_pillars.time[5] == PIXEL_NONE) &&
+		(mima_pillars.time[6] == PIXEL_NONE) && (mima_pillars.time[7] == PIXEL_NONE)
 	) {
 		boss_phase_frame = 0;
 	}
@@ -1006,18 +1106,16 @@ void pattern_pillars_and_aimed_spreads(void)
 
 void pattern_halfcircle_missiles_downwards_from_corners(void)
 {
-	static SquareState sq;
 	SquareLocal(sql);
 	pixel_t velocity_x;
 	pixel_t velocity_y;
-	static unsigned char missile_angle;
 
 	if(boss_phase_frame < 100) {
 		return;
 	}
 	if(boss_phase_frame == 100) {
-		sq.init();
-		missile_angle = 0x00;
+		square_halfcircle_missiles.init();
+		mima_missile_angle = 0x00;
 
 		// MODDERS: Just use regular subpixels. They perfectly support a
 		// fraction of .5… especially if ZUN chops off the fractional digits
@@ -1029,10 +1127,13 @@ void pattern_halfcircle_missiles_downwards_from_corners(void)
 		mdrv2_se_play(8);
 	}
 	if((boss_phase_frame % SQUARE_INTERVAL) == 0) {
-		square_set_coords_and_unput(sql, sql_corners, sq.radius, sq.angle);
-		sq.angle -= 0x0C;
-		if(sq.radius < SEAL_RADIUS) {
-			sq.radius += SQUARE_RADIUS_STEP;
+		square_set_coords_and_unput(
+			sql, sql_corners, square_halfcircle_missiles.radius,
+			square_halfcircle_missiles.angle
+		);
+		square_halfcircle_missiles.angle -= 0x0C;
+		if(square_halfcircle_missiles.radius < SEAL_RADIUS) {
+			square_halfcircle_missiles.radius += SQUARE_RADIUS_STEP;
 		} else if((boss_phase_frame > 180) && ((boss_phase_frame % 16) == 8)) {
 			// Same corner coordinate quirk as seen in the first pattern.
 
@@ -1040,7 +1141,7 @@ void pattern_halfcircle_missiles_downwards_from_corners(void)
 				velocity_x,
 				velocity_y,
 				pattern_state.speed_decimal.to_pixel(), // :(
-				missile_angle
+				mima_missile_angle
 			);
 
 			for(int i = 0; i < SQUARE_POINTS; i++) {
@@ -1049,12 +1150,18 @@ void pattern_halfcircle_missiles_downwards_from_corners(void)
 				);
 			}
 			mdrv2_se_play(6);
-			missile_angle += 0x0D;
+			mima_missile_angle += 0x0D;
 		}
-		square_set_coords_and_put(sql, sql_corners, sq.radius, sq.angle);
+		square_set_coords_and_put(
+			sql, sql_corners, square_halfcircle_missiles.radius,
+			square_halfcircle_missiles.angle
+		);
 	}
 	if(boss_phase_frame > 340) {
-		square_set_coords_and_unput(sql, sql_corners, sq.radius, sq.angle);
+		square_set_coords_and_unput(
+			sql, sql_corners, square_halfcircle_missiles.radius,
+			square_halfcircle_missiles.angle
+		);
 		boss_phase_frame = 0;
 	}
 }
@@ -1068,48 +1175,52 @@ void pattern_slow_pellet_spray_from_corners(void)
 		KEYFRAME_DONE = 370,
 	};
 
-	static SquareState sq;
 	SquareLocal(sql);
-	static unsigned char pellet_angle;
 
 	if(boss_phase_frame < KEYFRAME_SQUARE) {
 		return;
 	}
 	if(boss_phase_frame == KEYFRAME_SQUARE) {
-		sq.init();
-		pellet_angle = 0x80;
+		square_slow_spray.init();
+		mima_pellet_angle = 0x80;
 		select_subpixel_for_rank(pattern_state.speed, 2.0f, 2.5f, 3.0f, 3.5f);
 		mdrv2_se_play(8);
 	}
 	if((boss_phase_frame % SQUARE_INTERVAL) == 0) {
-		square_set_coords_and_unput(sql, sql_corners, sq.radius, sq.angle);
-		sq.angle = ((boss_phase_frame > KEYFRAME_FIRE_RIGHT_TO_LEFT)
-			? (sq.angle + 0x0C)
-			: (sq.angle - 0x0C)
+		square_set_coords_and_unput(
+			sql, sql_corners, square_slow_spray.radius, square_slow_spray.angle
 		);
-		if(sq.radius < SEAL_RADIUS) {
-			sq.radius += SQUARE_RADIUS_STEP;
+		square_slow_spray.angle = ((boss_phase_frame > KEYFRAME_FIRE_RIGHT_TO_LEFT)
+			? (square_slow_spray.angle + 0x0C)
+			: (square_slow_spray.angle - 0x0C)
+		);
+		if(square_slow_spray.radius < SEAL_RADIUS) {
+			square_slow_spray.radius += SQUARE_RADIUS_STEP;
 		} else if(boss_phase_frame > KEYFRAME_FIRE_LEFT_TO_RIGHT) {
 			// Same corner coordinate quirk as seen in the first pattern.
 
-			pellet_angle = ((boss_phase_frame > KEYFRAME_FIRE_RIGHT_TO_LEFT)
-				? (pellet_angle + 0x0C)
-				: (pellet_angle - 0x0C) // slightly overshooting the half circle
+			mima_pellet_angle = ((boss_phase_frame > KEYFRAME_FIRE_RIGHT_TO_LEFT)
+				? (mima_pellet_angle + 0x0C)
+				: (mima_pellet_angle - 0x0C) // slightly overshooting the half circle
 			);
 			for(int i = 0; i < SQUARE_POINTS; i++) {
 				Pellets.add_single(
 					sql_corners_x[i],
 					sql_corners_y[i],
-					pellet_angle,
+					mima_pellet_angle,
 					pattern_state.speed
 				);
 			}
 			mdrv2_se_play(6);
 		}
-		square_set_coords_and_put(sql, sql_corners, sq.radius, sq.angle);
+		square_set_coords_and_put(
+			sql, sql_corners, square_slow_spray.radius, square_slow_spray.angle
+		);
 	}
 	if(boss_phase_frame > KEYFRAME_DONE) {
-		square_set_coords_and_unput(sql, sql_corners, sq.radius, sq.angle);
+		square_set_coords_and_unput(
+			sql, sql_corners, square_slow_spray.radius, square_slow_spray.angle
+		);
 		boss_phase_frame = 0;
 	}
 }
@@ -1120,14 +1231,7 @@ void pattern_aimed_lasers_from_corners(void)
 		LASER_W = 4,
 	};
 
-	static SquareState sq;
 	static int16_t unused; (unused); // ZUN bloat
-
-	// Could have been local just like in the other patterns, but eh, 16 bytes
-	// for the convenience of being easily able to fire lasers independent of
-	// square updates is still fine...
-	static screen_x_t sq_corners_x[SQUARE_POINTS];
-	static screen_y_t sq_corners_y[SQUARE_POINTS];
 
 	screen_x_t sql_center_x;
 	screen_y_t sql_center_y;
@@ -1139,28 +1243,32 @@ void pattern_aimed_lasers_from_corners(void)
 		return;
 	}
 	if(boss_phase_frame == 100) {
-		sq.init();
+		square_lasers.init();
 		select_laser_speed_for_rank(pattern_state.speed_multiplied_by_8,
 			6.25f, 6.75f, 7.25f, 7.75f
 		);
 		mdrv2_se_play(8);
 	}
 	if((boss_phase_frame % SQUARE_INTERVAL) == 0) {
-		square_set_coords_and_unput(sql, sq_corners, sq.radius, sq.angle);
-		sq.angle += 0x03;
-		if(sq.radius < SEAL_RADIUS) {
-			sq.radius += SQUARE_RADIUS_STEP;
+		square_set_coords_and_unput(
+			sql, mima_laser_square_corners, square_lasers.radius, square_lasers.angle
+		);
+		square_lasers.angle += 0x03;
+		if(square_lasers.radius < SEAL_RADIUS) {
+			square_lasers.radius += SQUARE_RADIUS_STEP;
 		}
 
 		// ... especially when remembering the coordinates for future frames
 		// is exactly what fixes the corner coordinate quirk in this pattern.
-		square_set_coords_and_put(sql, sq_corners, sq.radius, sq.angle);
+		square_set_coords_and_put(
+			sql, mima_laser_square_corners, square_lasers.radius, square_lasers.angle
+		);
 	}
 	if((boss_phase_frame > 180) && (boss_phase_frame < 300)) {
 		int i = (boss_phase_frame % SQUARE_POINTS);
 		shootout_lasers[i].spawn(
-			sq_corners_x[i],
-			sq_corners_y[i],
+			mima_laser_square_corners_x[i],
+			mima_laser_square_corners_y[i],
 			(player_center_x() - (LASER_W / 2)),
 			player_bottom(),
 			pattern_state.speed_multiplied_by_8,
@@ -1170,7 +1278,9 @@ void pattern_aimed_lasers_from_corners(void)
 		);
 	}
 	if(boss_phase_frame > 300) {
-		square_set_coords_and_unput(sql, sq_corners, sq.radius, sq.angle);
+		square_set_coords_and_unput(
+			sql, mima_laser_square_corners, square_lasers.radius, square_lasers.angle
+		);
 		boss_phase_frame = 0;
 	}
 }
@@ -1179,50 +1289,6 @@ void mima_main(void)
 {
 	const vc_t flash_colors[2] = { 3, 9 };
 	int i;
-
-	static struct {
-		int invincibility_frame;
-		bool16 invincible;
-
-		void update_and_render(const vc_t (&flash_colors)[2]) {
-			boss_hit_update_and_render(
-				invincibility_frame,
-				invincible,
-				boss_hp,
-				flash_colors,
-				(sizeof(flash_colors) / sizeof(flash_colors[0])),
-				5000,
-				boss_nop,
-				ent_still.hittest_orb(),
-				shot_hitbox_t(
-					(ent_still.cur_right() - HITBOX_SHOT_W),
-					(ent_still.cur_top + (MIMA_H / 2) - (HITBOX_SHOT_H / 2)),
-					HITBOX_SHOT_W,
-					HITBOX_SHOT_H
-				)
-			);
-		}
-	} hit;
-	static struct {
-		int pattern_cur;
-
-		void frame_common(void) const {
-			boss_phase_frame++;
-			hit.invincibility_frame++;
-		}
-
-		void pattern_next(int total) {
-			pattern_cur = (pattern_cur == (total - 1)) ? 0 : (pattern_cur + 1);
-		}
-
-		void next(int phase_new) {
-			boss_phase = phase_new;
-			boss_phase_frame = 0;
-			hit.invincibility_frame = 0;
-			pattern_cur = 0;
-		}
-	} phase;
-	static bool initial_hp_rendered;
 
 	Missiles.unput_update_render();
 	particles_unput_update_render(PO_TOP_RIGHT, V_WHITE);
@@ -1250,8 +1316,8 @@ void mima_main(void)
 			frame_delay(2);
 		}
 		boss_phase = 1;
-		phase.pattern_cur = 0;
-		initial_hp_rendered = false;
+		mima_phase.pattern_cur = 0;
+		mima_initial_hp_rendered = false;
 		stage_palette_set(z_Palettes);
 		boss_palette_snap();
 
@@ -1267,17 +1333,19 @@ void mima_main(void)
 		// function. Mima starts with an even number of total HP, so this will
 		// even happen for the easiest possible case of holding ↵ Return for
 		// the first 6 frames of phase 1.
-		hud_hp_increment_render(initial_hp_rendered, boss_hp, boss_phase_frame);
+		hud_hp_increment_render(
+			mima_initial_hp_rendered, boss_hp, boss_phase_frame
+		);
 
-		phase.frame_common();
+		mima_phase.frame_common();
 		meteor_put();
-		if(phase.pattern_cur == 0) {
+		if(mima_phase.pattern_cur == 0) {
 			pattern_aimed_then_static_pellets_from_square_corners();
-		} else if(phase.pattern_cur == 1) {
+		} else if(mima_phase.pattern_cur == 1) {
 			pattern_aimed_missiles_from_square_corners();
-		} else if(phase.pattern_cur == 2) {
+		} else if(mima_phase.pattern_cur == 2) {
 			pattern_static_pellets_from_corners_of_two_squares();
-		} else if(phase.pattern_cur == 3) {
+		} else if(mima_phase.pattern_cur == 3) {
 			pattern_hop_and_fire_chase_pellets();
 		}
 
@@ -1286,14 +1354,14 @@ void mima_main(void)
 		// phase until the current pattern is done to make sure that everything
 		// is cleaned up.
 		if(boss_phase_frame == 0) {
-			phase.pattern_next(4);
+			mima_phase.pattern_next(4);
 			if(boss_hp <= HP_PHASE_1_END) {
-				phase.pattern_cur = 99;
+				mima_phase.pattern_cur = 99;
 			}
 		}
 
-		hit.update_and_render(flash_colors);
-		if((phase.pattern_cur == 99) && !hit.invincible) {
+		mima_hit.update_and_render(flash_colors);
+		if((mima_phase.pattern_cur == 99) && !mima_hit.invincible) {
 			mima_unput_both();
 			spreadin_interval = 4;
 			spreadin_speed = 8;
@@ -1302,32 +1370,32 @@ void mima_main(void)
 			ent_still.pos_cur_set(BASE_LEFT, BASE_TOP);
 			mima_bg_snap();
 
-			phase.next(2);
+			mima_phase.next(2);
 		}
 	} else if(boss_phase == 2) {
-		phase.frame_common();
+		mima_phase.frame_common();
 		phase_spreadin(BASE_LEFT, BASE_TOP);
 		if(boss_phase_frame == 0) {
-			phase.next(3);
+			mima_phase.next(3);
 		}
 	} else if(boss_phase == 3) {
-		phase.frame_common();
+		mima_phase.frame_common();
 		meteor_put();
-		if(phase.pattern_cur == 0) {
+		if(mima_phase.pattern_cur == 0) {
 			pattern_pillars_and_aimed_spreads();
-		} else if(phase.pattern_cur == 1) {
+		} else if(mima_phase.pattern_cur == 1) {
 			pattern_halfcircle_missiles_downwards_from_corners();
-		} else if(phase.pattern_cur == 2) {
+		} else if(mima_phase.pattern_cur == 2) {
 			pattern_slow_pellet_spray_from_corners();
-		} else if(phase.pattern_cur == 3) {
+		} else if(mima_phase.pattern_cur == 3) {
 			pattern_aimed_lasers_from_corners();
 		}
 
 		if(boss_phase_frame == 0) {
-			phase.pattern_next(4);
+			mima_phase.pattern_next(4);
 		}
 
-		hit.update_and_render(flash_colors);
+		mima_hit.update_and_render(flash_colors);
 		if(boss_hp <= HP_PHASE_3_END) {
 			graph_accesspage_func(1);
 			mima_unput();
@@ -1346,3 +1414,485 @@ void mima_main(void)
 		}
 	}
 }
+
+#pragma codeseg T1B10JOWN_TEXT
+
+extern int8_t boss_id;
+
+static bool16 t1boss_mima_checkpoint_coordinate_is_valid(int16_t coordinate)
+{
+	return ((coordinate >= -RES_X) && (coordinate <= (RES_X * 2)));
+}
+
+static bool16 t1boss_mima_checkpoint_square_is_valid(uint8_t radius)
+{
+	return (radius <= (SEAL_CIRCUMSQUARE_RADIUS + SQUARE_RADIUS_STEP));
+}
+
+static bool16 t1boss_mima_checkpoint_spreadin_is_valid(
+	const t1boss_mima_checkpoint_t *checkpoint
+)
+{
+	return (
+		((checkpoint->spreadin_interval == 1) &&
+		 (checkpoint->spreadin_speed == 2)) ||
+		((checkpoint->spreadin_interval == 4) &&
+		 ((checkpoint->spreadin_speed == 8) ||
+		  (checkpoint->spreadin_speed == 16)))
+	);
+}
+
+static bool16 t1boss_mima_checkpoint_phase_is_safe(
+	const t1boss_mima_checkpoint_t *checkpoint
+)
+{
+	if(checkpoint->phase == 1) {
+		return (
+			(checkpoint->pattern <= 3) &&
+			(checkpoint->hp > HP_PHASE_1_END) &&
+			(checkpoint->hp <= HP_TOTAL)
+		);
+	}
+	if(checkpoint->phase == 3) {
+		return (
+			(checkpoint->pattern <= 3) &&
+			(checkpoint->hp > HP_PHASE_3_END) &&
+			(checkpoint->hp <= HP_PHASE_1_END)
+		);
+	}
+	return false;
+}
+
+static bool16 t1boss_mima_checkpoint_geometry_is_valid(
+	const t1boss_mima_checkpoint_t *checkpoint
+)
+{
+	int i;
+
+	if(
+		!t1boss_mima_checkpoint_coordinate_is_valid(checkpoint->entity_left) ||
+		!t1boss_mima_checkpoint_coordinate_is_valid(checkpoint->entity_top) ||
+		!t1boss_mima_checkpoint_coordinate_is_valid(checkpoint->target_left)
+	) {
+		return false;
+	}
+	for(i = 0; i < MIMA_PILLAR_COUNT; i++) {
+		if(
+			(checkpoint->pillar_time[i] < PIXEL_NONE) ||
+			(checkpoint->pillar_time[i] > 128) ||
+			!t1boss_mima_checkpoint_coordinate_is_valid(
+				checkpoint->pillar_center_x[i]
+			) ||
+			!t1boss_mima_checkpoint_coordinate_is_valid(
+				checkpoint->pillar_bottom[i]
+			)
+		) {
+			return false;
+		}
+	}
+	for(i = 0; i < SQUARE_POINTS; i++) {
+		if(
+			!t1boss_mima_checkpoint_coordinate_is_valid(
+				checkpoint->laser_corner_x[i]
+			) ||
+			!t1boss_mima_checkpoint_coordinate_is_valid(
+				checkpoint->laser_corner_y[i]
+			)
+		) {
+			return false;
+		}
+	}
+	return true;
+}
+
+bool16 t1boss_mima_checkpoint_validate(
+	const t1boss_mima_checkpoint_t *checkpoint
+)
+{
+	if(
+		!checkpoint ||
+		(checkpoint->owner != T1BOSS_MIMA_CHECKPOINT_OWNER) ||
+		(checkpoint->schema != T1BOSS_MIMA_CHECKPOINT_SCHEMA) ||
+		(checkpoint->reserved[0] != 0) ||
+		(checkpoint->reserved[1] != 0) ||
+		!t1boss_mima_checkpoint_phase_is_safe(checkpoint) ||
+		(checkpoint->phase_frame < 0) ||
+		(checkpoint->phase_frame > 400) ||
+		(checkpoint->invincibility_frame < 0) ||
+		(checkpoint->invincibility_frame > BOSS_HIT_INVINCIBILITY_FRAMES) ||
+		(checkpoint->pattern_state < 0) ||
+		(checkpoint->pattern_state > 128) ||
+		(checkpoint->meteor_active > 1) ||
+		!t1boss_mima_checkpoint_spreadin_is_valid(checkpoint) ||
+		(checkpoint->initial_hp_rendered > 1) ||
+		(checkpoint->hit_invincible > 1) ||
+		((checkpoint->hop != static_cast<uint8_t>(-1)) &&
+		 (checkpoint->hop > 4)) ||
+		(checkpoint->hop_direction > X_LEFT) ||
+		(checkpoint->entity_image != 0) ||
+		(checkpoint->animation_image > C_METEOR_last) ||
+		(checkpoint->entity_hitbox_inactive > 1) ||
+		!t1boss_mima_checkpoint_square_is_valid(
+			checkpoint->square_aimed_pellets_radius
+		) ||
+		!t1boss_mima_checkpoint_square_is_valid(
+			checkpoint->square_aimed_missiles_radius
+		) ||
+		!t1boss_mima_checkpoint_square_is_valid(
+			checkpoint->square_two_pellets_radius
+		) ||
+		!t1boss_mima_checkpoint_square_is_valid(
+			checkpoint->square_halfcircle_missiles_radius
+		) ||
+		!t1boss_mima_checkpoint_square_is_valid(
+			checkpoint->square_slow_spray_radius
+		) ||
+		!t1boss_mima_checkpoint_square_is_valid(checkpoint->square_lasers_radius) ||
+		!t1boss_mima_checkpoint_geometry_is_valid(checkpoint)
+	) {
+		return false;
+	}
+	return true;
+}
+
+bool16 t1boss_mima_checkpoint_capture(t1boss_mima_checkpoint_t *checkpoint)
+{
+	t1boss_mima_checkpoint_t live;
+	int i;
+
+	if(!checkpoint) {
+		return false;
+	}
+	live.owner = T1BOSS_MIMA_CHECKPOINT_OWNER;
+	live.schema = T1BOSS_MIMA_CHECKPOINT_SCHEMA;
+	live.phase = boss_phase;
+	live.pattern = mima_phase.pattern_cur;
+	live.phase_frame = boss_phase_frame;
+	live.hp = boss_hp;
+	live.invincibility_frame = mima_hit.invincibility_frame;
+	live.pattern_state = pattern_state.unused;
+	live.entity_left = ent_still.cur_left;
+	live.entity_top = ent_still.cur_top;
+	live.target_left = mima_target_left;
+	for(i = 0; i < MIMA_PILLAR_COUNT; i++) {
+		live.pillar_time[i] = mima_pillars.time[i];
+		live.pillar_center_x[i] = mima_pillars.center_x[i];
+		live.pillar_bottom[i] = mima_pillars.bottom[i];
+	}
+	for(i = 0; i < SQUARE_POINTS; i++) {
+		live.laser_corner_x[i] = mima_laser_square_corners_x[i];
+		live.laser_corner_y[i] = mima_laser_square_corners_y[i];
+	}
+	live.meteor_active = meteor_active;
+	live.spreadin_interval = spreadin_interval;
+	live.spreadin_speed = spreadin_speed;
+	live.initial_hp_rendered = mima_initial_hp_rendered;
+	live.hit_invincible = mima_hit.invincible;
+	live.hop = mima_hop;
+	live.hop_direction = mima_hop_direction;
+	live.entity_image = ent_still.image();
+	live.animation_image = ent_anim.image();
+	live.entity_hitbox_inactive = ent_still.hitbox_orb_inactive;
+	live.square_aimed_pellets_angle = square_aimed_pellets.angle;
+	live.square_aimed_pellets_radius = square_aimed_pellets.radius;
+	live.square_aimed_missiles_angle = square_aimed_missiles.angle;
+	live.square_aimed_missiles_radius = square_aimed_missiles.radius;
+	live.square_two_pellets_angle = square_two_pellets.angle;
+	live.square_two_pellets_radius = square_two_pellets.radius;
+	live.square_halfcircle_missiles_angle = square_halfcircle_missiles.angle;
+	live.square_halfcircle_missiles_radius = square_halfcircle_missiles.radius;
+	live.square_slow_spray_angle = square_slow_spray.angle;
+	live.square_slow_spray_radius = square_slow_spray.radius;
+	live.square_lasers_angle = square_lasers.angle;
+	live.square_lasers_radius = square_lasers.radius;
+	live.missile_angle = mima_missile_angle;
+	live.pellet_angle = mima_pellet_angle;
+	live.reserved[0] = 0;
+	live.reserved[1] = 0;
+	if(!t1boss_mima_checkpoint_validate(&live)) {
+		return false;
+	}
+	*checkpoint = live;
+	return true;
+}
+
+static void t1boss_mima_checkpoint_restore_entity(
+	const t1boss_mima_checkpoint_t *checkpoint
+)
+{
+	ent_still.pos_set(checkpoint->entity_left, checkpoint->entity_top);
+	ent_still.prev_left = checkpoint->entity_left;
+	ent_still.prev_top = checkpoint->entity_top;
+	ent_still.prev_delta_x = 0;
+	ent_still.prev_delta_y = 0;
+	ent_still.lock_frame = 0;
+	ent_still.hitbox_orb_set(
+		((MIMA_W / 8) * 1), ((MIMA_H / 10) * 1),
+		((MIMA_W / 8) * 7), ((MIMA_H / 10) * 9)
+	);
+	ent_still.set_image(checkpoint->entity_image);
+	if(checkpoint->entity_hitbox_inactive) {
+		ent_still.hitbox_orb_deactivate();
+	} else {
+		ent_still.hitbox_orb_activate();
+	}
+	ent_anim.pos_set(
+		checkpoint->entity_left, (checkpoint->entity_top + MIMA_ANIM_TOP)
+	);
+	ent_anim.set_image(checkpoint->animation_image);
+}
+
+bool16 t1boss_mima_ckpt_apply_loaded(
+	const t1boss_mima_checkpoint_t *checkpoint
+)
+{
+	int i;
+
+	if(!t1boss_mima_checkpoint_validate(checkpoint)) {
+		return false;
+	}
+
+	t1boss_mima_checkpoint_restore_entity(checkpoint);
+	mima_bg_snap();
+
+	boss_phase = checkpoint->phase;
+	boss_phase_frame = checkpoint->phase_frame;
+	boss_hp = checkpoint->hp;
+	mima_hit.invincibility_frame = checkpoint->invincibility_frame;
+	pattern_state.unused = checkpoint->pattern_state;
+	mima_target_left = checkpoint->target_left;
+	for(i = 0; i < MIMA_PILLAR_COUNT; i++) {
+		mima_pillars.time[i] = checkpoint->pillar_time[i];
+		mima_pillars.center_x[i] = checkpoint->pillar_center_x[i];
+		mima_pillars.bottom[i] = checkpoint->pillar_bottom[i];
+	}
+	for(i = 0; i < SQUARE_POINTS; i++) {
+		mima_laser_square_corners_x[i] = checkpoint->laser_corner_x[i];
+		mima_laser_square_corners_y[i] = checkpoint->laser_corner_y[i];
+	}
+	meteor_active = checkpoint->meteor_active;
+	spreadin_interval = checkpoint->spreadin_interval;
+	spreadin_speed = checkpoint->spreadin_speed;
+	mima_initial_hp_rendered = checkpoint->initial_hp_rendered;
+	mima_hit.invincible = checkpoint->hit_invincible;
+	mima_phase.pattern_cur = checkpoint->pattern;
+	mima_hop = checkpoint->hop;
+	mima_hop_direction = static_cast<x_direction_t>(checkpoint->hop_direction);
+	square_aimed_pellets.angle = checkpoint->square_aimed_pellets_angle;
+	square_aimed_pellets.radius = checkpoint->square_aimed_pellets_radius;
+	square_aimed_missiles.angle = checkpoint->square_aimed_missiles_angle;
+	square_aimed_missiles.radius = checkpoint->square_aimed_missiles_radius;
+	square_two_pellets.angle = checkpoint->square_two_pellets_angle;
+	square_two_pellets.radius = checkpoint->square_two_pellets_radius;
+	square_halfcircle_missiles.angle = checkpoint->square_halfcircle_missiles_angle;
+	square_halfcircle_missiles.radius = checkpoint->square_halfcircle_missiles_radius;
+	square_slow_spray.angle = checkpoint->square_slow_spray_angle;
+	square_slow_spray.radius = checkpoint->square_slow_spray_radius;
+	square_lasers.angle = checkpoint->square_lasers_angle;
+	square_lasers.radius = checkpoint->square_lasers_radius;
+	mima_missile_angle = checkpoint->missile_angle;
+	mima_pellet_angle = checkpoint->pellet_angle;
+	hud_hp_first_white = HP_PHASE_1_END;
+	hud_hp_first_redwhite = 2;
+	return true;
+}
+
+bool16 t1boss_mima_checkpoint_apply(
+	const t1boss_mima_checkpoint_t *checkpoint
+)
+{
+	if(!t1boss_mima_checkpoint_validate(checkpoint)) {
+		return false;
+	}
+	// Rebuild pointer-backed .BOS/.PTN resources. The checkpoint contains only
+	// stable sprite state, pattern IDs, and simulation geometry.
+	mima_ent_load();
+	ptn_new(
+		PTN_SLOT_BG_ENT,
+		(((MIMA_W / PTN_W) * (MIMA_H / PTN_H)) + BG_ENT_OFFSET + 1)
+	);
+	Missiles.load(PTN_SLOT_MISSILE);
+	return t1boss_mima_ckpt_apply_loaded(checkpoint);
+}
+
+bool16 t1boss_mima_practice_first_combat_construct(void)
+{
+	t1boss_mima_checkpoint_t start;
+	int i;
+
+	// The normal stage loader must have allocated Mima's entities, backing PTN,
+	// and missile resource, but no entrance frame may have run yet. The
+	// resident/boss identity is intentionally repeated here: no caller may
+	// construct this boundary for a different route or stage.
+	if(
+		!resident ||
+		(resident->stage_id != ((1 * STAGES_PER_SCENE) + BOSS_STAGE)) ||
+		(resident->route != ROUTE_JIGOKU) ||
+		(boss_id != BID_MIMA) ||
+		(boss_phase != 0) ||
+		(boss_phase_frame != 0) ||
+		(boss_hp != HP_TOTAL) ||
+		(ent_still.cur_left != BASE_LEFT) ||
+		(ent_still.cur_top != PLAYFIELD_TOP) ||
+		(ent_still.image() != 0) ||
+		(ent_anim.image() != C_METEOR) ||
+		(ent_still.hitbox_orb_inactive != false)
+	) {
+		return false;
+	}
+	// Preserve mima_main()'s pre-entrance pool update. With Mima's loader
+	// reset this leaves the missile pool empty and advances the initialized
+	// particle pool exactly once before the boundary's sole pattern RNG draw.
+	Missiles.unput_update_render();
+	particles_unput_update_render(PO_TOP_RIGHT, V_WHITE);
+
+	start.owner = T1BOSS_MIMA_CHECKPOINT_OWNER;
+	start.schema = T1BOSS_MIMA_CHECKPOINT_SCHEMA;
+	start.phase = 1;
+	start.pattern = 0;
+	start.phase_frame = 0;
+	start.hp = HP_TOTAL;
+	start.invincibility_frame = 0;
+	start.pattern_state = 0;
+	start.entity_left = BASE_LEFT;
+	start.entity_top = BASE_TOP;
+	start.target_left = 0;
+	for(i = 0; i < MIMA_PILLAR_COUNT; i++) {
+		start.pillar_time[i] = 0;
+		start.pillar_center_x[i] = 0;
+		start.pillar_bottom[i] = 0;
+	}
+	for(i = 0; i < SQUARE_POINTS; i++) {
+		start.laser_corner_x[i] = 0;
+		start.laser_corner_y[i] = 0;
+	}
+	start.meteor_active = true;
+	start.spreadin_interval = 4;
+	start.spreadin_speed = 16;
+	start.initial_hp_rendered = false;
+	start.hit_invincible = false;
+	start.hop = static_cast<uint8_t>(-1);
+	start.hop_direction = X_RIGHT;
+	start.entity_image = 0;
+	start.animation_image = C_METEOR;
+	start.entity_hitbox_inactive = false;
+	start.square_aimed_pellets_angle = 0;
+	start.square_aimed_pellets_radius = 0;
+	start.square_aimed_missiles_angle = 0;
+	start.square_aimed_missiles_radius = 0;
+	start.square_two_pellets_angle = 0;
+	start.square_two_pellets_radius = 0;
+	start.square_halfcircle_missiles_angle = 0;
+	start.square_halfcircle_missiles_radius = 0;
+	start.square_slow_spray_angle = 0;
+	start.square_slow_spray_radius = 0;
+	start.square_lasers_angle = 0;
+	start.square_lasers_radius = 0;
+	start.missile_angle = 0;
+	start.pellet_angle = 0;
+	start.reserved[0] = 0;
+	start.reserved[1] = 0;
+	if(!t1boss_mima_ckpt_apply_loaded(&start)) {
+		return false;
+	}
+
+	// This is the native post-entrance order. [start] is a local pointer-free
+	// owner carrier only, not serialized input; the loaded helper captures the
+	// page-1 backing before both-page repainting.
+	mima_put_still_both();
+	stage_palette_set(z_Palettes);
+	boss_palette_snap();
+	pattern_hop_and_fire_chase_pellets(false);
+	return true;
+}
+
+#if T1REPLAY_CHECKPOINT_PRIVATE_RESTORE
+// Private source-owned Phase 3 boundary. This is deliberately not reachable
+// from the Practice selector or replay bridge until a natural/direct visual
+// witness proves the fresh presentation.
+static bool16 t1boss_mima_phase3_owner_construct(void)
+{
+	t1boss_mima_checkpoint_t start;
+	int i;
+
+	// Phase 3 is entered only after Phase 2 finished Mima's spread-in. Start
+	// from the untouched native Mima loader instead and materialize that
+	// canonical post-transition owner state without simulating either phase.
+	if(
+		!resident ||
+		(resident->stage_id != ((1 * STAGES_PER_SCENE) + BOSS_STAGE)) ||
+		(resident->route != ROUTE_JIGOKU) ||
+		(boss_id != BID_MIMA) ||
+		(boss_phase != 0) ||
+		(boss_phase_frame != 0) ||
+		(boss_hp != HP_TOTAL) ||
+		(ent_still.cur_left != BASE_LEFT) ||
+		(ent_still.cur_top != PLAYFIELD_TOP) ||
+		(ent_still.image() != 0) ||
+		(ent_anim.image() != C_METEOR) ||
+		(ent_still.hitbox_orb_inactive != false)
+	) {
+		return false;
+	}
+
+	start.owner = T1BOSS_MIMA_CHECKPOINT_OWNER;
+	start.schema = T1BOSS_MIMA_CHECKPOINT_SCHEMA;
+	start.phase = 3;
+	start.pattern = 0;
+	start.phase_frame = 0;
+	start.hp = HP_PHASE_1_END;
+	start.invincibility_frame = 0;
+	start.pattern_state = 0;
+	start.entity_left = BASE_LEFT;
+	start.entity_top = BASE_TOP;
+	start.target_left = 0;
+	for(i = 0; i < MIMA_PILLAR_COUNT; i++) {
+		start.pillar_time[i] = 0;
+		start.pillar_center_x[i] = 0;
+		start.pillar_bottom[i] = 0;
+	}
+	for(i = 0; i < SQUARE_POINTS; i++) {
+		start.laser_corner_x[i] = 0;
+		start.laser_corner_y[i] = 0;
+	}
+	start.meteor_active = true;
+	start.spreadin_interval = 4;
+	start.spreadin_speed = 8;
+	start.initial_hp_rendered = true;
+	start.hit_invincible = false;
+	start.hop = static_cast<uint8_t>(-1);
+	start.hop_direction = X_RIGHT;
+	start.entity_image = 0;
+	start.animation_image = C_METEOR;
+	start.entity_hitbox_inactive = false;
+	start.square_aimed_pellets_angle = 0;
+	start.square_aimed_pellets_radius = 0;
+	start.square_aimed_missiles_angle = 0;
+	start.square_aimed_missiles_radius = 0;
+	start.square_two_pellets_angle = 0;
+	start.square_two_pellets_radius = 0;
+	start.square_halfcircle_missiles_angle = 0;
+	start.square_halfcircle_missiles_radius = 0;
+	start.square_slow_spray_angle = 0;
+	start.square_slow_spray_radius = 0;
+	start.square_lasers_angle = 0;
+	start.square_lasers_radius = 0;
+	start.missile_angle = 0;
+	start.pellet_angle = 0;
+	start.reserved[0] = 0;
+	start.reserved[1] = 0;
+	if(!t1boss_mima_ckpt_apply_loaded(&start)) {
+		return false;
+	}
+
+	// Phase 2 has already produced the static both-page Mima image and the
+	// completed HP bar. Recreate its backing and presentation in that order.
+	mima_put_still_both();
+	stage_palette_set(z_Palettes);
+	boss_palette_snap();
+	hud_hp_rerender(HP_PHASE_1_END);
+	return true;
+}
+#endif
+
+#pragma codeseg

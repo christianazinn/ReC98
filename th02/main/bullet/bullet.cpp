@@ -1,6 +1,7 @@
 #pragma option -zPmain_03 -G
 
 #include "th02/main/bullet/bullet.hpp"
+#include "th02/main/bullet/state.hpp"
 #include "th02/main/bullet/impl.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
@@ -19,42 +20,11 @@
 #include "th02/main/tile/tile.hpp"
 #include "th02/main/player/bomb.hpp"
 #include "th02/main/player/player.hpp"
+#include "th02/main/boss/b3.hpp"
+#include "th02/main/boss/boss.hpp"
+#include "th02/main/boss/bosses.hpp"
 #include "th01/sprites/pellet.h"
 #include "th02/sprites/bullet16.h"
-
-// Conceptually identical to the same constants in TH04, but not worth their
-// own header to avoid the duplication. (And indeed named "size type" so that
-// the variants would abbreviate the same as they would for "spawn types"!)
-enum bullet_size_type_t {
-	BST_PELLET = 1,
-	BST_BULLET16 = 2,
-};
-
-struct bullet_t {
-	int8_t flag; // ACTUAL TYPE: entity_flag_t
-	int8_t size_type; // ACTUAL TYPE: bullet_size_type_t
-
-	// Stores the current and previous position, indexed with the currently
-	// rendered VRAM page.
-	SPPoint screen_topleft[PAGE_COUNT];
-
-	SPPoint velocity;
-	main_patnum_t patnum; // Only used with `BST_BULLET16`.
-
-	// Only used with `BST_BULLET16`.
-	bullet_group_or_special_motion_t group_or_special_motion;
-
-	unsigned char angle;
-	SubpixelLength8 speed;
-
-	// ZUN bloat: There's a padding byte to store a second value...
-	union {
-		uint8_t special_frame;
-		uint8_t turns_done;
-		uint8_t v;
-	} u1;
-	int8_t padding;
-};
 
 // Constants
 // ---------
@@ -71,20 +41,72 @@ static const subpixel_t SPEED_MIN = TO_SP(1);
 #define screen_top 	bullet_screen_top
 #define stack      	bullet_stack
 
-extern bullet_t bullets[BULLET_COUNT];
-
 extern screen_x_t screen_left;
 extern screen_y_t screen_top;
-extern Subpixel8 rank_base_speed;
 
 // ZUN bloat: Could have been local variables.
 extern Subpixel near* cur_left;
 extern Subpixel near* cur_top;
 
-extern uint8_t rank_base_stack;
 extern uint8_t stack;
-extern int8_t easy_slow_skip_cycle;
 // -----
+
+// Boss state, reset by the function below. ZUN put it at the top of this
+// translation unit even though it has nothing to do with bullets; it is the
+// last function before bullets_and_sparks_init() in the original object.
+//
+// Three of the four globals that used to carry their IDA names here were named
+// from evidence in this same dump by naming review 2. All three are
+// [inferred]: the oracle cannot check a name, so what follows is the search,
+// not a proof.
+//
+// - [stone_hit_flash] is set to 1 behind a `stone_flag[i] == SF_ACTIVE` guard,
+//   one instruction before the matching `stone_damage[i]` is raised, and is
+//   read-then-cleared in the render pass, which uses it to play SE 4 and blit
+//   a single extra frame through super_roll_put_1plane().
+// - [boss_phase] takes 0-3, is shared by every boss and midboss across 35
+//   references, is zeroed in every `*_init`, and is set in lockstep with
+//   [boss_phase_frame]. Attested in two other games: TH01's
+//   th01/main/boss/boss.hpp declares boss_hp / boss_phase_frame / boss_phase
+//   together, and th04_main.asm has a global [_boss_phase] compared against a
+//   PHASE_* family. TH02 already had the sibling [boss_phase_frame] and was
+//   missing exactly this one.
+// - [stage3_effect_frame] is referenced from nowhere but
+//   stage3_update_and_render() (th02/main/stage/stages.cpp), which
+//   stage_init() installs as stage_update_and_render() for `stage_id == 2`.
+//   It is incremented once per frame and used purely as a timeline: SE at 168,
+//   a palette strobe over 168-200, gates at 400/600/800/1000, then a wrap back
+//   to 200.
+//   Being zeroed by bosses_reset() is the only reason it reads as boss state;
+//   it is stage state that happens to be reset from here. Deliberately NOT
+//   labelled `ZUN bloat`: the store is reached once per stage and the value is
+//   read afterwards, so it is not redundant — only misleadingly placed.
+//
+// [boss_hit_flash] is the same read-then-clear shape one level up, and was
+// held for naming review here because none of this file's three sites could
+// show that half. th02/main/boss/b4.cpp names it: all three boss renderers
+// read it, blit their sprite white and lower it again on the same frame.
+extern "C" {
+	extern uint8_t stone_hit_flash[STONE_COUNT];
+	extern uint8_t boss_phase;
+	extern bool boss_hit_flash;
+	extern uint16_t stage3_effect_frame;
+}
+
+void bosses_reset(void)
+{
+	for(int i = 0; i < STONE_COUNT; i++) {
+		stone_damage[i] = 0;
+		stone_flag[i] = SF_DORMANT;
+		stone_hit_flash[i] = 0;
+	}
+	boss_phase_frame = 0;
+	boss_phase = 0;
+	boss_damage = 0;
+	boss_hit_flash = false;
+	sigma_frame = 0;
+	stage3_effect_frame = 0;
+}
 
 #pragma option -a2
 

@@ -30,31 +30,15 @@ static const pixel_t ITEM_H = 16;
 #define SEMIRANDOM_RING	ITEM_SEMIRANDOM_RING
 
 extern const item_type_t SEMIRANDOM_RING[10];
-extern const main_patnum_t ITEM_PATNUM[IT_COUNT];
+extern const uint8_t ITEM_PATNUM[IT_COUNT]; // ACTUAL TYPE: main_patnum_t
 
 static const uint8_t SEMIRANDOM_RING_SIZE = (
 	sizeof(SEMIRANDOM_RING) / sizeof(SEMIRANDOM_RING[0])
 );
 // ---------
 
-struct item_pos_t {
-	screen_x_t screen_left;
-	Subpixel screen_top;
-};
-
-struct item_t {
-	entity_flag_t flag;
-	item_type_t type;
-	item_pos_t pos[PAGE_COUNT];
-	Subpixel velocity_y;
-	pixel_t velocity_x_during_bounce;
-	int age; // unused
-};
-
 // State
 // -----
-
-extern item_t items[ITEM_COUNT];
 
 #define p_left_ptr       	item_p_left_ptr
 #define p_top_ptr        	item_p_top_ptr
@@ -78,7 +62,6 @@ extern union {
 	vram_y_t vram;
 } p_top;
 extern uint8_t semirandom_ring_p;
-extern score_t item_score_this_frame;
 // -----
 
 void near items_init_and_reset(void)

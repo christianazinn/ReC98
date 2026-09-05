@@ -12,13 +12,14 @@ void hud_score_and_cardcombo_render(void);
 // Also calls timer_init_for() for the current stage and route if
 // [timer_initialized] is false. Will not actually set that variable though...
 void hud_bg_snap_and_put(void);
+void far t1replay_hud_bg_snap_and_put(void);
 extern bool timer_initialized;
 
 // Must be called after every background change. Left as a macro to avoid a
 // general dependency on [first_stage_in_scene].
 #define hud_rerender() { \
 	first_stage_in_scene = true; \
-	hud_bg_snap_and_put(); \
+	t1replay_hud_bg_snap_and_put(); \
 	\
 	/* Unnecessary, already done as part of hud_bg_snap_and_put() */ \
 	hud_score_and_cardcombo_render(); \

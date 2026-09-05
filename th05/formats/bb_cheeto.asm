@@ -1,27 +1,3 @@
-; void pascal near bb_cheeto_load(void);
-public bb_cheeto_load
-bb_cheeto_load proc near
-	mov	ax, 3D00h
-	mov	dx, offset aLs00_bb
-	int	21h		; DOS -	2+ - OPEN DISK FILE WITH HANDLE
-				; DS:DX	-> ASCIZ filename
-				; AL = access mode
-				; 0 - read
-	mov	bx, ax
-	mov	ah, 3Fh
-	mov	dx, offset _bb_cheeto
-	mov	cx, BB_SIZE
-	int	21h		; DOS -	2+ - READ FROM FILE WITH HANDLE
-				; BX = file handle, CX = number	of bytes to read
-				; DS:DX	-> buffer
-	mov	ah, 3Eh
-	int	21h		; DOS -	2+ - CLOSE A FILE WITH HANDLE
-				; BX = file handle
-	retn
-bb_cheeto_load endp
-	nop
-
-
 ; Adapted from z_super_roll_put_tiny_32x32().
 public @cheeto_put
 @cheeto_put proc near

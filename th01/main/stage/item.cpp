@@ -11,6 +11,7 @@
 #include "th01/main/shape.hpp"
 #include "th01/main/stage/item.hpp"
 #include "th01/shiftjis/item.hpp"
+#include "th01/replay_format.hpp"
 
 /// Constants
 /// ---------
@@ -407,4 +408,54 @@ void items_point_unput_update_render(void)
 			);
 		}
 	}
+}
+
+static void t1replay_item_checkpoint_export(
+	t1replay_checkpoint_item_t *dst, const item_t *src, int count
+)
+{
+	for(int i = 0; i < count; i++) {
+		dst[i].left = src[i].left;
+		dst[i].top = src[i].top;
+		dst[i].unknown_zero = src[i].unknown_zero;
+		dst[i].velocity_y = src[i].velocity_y;
+		dst[i].flag = src[i].flag;
+		dst[i].state = src[i].flag_state.collect_time;
+	}
+}
+
+static void t1replay_item_checkpoint_import(
+	item_t *dst, const t1replay_checkpoint_item_t *src, int count
+)
+{
+	for(int i = 0; i < count; i++) {
+		dst[i].left = src[i].left;
+		dst[i].top = src[i].top;
+		dst[i].unknown_zero = src[i].unknown_zero;
+		dst[i].velocity_y = src[i].velocity_y;
+		dst[i].flag = src[i].flag;
+		dst[i].flag_state.collect_time = src[i].state;
+	}
+}
+
+void t1replay_items_checkpoint_export(t1replay_checkpoint_items_t *checkpoint)
+{
+	t1replay_item_checkpoint_export(
+		checkpoint->bombs, items_bomb, ITEM_BOMB_COUNT
+	);
+	t1replay_item_checkpoint_export(
+		checkpoint->points, items_point, ITEM_POINT_COUNT
+	);
+}
+
+void t1replay_items_checkpoint_import(
+	const t1replay_checkpoint_items_t *checkpoint
+)
+{
+	t1replay_item_checkpoint_import(
+		items_bomb, checkpoint->bombs, ITEM_BOMB_COUNT
+	);
+	t1replay_item_checkpoint_import(
+		items_point, checkpoint->points, ITEM_POINT_COUNT
+	);
 }

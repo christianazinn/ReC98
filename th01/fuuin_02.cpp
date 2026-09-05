@@ -15,6 +15,7 @@ static long unused_long = { 0 }; // ZUN bloat
 #include "th01/resident.hpp"
 #include "th01/hardware/graph.h"
 #include "th01/hardware/input.hpp"
+#include "th01/langfuu.hpp"
 #include "th01/shiftjis/fns.hpp"
 #include "th01/shiftjis/regist.hpp"
 #include "th01/formats/scoredat.hpp"
@@ -40,13 +41,15 @@ void input_sense(bool16 reset_repeat)
 		input_prev[7] = 0;
 		input_prev[8] = 0;
 		input_prev[9] = 0;
+		t1replay_fuuin_input_reset();
 		return;
 	}
 
-	group_1 = key_sense(7);
-	group_2 = key_sense(5);
-	group_1 |= key_sense(7);
-	group_2 |= key_sense(5);
+	t1replay_fuuin_frame_io();
+	group_1 = input_key_sense(7);
+	group_2 = input_key_sense(5);
+	group_1 |= input_key_sense(7);
+	group_2 |= input_key_sense(5);
 
 	input_onchange_bool(0, input_up, (group_1 & K7_ARROW_UP));
 	input_onchange_bool(1, input_down, (group_1 & K7_ARROW_DOWN));
@@ -97,10 +100,21 @@ inline void regist_bg_put(int16_t stage_num_or_scoredat_constant) {
 #define regist_title_put( \
 	left, stage_num_or_scoredat_constant, ranks, col_and_fx \
 ) { \
-	graph_printf_fx( \
-		left, TITLE_TOP, col_and_fx, REGIST_TITLE_WITH_SPACE "%s", ranks[rank] \
-	); \
+	const shiftjis_t *title_format = REGIST_TITLE_WITH_SPACE "%s"; \
+	if(!t1lang_fuuin_regist_title_put( \
+		left, TITLE_TOP, col_and_fx, title_format, rank \
+	)) { \
+		graph_printf_fx( \
+			left, TITLE_TOP, col_and_fx, title_format, ranks[rank] \
+		); \
+	} \
 }
+
+#define regist_language_put(left, top, col_and_fx, japanese, text) \
+	t1lang_fuuin_regist_put( \
+		left, top, col_and_fx, japanese, \
+		static_cast<t1lang_fuuin_regist_text_t>(text) \
+	)
 
 #include "th01/hiscore/regist.cpp"
 

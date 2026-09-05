@@ -16,6 +16,7 @@
 
 unsigned int stage_timer;
 static unsigned int frame_since_harryup;
+static unsigned char harryup_cycle;
 
 // Function ordering fails
 // -----------------------
@@ -131,6 +132,20 @@ void timer_extend_and_put(void)
 	frame_since_harryup = 0;
 }
 
+void t1replay_timer_checkpoint_export(t1replay_checkpoint_pacing_t *out)
+{
+	out->stage_timer = stage_timer;
+	out->frame_since_harryup = frame_since_harryup;
+	out->harryup_cycle = harryup_cycle;
+}
+
+void t1replay_timer_checkpoint_import(const t1replay_checkpoint_pacing_t *in)
+{
+	stage_timer = in->stage_timer;
+	frame_since_harryup = in->frame_since_harryup;
+	harryup_cycle = in->harryup_cycle;
+}
+
 // Largely copy-pasted from stage_num_animate()
 void harryup_animate(void)
 {
@@ -186,8 +201,6 @@ void harryup_animate(void)
 
 void pattern_harryup(void)
 {
-	static unsigned char harryup_cycle;
-
 	frame_since_harryup++;
 	harryup_cycle++;
 

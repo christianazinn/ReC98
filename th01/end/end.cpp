@@ -14,6 +14,8 @@
 #include "th01/formats/grp.h"
 #include "th01/formats/scoredat.hpp"
 #include "th01/hiscore/regist.hpp"
+#include "th01/langfuu.hpp"
+#include "th01/language.hpp"
 #include "th01/end/end.hpp"
 #include "th01/end/pic.hpp"
 #include "th01/end/type.hpp"
@@ -415,18 +417,19 @@ static const int16_t FX_TITLE = (FX_WEIGHT_HEAVY | 2);
 // -----------
 
 static const screen_x_t VERDICT_LEFT = 296;
-static const screen_x_t VERDICT_GAME_RIGHT = (
-	VERDICT_LEFT + VERDICT_W - shiftjis_w("  ")
-);
-static const screen_x_t VERDICT_GAME_VERSION_LEFT = (
-	VERDICT_GAME_RIGHT - shiftjis_w(GAME_VERSION)
-);
-static const screen_x_t VERDICT_GAME_VER_LEFT = (
-	VERDICT_GAME_VERSION_LEFT - shiftjis_w(GAME_VER " ")
-);
-static const screen_x_t VERDICT_GAME_TITLE_LEFT = (
-	VERDICT_GAME_VER_LEFT - shiftjis_w(GAME_TITLE "  ")
-);
+#define T1LANG_FUUIN_VERDICT_CAPACITY 40
+
+static const shiftjis_t *verdict_text_select(
+	shiftjis_t *english, const shiftjis_t *japanese,
+	t1lang_fuuin_verdict_text_t text
+)
+{
+	if((t1_language_get() == T1LANG_ENGLISH) &&
+		t1lang_fuuin_verdict_english_build(english, text)) {
+		return english;
+	}
+	return japanese;
+}
 
 inline screen_y_t verdict_line_top(int i) {
 	return (i * (GLYPH_H * 2));
@@ -445,6 +448,11 @@ inline screen_y_t verdict_line_top(int i) {
 
 void verdict_title_calculate_and_render(void)
 {
+	shiftjis_t english[T1LANG_FUUIN_VERDICT_CAPACITY];
+	shiftjis_t heading[T1LANG_FUUIN_VERDICT_CAPACITY];
+	const shiftjis_t *title;
+	pixel_t heading_left_offset = VERDICT_TITLE_LEFT_OFFSET;
+	pixel_t heading_padded_w = VERDICT_TITLE_PADDED_W;
 	int skill = 0;
 	int level;
 
@@ -508,18 +516,56 @@ void verdict_title_calculate_and_render(void)
 	else if(skill >=  0) { level = 1; }
 	else /*           */ { level = 0; }
 
+	title = VERDICT_TITLES[group][level];
+	if((t1_language_get() == T1LANG_ENGLISH) &&
+		t1lang_fuuin_verdict_title_english_build(english, group, level)) {
+		title = english;
+		if(t1lang_fuuin_verdict_english_build(heading, T1LFVT_HEADING)) {
+			heading_left_offset = shiftjis_w("    ");
+			heading_padded_w = (
+				text_extent_fx(0, heading) + shiftjis_w("    ")
+			);
+		}
+	}
+
 	graph_printf_fx(
-		(VERDICT_LEFT - VERDICT_TITLE_LEFT_OFFSET + VERDICT_TITLE_PADDED_W),
+		(VERDICT_LEFT - heading_left_offset + heading_padded_w),
 		verdict_line_top(12),
 		FX_TITLE,
 		"%s",
-		VERDICT_TITLES[group][level]
+		title
 	);
 }
 
 void verdict_animate_and_regist_menu(void)
 {
 	const shiftjis_t* RANKS[RANK_COUNT] = RANKS_CAPS_CENTERED;
+	shiftjis_t english[T1LANG_FUUIN_VERDICT_CAPACITY];
+	const shiftjis_t *selected;
+	const pixel_t verdict_w = (
+		(t1_language_get() == T1LANG_ENGLISH)
+		? t1lang_fuuin_verdict_max_w(
+			RANKS[rank],
+			static_cast<unsigned long>(score_highest),
+			static_cast<unsigned long>(score),
+			continues_per_scene,
+			static_cast<unsigned long>(continues_total),
+			(end_flag == ES_MAKAI)
+		)
+		: VERDICT_W
+	);
+	const screen_x_t game_right = (
+		VERDICT_LEFT + verdict_w - shiftjis_w("  ")
+	);
+	const screen_x_t game_version_left = (
+		game_right - shiftjis_w(GAME_VERSION)
+	);
+	const screen_x_t game_ver_left = (
+		game_version_left - shiftjis_w(GAME_VER " ")
+	);
+	const screen_x_t game_title_left = (
+		game_ver_left - shiftjis_w(GAME_TITLE "  ")
+	);
 
 	grp_palette_black_out(10);
 
@@ -530,55 +576,85 @@ void verdict_animate_and_regist_menu(void)
 	graph_accesspage_func(0);
 	grp_palette_black_in(8);
 
-	graph_type_kanji(VERDICT_GAME_TITLE_LEFT, verdict_line_top(1), GAME_TITLE);
-	graph_type_ank(VERDICT_GAME_VER_LEFT, verdict_line_top(1), GAME_VER);
+	graph_type_kanji(game_title_left, verdict_line_top(1), GAME_TITLE);
+	graph_type_ank(game_ver_left, verdict_line_top(1), GAME_VER);
 	graph_type_ank(
-		VERDICT_GAME_VERSION_LEFT, verdict_line_top(1), GAME_VERSION
+		game_version_left, verdict_line_top(1), GAME_VERSION
 	);
 	frame_delay(30);
 
-	verdict_line_render1(2, VERDICT_RANK"%s", RANKS[rank]);
+	selected = verdict_text_select(english, VERDICT_RANK"%s", T1LFVT_RANK);
+	verdict_line_render1(2, selected, RANKS[rank]);
 
 	// Should really all be %10lu (with the superfluous right-padding removed
 	// from the strings) if you're already using `long`s here. Scoreplayers
 	// can definitely reach 8 digits.
-	verdict_line_render1(3, VERDICT_SCORE_HIGHEST"%7lu", score_highest);
-	verdict_line_render1(4, VERDICT_SCORE"%7lu", score);
+	selected = verdict_text_select(
+		english, VERDICT_SCORE_HIGHEST"%7lu", T1LFVT_SCORE_HIGHEST
+	);
+	verdict_line_render1(3, selected, score_highest);
+	selected = verdict_text_select(english, VERDICT_SCORE"%7lu", T1LFVT_SCORE);
+	verdict_line_render1(4, selected, score);
 
-	verdict_line_render0(5, VERDICT_SCENE_CONTINUES);
+	selected = verdict_text_select(
+		english, VERDICT_SCENE_CONTINUES, T1LFVT_CONTINUES
+	);
+	verdict_line_render0(5, selected);
 
 	// Same here, technically. Would require a layout change to make room for
 	// that many halfwidth characters, though… and seriously, who continues
 	// more than a 3-digit number of times *per scene*?
-	verdict_line_render1(6, VERDICT_SHRINE"%3lu", continues_per_scene[0]);
+	selected = verdict_text_select(english, VERDICT_SHRINE"%3lu", T1LFVT_SHRINE);
+	verdict_line_render1(6, selected, continues_per_scene[0]);
 	if(end_flag == ES_MAKAI) {
-		verdict_line_render1(7, VERDICT_MAKAI_1"%3lu", continues_per_scene[1]);
+		selected = verdict_text_select(
+			english, VERDICT_MAKAI_1"%3lu", T1LFVT_MAKAI_1
+		);
 	} else {
-		verdict_line_render1(7, VERDICT_JIGOKU_1"%3lu", continues_per_scene[1]);
+		selected = verdict_text_select(
+			english, VERDICT_JIGOKU_1"%3lu", T1LFVT_JIGOKU_1
+		);
 	}
+	verdict_line_render1(7, selected, continues_per_scene[1]);
 	if(end_flag == ES_MAKAI) {
-		verdict_line_render1(8, VERDICT_MAKAI_2"%3lu", continues_per_scene[2]);
+		selected = verdict_text_select(
+			english, VERDICT_MAKAI_2"%3lu", T1LFVT_MAKAI_2
+		);
 	} else {
-		verdict_line_render1(8, VERDICT_JIGOKU_2"%3lu", continues_per_scene[2]);
+		selected = verdict_text_select(
+			english, VERDICT_JIGOKU_2"%3lu", T1LFVT_JIGOKU_2
+		);
 	}
+	verdict_line_render1(8, selected, continues_per_scene[2]);
 	if(end_flag == ES_MAKAI) {
-		verdict_line_render1(9, VERDICT_MAKAI_3"%3lu", continues_per_scene[3]);
+		selected = verdict_text_select(
+			english, VERDICT_MAKAI_3"%3lu", T1LFVT_MAKAI_3
+		);
 	} else {
-		verdict_line_render1(9, VERDICT_JIGOKU_3"%3lu", continues_per_scene[3]);
+		selected = verdict_text_select(
+			english, VERDICT_JIGOKU_3"%3lu", T1LFVT_JIGOKU_3
+		);
 	}
+	verdict_line_render1(9, selected, continues_per_scene[3]);
 	if(end_flag == ES_MAKAI) {
-		verdict_line_render1(10, VERDICT_MAKAI_TOTAL"%5lu", continues_total);
+		selected = verdict_text_select(
+			english, VERDICT_MAKAI_TOTAL"%5lu", T1LFVT_MAKAI_TOTAL
+		);
 	} else {
-		verdict_line_render1(10, VERDICT_JIGOKU_TOTAL"%5lu", continues_total);
+		selected = verdict_text_select(
+			english, VERDICT_JIGOKU_TOTAL"%5lu", T1LFVT_JIGOKU_TOTAL
+		);
 	}
+	verdict_line_render1(10, selected, continues_total);
 
 	graph_type_ank(VERDICT_LEFT, verdict_line_top(11), VERDICT_THANKYOU);
 
+	selected = verdict_text_select(english, VERDICT_TITLE, T1LFVT_HEADING);
 	graph_printf_fx(
-		(VERDICT_LEFT - VERDICT_TITLE_LEFT_OFFSET),
+		(VERDICT_LEFT - shiftjis_w("    ")),
 		verdict_line_top(12),
 		FX_TITLE,
-		VERDICT_TITLE
+		selected
 	);
 	frame_delay(50);
 
@@ -586,6 +662,7 @@ void verdict_animate_and_regist_menu(void)
 
 	int timeout = 0;
 	frame_delay(100);
+	t1replay_fuuin_phase_begin(T1REPLAY_FUUIN_PHASE_VERDICT);
 	input_reset_sense();
 	while(!(((timeout++) >= 2000) || input_ok || input_shot)) {
 		input_sense(false);

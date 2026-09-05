@@ -36,6 +36,10 @@ typedef enum {
 	PMD_GET_BUFFER_SIZES = 0x22,
 } kaja_func_t;
 
+#define PMD_PAUSE PMD_SONG_PAUSE
+#define PMD_UNPAUSE PMD_SONG_RESUME
+#define PMD_SEEK_MEASURE 0x1C
+
 #define PMD 0x60
 #define MMD 0x61
 

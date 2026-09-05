@@ -83,13 +83,25 @@ inline void input_reset_menu_related(void) {
 ) \
 	input_onchange_2(prev_slot_1, prev_slot_2,  \
 		cur_sensed_1, cur_sensed_2, input_func_flag(var, flag) \
-	)
+)
+
+// TH01 replay core: Each process latches its canonical raw groups once at the
+// measured input_sense(false) seam.
+#if (BINARY == 'M')
+	int far t1replay_key_sense(int keygroup);
+	#define input_key_sense(group) t1replay_key_sense(group)
+#elif (BINARY == 'E')
+	#include "th01/rpyfuuin.hpp"
+	#define input_key_sense(group) t1replay_fuuin_key_sense(group)
+#else
+	#define input_key_sense(group) key_sense(group)
+#endif
 
 #define input_pause_ok_sense(prev_slot_esc, prev_slot_ok, group0, group3) \
-	group0 = key_sense(0); \
-	group3 = key_sense(3); \
-	group0 |= key_sense(0); \
-	group3 |= key_sense(3); \
+	group0 = input_key_sense(0); \
+	group3 = input_key_sense(3); \
+	group0 |= input_key_sense(0); \
+	group3 |= input_key_sense(3); \
 	input_onchange(prev_slot_esc, (group0 & K0_ESC), { \
 		paused = (1 - paused); \
 	}) \

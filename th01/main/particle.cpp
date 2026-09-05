@@ -1,24 +1,22 @@
 #include "th01/main/particle.hpp"
+#include "th01/replay_format.hpp"
+
+static const int PARTICLE_COUNT = 40;
+
+// These were function statics. The semantic pool is now explicitly owned by
+// this TU rather than being inaccessible to a checkpoint codec.
+static int spawn_interval;
+static pixel_t velocity_base_max;
+static Subpixel x[PARTICLE_COUNT];
+static Subpixel y[PARTICLE_COUNT];
+static Subpixel velocity_x[PARTICLE_COUNT];
+static Subpixel velocity_y[PARTICLE_COUNT];
+static bool alive[PARTICLE_COUNT];
+static unsigned char velocity_base[PARTICLE_COUNT];
+static unsigned char spawn_cycle;
 
 void particles_unput_update_render(particle_origin_t origin, vc2 col)
 {
-	enum {
-		PARTICLE_COUNT = 40,
-	};
-
-	static int spawn_interval;
-	static pixel_t velocity_base_max;
-	static Subpixel x[PARTICLE_COUNT];
-	static Subpixel y[PARTICLE_COUNT];
-	static Subpixel velocity_x[PARTICLE_COUNT];
-	static Subpixel velocity_y[PARTICLE_COUNT];
-	static bool alive[PARTICLE_COUNT];
-
-	// MODDERS: Should be local, and just a single variable, not an array.
-	static unsigned char velocity_base[PARTICLE_COUNT];
-
-	static unsigned char spawn_cycle;
-
 	unsigned char i;
 
 	// Completely pointless, since all of this could have been statically
@@ -169,4 +167,38 @@ void particles_unput_update_render(particle_origin_t origin, vc2 col)
 	// Same as grcg_off(), but the I/O is inlined here, and grcg_off() points
 	// to grcg_off_func() thanks to the prior inclusion of graph.h...
 	grcg_setmode(0);
+}
+
+void t1replay_particles_checkpoint_export(
+	t1replay_checkpoint_particles_t *checkpoint
+)
+{
+	checkpoint->spawn_interval = spawn_interval;
+	checkpoint->velocity_base_max = velocity_base_max;
+	checkpoint->spawn_cycle = spawn_cycle;
+	for(int i = 0; i < PARTICLE_COUNT; i++) {
+		checkpoint->particles[i].x = x[i].v;
+		checkpoint->particles[i].y = y[i].v;
+		checkpoint->particles[i].velocity_x = velocity_x[i].v;
+		checkpoint->particles[i].velocity_y = velocity_y[i].v;
+		checkpoint->particles[i].alive = alive[i];
+		checkpoint->particles[i].velocity_base = velocity_base[i];
+	}
+}
+
+void t1replay_particles_checkpoint_import(
+	const t1replay_checkpoint_particles_t *checkpoint
+)
+{
+	spawn_interval = checkpoint->spawn_interval;
+	velocity_base_max = checkpoint->velocity_base_max;
+	spawn_cycle = checkpoint->spawn_cycle;
+	for(int i = 0; i < PARTICLE_COUNT; i++) {
+		x[i].v = checkpoint->particles[i].x;
+		y[i].v = checkpoint->particles[i].y;
+		velocity_x[i].v = checkpoint->particles[i].velocity_x;
+		velocity_y[i].v = checkpoint->particles[i].velocity_y;
+		alive[i] = checkpoint->particles[i].alive;
+		velocity_base[i] = checkpoint->particles[i].velocity_base;
+	}
 }

@@ -1,6 +1,8 @@
 #include <stddef.h>
+#include <process.h>
 #include "planar.h"
 #include "libs/master.lib/master.hpp"
+#include "th01/rank.h"
 #include "th01/hardware/egc.h"
 
 // ZUN bloat: Needed for code generation reasons in the single graph_putsa_fx()
@@ -14,6 +16,9 @@
 #include "th02/v_colors.hpp"
 #include "th02/resident.hpp"
 #include "th02/core/globals.hpp"
+#include "th02/core/initexit.h"
+#include "th02/formats/cfg.hpp"
+#include "th02/shiftjis/fns.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/hardware/input.hpp"
 #include "th02/formats/end.hpp"
@@ -25,8 +30,23 @@
 #include "th02/shiftjis/end.hpp"
 #include "th02/shiftjis/title.hpp"
 #include "th02/sprites/verdict.hpp"
+#include "th02/language.hpp"
+#include "th02/main/memory_budget.hpp"
+#include "th02/practice_diag.hpp"
 
 #include "th02/gaiji/ranks_c.c"
+
+// The wrapper has the same call shape as pi_load(), while its strict
+// allowlist keeps unchanged ending art in the stock Japanese archive.
+#define pi_load t2_language_maine_pi_load
+
+// This stays ABI-identical to graph_putsa_fx(). The language tail selects only
+// MAINE's executable-resident English donor copy; every other string remains
+// on the stock renderer path.
+extern "C" void DEFCONV t2_language_maine_graph_putsa_fx(
+	screen_x_t left, vram_y_t top, int16_t col_and_fx, shiftjis_t *str
+);
+#define graph_putsa_fx t2_language_maine_graph_putsa_fx
 
 // Constants
 // ---------
@@ -114,14 +134,14 @@ void extra_unlock_animate(void);
 
 void pascal near end_load(const char *fn)
 {
-	file_ropen(fn);
+	t2_language_maine_file_ropen(fn);
 
 	// ZUN landmine: No check to ensure that the size is ≤ sizeof(end_text).
 	// Dynamic allocation would have made more sense...
 	size_t size = file_size();
 	file_read(end_text, size);
 
-	file_close();
+	t2_language_maine_file_close();
 }
 
 inline void verdict_label_put(int row, screen_x_t left, shiftjis_t* str) {
@@ -1101,7 +1121,7 @@ void near staffroll_and_verdict_animate(void)
 
 	// Copyright
 	graph_accesspage(1);
-	verdict_label_put(8, VERDICT_LABEL_LEFT, VERDICT_COPYRIGHT "\0all.pi");
+	verdict_label_put(8, VERDICT_LABEL_LEFT, VERDICT_COPYRIGHT);
 	verdict_row_1_to_0_animate(
 		8, ((sizeof(VERDICT_COPYRIGHT) - 1) / sizeof(shiftjis_kanji_t))
 	);
@@ -1117,3 +1137,133 @@ void near staffroll_and_verdict_animate(void)
 	graph_clear();
 	/// -------
 }
+
+// MAINE.EXE's second code segment
+// -------------------------------
+// ZUN kept these in the same translation unit as the verdict sequence above,
+// and the .PI filename literals prove it: "all.pi" occupied the last 7 bytes of
+// this object's `_DATA` contribution, immediately before "but.pi", which used
+// to be th02_maine.asm's first `.data` byte. The dump reached backwards into
+// those 7 bytes with a `$`-relative equate, and this object had to pad its
+// copyright string with them to keep the layout; both of those hacks are gone
+// now that the literal is spelled here, where it belongs. `-d` (merge
+// duplicate strings) makes the second use free. [verified-by-oracle]
+//
+// The call site above still needs its hand-written `push cs`: these functions
+// are `far` and in a DIFFERENT segment of the same group, which is the one case
+// Turbo C++ will not fold into a near call by itself (kb/codegen/0014).
+
+// Defined in th02/maine_04.cpp; no header declares either of them yet.
+int scoredat_is_extra_unlocked(void);
+void regist_menu(void);
+
+#pragma codeseg maine_01_TEXT maine_01
+
+/// Shown after the regular ending, to reveal that the Extra Stage is now
+/// unlocked. Requires a no-continue clear on top of the all-shot-type clear
+/// that scoredat_is_extra_unlocked() checks for.
+void extra_unlock_animate(void)
+{
+	if(!scoredat_is_extra_unlocked()) {
+		return;
+	}
+	if(resident->continues_used != 0) {
+		return;
+	}
+	pi_fullres_load_palette_apply_put_free(CUTSCENE_PIC_SLOT, "all.pi");
+	palette_black_in(2);
+	frame_delay(150);
+	pi_fullres_load_palette_apply_put_free(CUTSCENE_PIC_SLOT, "but.pi");
+	key_delay();
+	palette_black_out(5);
+}
+
+/// The Extra Stage's own ending, and the third alternative to
+/// end_bad_animate() / end_good_animate(). Unlike those two, it is skipped
+/// entirely for a player who has not cleared with every shot type.
+void end_extra_animate(void)
+{
+	if(!scoredat_is_extra_unlocked()) {
+		return;
+	}
+	palette_settone(0);
+	pi_fullres_load_palette_apply_put_free(CUTSCENE_PIC_SLOT, "all.pi");
+	palette_black_in(2);
+	frame_delay(150);
+	pi_fullres_load_palette_apply_put_free(CUTSCENE_PIC_SLOT, "extra.pi");
+	key_delay();
+	palette_black_out(5);
+}
+
+/// MAINE.EXE entry point
+/// ---------------------
+/// Brings up the sound driver and the two fonts, plays whichever ending the
+/// rank and continue count select, shows the high score registration menu, and
+/// finally hands the process back to OP.EXE.
+///
+/// Called main_entry() rather than main() because a C++ function literally
+/// named `main` would come with a code segment of its own, shifting every
+/// address in this group; th02_maine.asm exports the real `_main` as a TASM
+/// alias for this function instead. (kb/codegen/0040)
+///
+/// [inferred] Declared to return nothing because no path in the original sets
+/// AX, and execl() does not return if it succeeds. IDA's
+/// `int __cdecl main(int, const char **, const char **)` comment on this symbol
+/// was its default signature for the name `_main`, not evidence: none of those
+/// three parameters is referenced anywhere in the body.
+extern "C" void far main_entry(void)
+{
+	// 127 is STAGE_ALL, from th02/formats/scoredat/scoredat.hpp. That header
+	// cannot be included here: it re-includes the unguarded th02/score.h.
+	if(cfg_load() && (resident->stage == 127)) {
+		if(t2replay_game_init_main()) {
+			// This process has no linked ZUNINIT error thunk. Returning is the
+			// checked failure path; never continue with master.lib unassigned.
+			return;
+		}
+		t2practice_diag_lifecycle(
+			T2PDLM_MAINE_HEAP_ADMITTED, 0, 0,
+			t2replay_game_heap_available_paras()
+		);
+		gaiji_backup();
+		t2_language_maine_gaiji_entry_bfnt("MIKOFT.bft");
+		snd_pmd_resident();
+		snd_mmd_resident();
+
+		// ZUN bloat: SND_BGM_OFF and SND_BGM_FM do the same thing apart from
+		// the snd_determine_mode() call, which SND_BGM_OFF skips.
+		if(resident->bgm_mode == SND_BGM_OFF) {
+			snd_midi_active = false;
+		} else if(resident->bgm_mode == SND_BGM_FM) {
+			snd_midi_active = false;
+			snd_determine_mode();
+		} else if(resident->bgm_mode == SND_BGM_MIDI) {
+			snd_midi_active = snd_midi_possible;
+			snd_determine_mode();
+		}
+
+		graph_accesspage(0);
+		graph_showpage(0);
+		super_entry_bfnt("endft.bft");
+		frame_delay(100);
+
+		if(resident->rank != RANK_EXTRA) {
+			if(resident->continues_used != 0) {
+				end_bad_animate();
+			} else {
+				end_good_animate();
+			}
+			staffroll_and_verdict_animate();
+		} else {
+			end_extra_animate();
+		}
+
+		palette_settone(50);
+		regist_menu();
+		palette_settone(0);
+		gaiji_restore();
+		game_exit();
+		execl(BINARY_OP, BINARY_OP, nullptr);
+	}
+}
+// -------------------------------

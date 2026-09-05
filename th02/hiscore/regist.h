@@ -20,4 +20,6 @@
 // multiplied by 10 and the number of continues to be added, whereas MAIN.EXE
 // does this itself. Passing it as a clearly annotated parameter would have
 // been nicer.
+#if (GAME == 2)
 void regist_menu(void);
+#endif

@@ -8,11 +8,12 @@
 #include "th02/v_colors.hpp"
 #include "th01/hardware/grcg.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th04/language_overlay.hpp"
 
 void near main_cdg_load(void)
 {
 	op_cdg_load_shared();
-	cdg_load_all_noalpha(CDG_PIC, "sl.cd2");
+	language_asset_cdg_load_all_noalpha(CDG_PIC, "sl.cd2");
 }
 
 void near main_cdg_free(void)
@@ -47,12 +48,12 @@ void near op_animate(void)
 	grcg_off();
 	graph_copy_page(0);
 
-	pi_load(0, "op5b.pi");
-	pi_load(1, "op4b.pi");
-	pi_load(2, "op3b.pi");
-	pi_load(3, "op2b.pi");
-	pi_load(4, "op1b.pi");
-	pi_load(5, "op0b.pi");
+	language_asset_pi_load(0, "op5b.pi");
+	language_asset_pi_load(1, "op4b.pi");
+	language_asset_pi_load(2, "op3b.pi");
+	language_asset_pi_load(3, "op2b.pi");
+	language_asset_pi_load(4, "op1b.pi");
+	language_asset_pi_load(5, "op0b.pi");
 	pi_palette_apply(0);
 	palette_black_in(4);
 
@@ -103,7 +104,10 @@ void near op_animate(void)
 	}
 
 	graph_accesspage(1);
-	pi_fullres_load_palette_apply_put_free(0, MENU_MAIN_BG_FN);
+	language_asset_pi_load(0, MENU_MAIN_BG_FN);
+	pi_palette_apply(0);
+	pi_put_8(0, 0, 0);
+	pi_free(0);
 	graph_copy_page(0);
 
 	// Black-and-white fade-in

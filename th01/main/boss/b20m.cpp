@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <dos.h>
 #include "libs/master.lib/pc98_gfx.hpp"
+#include "th01/replay_format.hpp"
 #include "th01/rank.h"
 #include "th01/resident.hpp"
 #include "th01/v_colors.hpp"
@@ -38,6 +39,9 @@
 #include "th01/main/bullet/pellet.hpp"
 #include "th01/main/hud/hp.hpp"
 #include "th01/main/hud/hud.hpp"
+#if T1SAR_TRACE
+	#include "th01/t1sar.hpp"
+#endif
 
 static const char* unused_entrance_letters_maybe[] = { "ANGEL", "OF", "DEATH" };
 int8_t game_cleared = false; // ACTUAL TYPE: bool
@@ -2615,6 +2619,16 @@ void sariel_main(void)
 				wand_lowered_snap();
 				wand_render_raise_both(true);
 				birds_reset();
+#if T1SAR_TRACE
+				t1sar_owner_set(
+					boss_phase, boss_phase_frame, boss_hp,
+					hud_hp_first_white, hud_hp_first_redwhite,
+					pattern_state.frame, invincibility_frame, invincible,
+					phase.pattern_cur, phase.u1.patterns_done,
+					phase.patterns_until_next, initial_hp_rendered,
+					ent_shield, anm_dress, anm_wand
+				);
+#endif
 				break;
 			}
 entrance_rings_still_active:
@@ -2641,6 +2655,16 @@ entrance_rings_still_active:
 		}
 		hit.update_and_render(flash_colors);
 		phase_form1_next_if_done(2);
+#if T1SAR_TRACE
+		t1sar_owner_set(
+			boss_phase, boss_phase_frame, boss_hp,
+			hud_hp_first_white, hud_hp_first_redwhite,
+			pattern_state.frame, invincibility_frame, invincible,
+			phase.pattern_cur, phase.u1.patterns_done,
+			phase.patterns_until_next, initial_hp_rendered,
+			ent_shield, anm_dress, anm_wand
+		);
+#endif
 	} else if(boss_phase == 2) {
 		phase.frame_bg_transition(1);
 		if(boss_phase_frame == 0) {
@@ -2966,3 +2990,230 @@ entrance_rings_still_active:
 
 	#undef phase_form1_next_if_done
 }
+
+#include "th01/formats/ptn_data.hpp"
+#include "th01/main/boss/b20m.hpp"
+
+#pragma codeseg T1B20MOWN_TEXT
+
+extern grc_t grc_images[GRC_SLOT_COUNT];
+
+static bool16 t1boss_sariel_ent_ckpt_valid(
+	const t1boss_sariel_entity_ckpt_t *entity
+)
+{
+	return (
+		(entity->left == SHIELD_LEFT) && (entity->top == SHIELD_TOP) &&
+		(entity->prev_left == 0) && (entity->prev_top == 0) &&
+		(entity->prev_delta_x == 0) && (entity->prev_delta_y == 0) &&
+		(entity->image == 0) && (entity->hitbox_inactive == 0) &&
+		(entity->lock_frame == 0)
+	);
+}
+
+static bool16 t1boss_sariel_anim_ckpt_valid(
+	const t1boss_sariel_anim_ckpt_t *anim,
+	screen_x_t left,
+	screen_y_t top
+)
+{
+	return (
+		(anim->left == left) && (anim->top == top) &&
+		(anim->image == 0) && (anim->reserved == 0)
+	);
+}
+
+static bool16 t1boss_sariel_grc_slot_loaded(
+	main_grc_slot_t slot,
+	int image_count
+)
+{
+	int i;
+
+	if(
+		(grc_images[slot].vram_w != (VORTEX_W / BYTE_DOTS)) ||
+		(grc_images[slot].h != VORTEX_H) ||
+		(grc_images[slot].image_count < image_count)
+	) {
+		return false;
+	}
+	for(i = 0; i < image_count; i++) {
+		if(!grc_images[slot].dots[i]) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool16 t1boss_sariel_resources_loaded(void)
+{
+	return (
+		(ent_shield.bos_slot == 0) && (ent_shield.bos_image_count >= 4) &&
+		!ent_shield.loading &&
+		(anm_wand.bos_slot == 0) && (anm_wand.bos_image_count >= 2) &&
+		(anm_wand.vram_w > 0) && (anm_wand.h > 0) &&
+		(anm_dress.bos_slot == 1) && (anm_dress.bos_image_count >= 4) &&
+		(anm_dress.vram_w > 0) && (anm_dress.h > 0) &&
+		t1boss_sariel_grc_slot_loaded(GRC_SLOT_VORTEX_DEBRIS, 6) &&
+		t1boss_sariel_grc_slot_loaded(GRC_SLOT_BIRD, 8) &&
+		t1boss_sariel_grc_slot_loaded(GRC_SLOT_SPAWNCROSS, SPAWNCROSS_CELS) &&
+		t1boss_sariel_grc_slot_loaded(GRC_SLOT_LEAFSPLASH, LEAFSPLASH_CELS) &&
+		ptn_images[PTN_SLOT_WAND_LOWERED] &&
+		(ptn_image_count[PTN_SLOT_WAND_LOWERED] ==
+			(((WAND_W / PTN_W) * (WAND_H / PTN_H)) + 4))
+	);
+}
+
+bool16 t1boss_sariel_checkpoint_validate(
+	const t1boss_sariel_checkpoint_t *checkpoint
+)
+{
+	return (
+		checkpoint &&
+		(checkpoint->owner == T1BOSS_SARIEL_CHECKPOINT_OWNER) &&
+		(checkpoint->schema == T1BOSS_SARIEL_CHECKPOINT_SCHEMA) &&
+		(checkpoint->phase == 0) && (checkpoint->reserved_0 == 0) &&
+		(checkpoint->phase_frame == 0) && (checkpoint->hp == 18) &&
+		(checkpoint->hud_hp_first_white == 8) &&
+		(checkpoint->hud_hp_first_redwhite == 2) &&
+		(checkpoint->pattern_state == 0) &&
+		t1boss_sariel_ent_ckpt_valid(&checkpoint->shield) &&
+		t1boss_sariel_anim_ckpt_valid(
+			&checkpoint->dress, DRESS_LEFT, DRESS_TOP
+		) &&
+		t1boss_sariel_anim_ckpt_valid(
+			&checkpoint->wand, WAND_LEFT, WAND_TOP
+		) &&
+		(checkpoint->reserved[0] == 0) && (checkpoint->reserved[1] == 0)
+	);
+}
+
+static void t1boss_sariel_ent_ckpt_capture(
+	t1boss_sariel_entity_ckpt_t *checkpoint,
+	const CBossEntity& entity
+)
+{
+	checkpoint->left = entity.cur_left;
+	checkpoint->top = entity.cur_top;
+	checkpoint->prev_left = entity.prev_left;
+	checkpoint->prev_top = entity.prev_top;
+	checkpoint->prev_delta_x = entity.prev_delta_x;
+	checkpoint->prev_delta_y = entity.prev_delta_y;
+	checkpoint->image = entity.image();
+	checkpoint->hitbox_inactive = entity.hitbox_orb_inactive;
+	checkpoint->lock_frame = entity.lock_frame;
+}
+
+static void t1boss_sariel_anim_ckpt_capture(
+	t1boss_sariel_anim_ckpt_t *checkpoint,
+	const CBossAnim& anim
+)
+{
+	checkpoint->left = anim.left;
+	checkpoint->top = anim.top;
+	checkpoint->image = anim.bos_image;
+	checkpoint->reserved = 0;
+}
+
+bool16 t1boss_sariel_checkpoint_capture(
+	t1boss_sariel_checkpoint_t *checkpoint
+)
+{
+	t1boss_sariel_checkpoint_t live;
+
+	if(!checkpoint || game_cleared) {
+		return false;
+	}
+	live.owner = T1BOSS_SARIEL_CHECKPOINT_OWNER;
+	live.schema = T1BOSS_SARIEL_CHECKPOINT_SCHEMA;
+	live.phase = boss_phase;
+	live.reserved_0 = 0;
+	live.phase_frame = boss_phase_frame;
+	live.hp = boss_hp;
+	live.hud_hp_first_white = hud_hp_first_white;
+	live.hud_hp_first_redwhite = hud_hp_first_redwhite;
+	live.pattern_state = pattern_state.frame;
+	t1boss_sariel_ent_ckpt_capture(&live.shield, ent_shield);
+	t1boss_sariel_anim_ckpt_capture(&live.dress, anm_dress);
+	t1boss_sariel_anim_ckpt_capture(&live.wand, anm_wand);
+	live.reserved[0] = 0;
+	live.reserved[1] = 0;
+	if(!t1boss_sariel_checkpoint_validate(&live)) {
+		return false;
+	}
+	*checkpoint = live;
+	return true;
+}
+
+static void t1boss_sariel_ent_ckpt_apply(
+	CBossEntity& entity,
+	const t1boss_sariel_entity_ckpt_t *checkpoint
+)
+{
+	entity.pos_cur_set(checkpoint->left, checkpoint->top);
+	entity.prev_left = checkpoint->prev_left;
+	entity.prev_top = checkpoint->prev_top;
+	entity.prev_delta_x = checkpoint->prev_delta_x;
+	entity.prev_delta_y = checkpoint->prev_delta_y;
+	entity.set_image(checkpoint->image);
+	entity.hitbox_orb_inactive = checkpoint->hitbox_inactive;
+	entity.lock_frame = checkpoint->lock_frame;
+}
+
+static void t1boss_sariel_anim_ckpt_apply(
+	CBossAnim& anim,
+	const t1boss_sariel_anim_ckpt_t *checkpoint
+)
+{
+	anim.left = checkpoint->left;
+	anim.top = checkpoint->top;
+	anim.bos_image = checkpoint->image;
+}
+
+bool16 t1boss_sariel_ckpt_apply_loaded(
+	const t1boss_sariel_checkpoint_t *checkpoint
+)
+{
+	if(
+		!t1boss_sariel_checkpoint_validate(checkpoint) ||
+		!t1boss_sariel_resources_loaded()
+	) {
+		return false;
+	}
+
+	// Native startup already owns the entrance, palette, and allocations.
+	sariel_setup();
+	t1boss_sariel_ent_ckpt_apply(ent_shield, &checkpoint->shield);
+	t1boss_sariel_anim_ckpt_apply(anm_dress, &checkpoint->dress);
+	t1boss_sariel_anim_ckpt_apply(anm_wand, &checkpoint->wand);
+	boss_phase = checkpoint->phase;
+	boss_phase_frame = checkpoint->phase_frame;
+	boss_hp = checkpoint->hp;
+	hud_hp_first_white = checkpoint->hud_hp_first_white;
+	hud_hp_first_redwhite = checkpoint->hud_hp_first_redwhite;
+	pattern_state.frame = checkpoint->pattern_state;
+	game_cleared = false;
+	return true;
+}
+
+#if T1SAR_DIRECT_TRACE
+bool16 t1boss_sariel_first_combat_direct_construct(void)
+{
+	// The ordinary stage loader has already installed the resources, palette,
+	// and phase-0 source state. Do not substitute a
+	// checkpoint or replay the entrance here: phase 0 itself owns the remaining
+	// native entrance and emits the first combat seam.
+	if(
+		!t1boss_sariel_resources_loaded() || game_cleared ||
+		(boss_phase != 0) || (boss_phase_frame != 0) || (boss_hp != 18) ||
+		(hud_hp_first_white != 8) || (hud_hp_first_redwhite != 2) ||
+		(pattern_state.frame != 0) || !t1sar_direct_prepare()
+	) {
+		return false;
+	}
+	sariel_main();
+	return t1sar_direct_ready();
+}
+#endif
+
+#pragma codeseg

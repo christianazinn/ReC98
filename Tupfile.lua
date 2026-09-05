@@ -32,6 +32,8 @@ on this branch.
 ---@alias ReC98Input string | { [1]: string, extra_inputs: string | string[], o?: string}
 
 tup.include("Pipeline/rules.lua")
+tup.import("T1REPLAY_PROFILE=")
+tup.import("T2REPLAY_PROFILE=")
 
 ---@class (exact) ConfigShape
 ---@field obj_root? string Root directory for all intermediate files
@@ -320,8 +322,163 @@ function GameShape(game)
 	return ret
 end
 
-local th01 = Config:branch(GameShape(1))
+local T1REPLAY_PROFILES = {
+	["t1exact-capture"] = {
+		obj_root = "x/c/",
+		bin_root = "x/c/",
+		cflags = "-DT1RP=1",
+	},
+	["t1exact-sequential"] = {
+		obj_root = "x/s/",
+		bin_root = "x/s/",
+		cflags = "-DT1RP=2",
+	},
+	["t1exact-direct"] = {
+		obj_root = "x/d/",
+		bin_root = "x/d/",
+		cflags = "-DT1RP=3",
+	},
+	["t1pixel-sequential"] = {
+		obj_root = "x/q/",
+		bin_root = "x/q/",
+		cflags = "-DT1RP=4",
+	},
+	["t1pixel-direct"] = {
+		obj_root = "x/r/",
+		bin_root = "x/r/",
+		cflags = "-DT1RP=5",
+	},
+	["t1konngara-phase1"] = {
+		obj_root = "x/k/",
+		bin_root = "x/k/",
+		cflags = "-DT1RP=6",
+	},
+	["t1konngara-phase1-direct"] = {
+		obj_root = "x/kd/",
+		bin_root = "x/kd/",
+		cflags = "-DT1RP=8",
+	},
+	["t1yuugenmagan-first-combat"] = {
+		obj_root = "x/y/",
+		bin_root = "x/y/",
+		cflags = "-DT1RP=7",
+	},
+	["t1yuugenmagan-first-combat-direct"] = {
+		obj_root = "x/yd/",
+		bin_root = "x/yd/",
+		cflags = "-DT1RP=9",
+	},
+	["t1elis-first-combat"] = {
+		obj_root = "x/e/",
+		bin_root = "x/e/",
+		cflags = "-DT1ELXN=1",
+	},
+	["t1elis-first-combat-direct"] = {
+		obj_root = "x/ed/",
+		bin_root = "x/ed/",
+		cflags = "-DT1ELXD=1",
+	},
+	["t1kikuri-first-combat"] = {
+		obj_root = "x/kn/",
+		bin_root = "x/kn/",
+		cflags = "-DT1KIKN=1",
+	},
+	["t1kikuri-first-combat-direct"] = {
+		obj_root = "x/kid/",
+		bin_root = "x/kid/",
+		cflags = "-DT1KIKD=1",
+	},
+	["t1sariel-first-combat"] = {
+		obj_root = "x/sn/",
+		bin_root = "x/sn/",
+		cflags = "-DT1SARN=1",
+	},
+	["t1sariel-first-combat-direct"] = {
+		obj_root = "x/sd/",
+		bin_root = "x/sd/",
+		cflags = "-DT1SARD=1",
+	},
+	["t1score-proof"] = {
+		obj_root = "x/p/",
+		bin_root = "x/p/",
+		cflags = "-DT1REPLAY_FUUIN_SCORE_PROOF=1",
+	},
+	["t1savestate-acceptance-20260828"] = {
+		obj_root = "x/g/",
+		bin_root = "x/g/",
+		cflags = "-DT1SGA=1",
+	},
+	["t1release-blockers"] = {
+		obj_root = "x/b/",
+		bin_root = "x/b/",
+		-- Couple the process milestones to the existing private guard witness:
+		-- Practice admission must distinguish a carrier failure from a failed
+		-- on-disk guard initialization.
+		cflags = "-DT1RB=1 -DT1SGA=1",
+	},
+}
+local t1replay_profile_name = tostring(T1REPLAY_PROFILE or "")
+local t1replay_profile = {}
+if t1replay_profile_name ~= "" then
+	t1replay_profile = T1REPLAY_PROFILES[t1replay_profile_name]
+end
+if (t1replay_profile_name ~= "") and (t1replay_profile == nil) then
+	error(string.format(
+		"Unsupported T1REPLAY_PROFILE: `%s`", t1replay_profile_name
+	))
+end
+
+local th01 = Config:branch(GameShape(1), t1replay_profile)
+-- FUUIN score proof has no REIIDEN component. Keep its private output root,
+-- but do not let the FUUIN-only define select a score-proof main source there.
+local th01_reiiden = th01
+if t1replay_profile_name == "t1score-proof" then
+	th01_reiiden = Config:branch(GameShape(1), {
+		obj_root = t1replay_profile.obj_root,
+		bin_root = t1replay_profile.bin_root,
+	})
+end
+local T2REPLAY_PROFILES = {
+	["t2practice-diagnostics-rc25"] = {
+		obj_root = "x/p/",
+		bin_root = "x/p/",
+		-- Keep the DOS compiler command tail under 127 bytes. The public names
+		-- are expanded by practice_diag.hpp.
+		cflags = "-DT2PD=1 -DT2PID=25",
+	},
+	["t2practice-diagnostics-rc25-minheap"] = {
+		obj_root = "x/h/",
+		bin_root = "x/h/",
+		-- Private measured lower-bound admission route. Keep the common TCC
+		-- response-file prefix short; memory_budget.cpp maps build ID 26 to its
+		-- 16,000-paragraph cap locally.
+		cflags = "-DT2PD=1 -DT2PID=26",
+	},
+	["t2exact-direct"] = {
+		obj_root = "x/d/",
+		bin_root = "x/d/",
+		cflags = "-DT2REPLAY_EXACT_APPLY=1 -DT2REPLAY_EXACT_TRACE=1",
+	},
+	["t2savestate-acceptance-20260828"] = {
+		obj_root = "x/g/",
+		bin_root = "x/g/",
+		cflags = "-DT2SGA=1",
+	},
+}
+local t2replay_profile_name = tostring(T2REPLAY_PROFILE or "")
+local t2replay_profile = {}
+if t2replay_profile_name ~= "" then
+	t2replay_profile = T2REPLAY_PROFILES[t2replay_profile_name]
+end
+if (t2replay_profile_name ~= "") and (t2replay_profile == nil) then
+	error(string.format(
+		"Unsupported T2REPLAY_PROFILE: `%s`", t2replay_profile_name
+	))
+end
+
 local th02 = Config:branch(GameShape(2))
+local th02_replay = th02:branch(t2replay_profile)
+local th02_main = th02_replay
 local th03 = Config:branch(GameShape(3))
 local th04 = Config:branch(GameShape(4))
 local th05 = Config:branch(GameShape(5))
@@ -354,6 +511,9 @@ local th01_zunsoft = th01:branch(MODEL_TINY):link("zunsoft", {
 	"th01/zunsoft.cpp",
 	"bin/masters.lib",
 })
+local th01_chain = th01:branch(MODEL_TINY):link("t1chain", {
+	"th01/chain.cpp",
+})
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	piloadc,
 	"th01/op_01.cpp",
@@ -374,8 +534,14 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th01/resstuff.cpp",
 	"th01/mdrv2.cpp",
 	"th01/pf.cpp",
+	-- Keep patch-owned title state after every original OP object so new BSS
+	-- cannot move original resident variables.
+	"th01/rpyop.cpp",
+	"th01/rpyfont.cpp",
+	"th01/language.cpp",
+	"th01/rpymile.cpp",
 })
-th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
+th01_reiiden:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	piloadc,
 	"th01/main_01.cpp",
 	"th01/frmdelay.cpp",
@@ -430,6 +596,22 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	} },
 	"th01/main_37.cpp",
 	{ "th01/main_38.cpp", extra_inputs = th01_sprites["pellet"] },
+	-- Must stay last: These mod-only replay/checkpoint segments preserve every
+	-- original REIIDEN data/BSS offset. Each new owner gets its own tail segment
+	-- rather than growing the original gameplay contribution it reconstructs.
+	"th01/replay.cpp",
+	"th01/rstage.cpp",
+	"th01/rboss.cpp",
+	"th01/rpypause.cpp",
+	"th01/language.cpp",
+	"th01/rroute.cpp",
+	"th01/rpresent.cpp",
+	"th01/rpypixel.cpp",
+	"th01/t1ymx.cpp",
+	"th01/t1elx.cpp",
+	"th01/t1kik.cpp",
+	"th01/t1sar.cpp",
+	"th01/rpymile.cpp",
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	piloadc,
@@ -450,6 +632,11 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	"th01/2x_fuuin.cpp",
 	"th01/mdrv2.cpp",
 	"th01_fuuin.asm",
+	-- Keep FUUIN's patch-owned replay and presentation state after every
+	-- original object so neither can move an original owner.
+	"th01/rpyfuuin.cpp",
+	"th01/language.cpp",
+	"th01/langfuu.cpp",
 })
 -- ----
 
@@ -477,7 +664,7 @@ th02:zungen("bin/th02/zun.com", {
 	}) },
 	{ "ZUNSOFT", th01_zunsoft },
 })
-th02:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
+th02_replay:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th02/op_01.cpp",
 	"th02/exit_dos.cpp",
 	"th02/zunerror.cpp",
@@ -505,20 +692,48 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th02/op_04.cpp",
 	"th02/op_05.cpp",
 	"th02/op_music.cpp",
+	-- Keep the entire Replay/Practice implementation after every stock OP
+	-- object. Textually including this file from op_01.cpp placed its custom
+	-- segment before SHARED and moved all native shared routines.
+	"th02/op/op_rplay.cpp",
+	-- TH01 and TH02 share the patch-owned proportional menu font and loose
+	-- MNUFONT.PF payload. Keep it after every stock OP object.
+	"th02/op/rpyfont2.cpp",
+	-- Keep process-local language state after every OP owner and replay tail.
+	"th02/lang_op.cpp",
+	-- English v1.00's remaining OP-resident presentation strings. Keep this
+	-- ungrouped CODE segment last so no stock initialized-data address moves.
+	"th02/op/langstr.asm",
+	-- Private cross-process lifecycle writer. Empty in release profiles.
+	"th02/oplife.cpp",
+	-- Shared adaptive conventional-memory admission for patch-enlarged OP.
+	{ "th02/op/op_memory_budget.cpp", o = "op_mem~1.obj" },
 })
-th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
+local th02_main_sources = {
 	{ "th02_main.asm", extra_inputs = {
 		th02_sprites["pellet"],
 		th02_sprites["bombpart"],
 		th02_sprites["sparks"],
 		th02_sprites["pointnum"],
 	} },
+	"th02/main/entry.cpp",
+	"th02/mpn_put.cpp",
+	"th02/pf_i.asm",
 	"th02/spark.cpp",
 	"th02/spark_i.asm",
 	"th02/tile.cpp",
+	"th02/main/stage/init.cpp",
+	"th02/main/hud/menu.cpp",
+	"th02/main/scroll.cpp",
+	"th02/main/player/shot.cpp",
+	"th02/main/bgm_show.cpp",
+	"th02/main/demo.cpp",
+	"th02/main/stage/loop.cpp",
+	"th02/main/cfg_load.cpp",
 	"th02/pointnum.cpp",
 	"th02/item.cpp",
 	"th02/hud.cpp",
+	"th02/main/player/bombload.cpp",
 	"th02/player_b.cpp",
 	"th02/player.cpp",
 	"th02/zunerror.cpp",
@@ -544,12 +759,82 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th02/snd_se.cpp",
 	"th02/main_03.cpp",
 	"th02/hud_ovrl.cpp",
+	"th02/explode.cpp",
 	"th02/bullet.cpp",
+	"th02/main/stage/stages.cpp",
+	"th02/main/midboss/m3.cpp",
+	"th02/main/boss/b3.cpp",
 	"th02/dialog.cpp",
+	"th02/main/stage/s1.cpp",
+	"th02/main/midboss/m1.cpp",
+	"th02/main/boss/b1.cpp",
+	"th02/main/stage/s2.cpp",
+	"th02/main/midboss/m2.cpp",
+	"th02/main/boss/b2m.cpp",
+	"th02/main/boss/b2.cpp",
+	"th02/main/midboss/mx.cpp",
+	"th02/main/boss/b6.cpp",
+	"th02/main/enemy/update.cpp",
 	"th02/boss_5.cpp",
+	"th02/main/boss/b5.cpp",
+	"th02/main/midboss/m4.cpp",
+	"th02/main/boss/b4.cpp",
+	"th02/main_04.cpp",
+	"th02/main_05.cpp",
 	"th02/regist_m.cpp",
-})
-th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
+	-- Must stay last: These patch-only segments and their BSS contributions
+	-- preserve every original MAIN.EXE data/BSS offset. Each patch segment
+	-- follows the previous seam so later parcels cannot move existing code.
+	"th02/main/replay.cpp",
+	"th02/main/practice.cpp",
+	"th02/main/s1_actor.cpp",
+	"th02/main/s2_actor.cpp",
+	"th02/main/s3_actor.cpp",
+	"th02/main/s4_actor.cpp",
+	"th02/main/s5_actor.cpp",
+	"th02/main/s5_tile.cpp",
+	"th02/main/s6_actor.cpp",
+	-- TCC shortens actor_core.cpp to actor_~1.obj under the DOS output root.
+	{ "th02/main/actor_core.cpp", o = "actor_~1.obj" },
+	-- Patch-owned Pause terminal-action tail. It must remain after every
+	-- existing patch contributor so it cannot move a retained offset.
+	-- TCC shortens pause_replay.cpp to pause_~1.obj under the DOS output root.
+	{ "th02/main/pause_replay.cpp", o = "pause_~1.obj" },
+	-- This private Stage 5 exact-codec tail follows every previous patch tail
+	-- so it cannot move retained replay or Practice offsets.
+	"th02/main/s5_fx.cpp",
+	-- The semantic palette codec remains a separate ungrouped tail so it does
+	-- not move any preceding patch code or original data/BSS offset.
+	-- TCC shortens s5_palette.cpp to s5_pal~1.obj under the DOS output root.
+	{ "th02/main/s5_palette.cpp", o = "s5_pal~1.obj" },
+	-- Stable Stage 3 direct-Practice constructors live in their own final tail.
+	"th02/main/s3_pract.cpp",
+	-- The North Stone phase-4 direct target is separately appended so none of
+	-- the native or earlier Stage 3 Practice contributions can move.
+	"th02/main/s3_north.cpp",
+	-- Final Stage 5 callback/redraw capture recipes remain pointer-free and
+	-- live in a new ungrouped tail after every retained patch contribution.
+	"th02/main/s5_cbred.cpp",
+	-- The language substrate is process-local and must not move prior state.
+	"th02/langm.cpp",
+	-- SAVESTATE GUARD MOD: The TH04/TH05 source is game-generic and derives
+	-- TH02's 8.3 filenames from GAME. Keep it at the final patch-owned tail.
+	"th02/main/rp_guard.cpp",
+	-- Public later-boss Phase 1 constructors remain in their own final tail.
+	-- TCC shortens later_boss_practice.cpp to later_~1.obj under DOS.
+	{ "th02/main/later_boss_practice.cpp", o = "later_~1.obj" },
+	-- MAIN admission is patch-owned so the stock fixed-size initializer remains
+	-- linked and every preceding contribution stays at its pinned location.
+	{ "th02/main/memory_budget.cpp", o = "memory~1.obj" },
+	-- Private lifecycle evidence is a separate shared tail. It is empty in
+	-- release profiles and lets MAIN/MAINE report the same admission contract.
+	"th02/mainlife.cpp",
+
+}
+th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", th02_main_sources)
+-- Use the replay profile here too. Debug lifecycle evidence must cover the
+-- actual MAINE process, not a release-only approximation of its admission.
+th02_replay:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	{ "th02/end.cpp", extra_inputs = th02_sprites["verdict"] },
 	"th02_maine.asm",
 	"th02/grppsafx.cpp",
@@ -572,6 +857,14 @@ th02:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th02/maine_03.cpp",
 	"th02/maine_04.cpp",
 	"th02/staff.cpp",
+	-- Link the MAINE preference/overlay reader after every end-game owner.
+	"th02/lange.cpp",
+	-- MAINE-only English v1.00 resident copy. Keep it after the C++ tail so
+	-- every stock segment and DGROUP contribution remains pinned.
+	"th02/end/maine_langstr.asm",
+	-- Share the checked MAIN/MAINE conventional-memory admission policy.
+	{ "th02/main/memory_budget.cpp", o = "memory~1.obj" },
+	"th02/endlife.cpp",
 })
 -- ----
 
@@ -1025,7 +1318,14 @@ local th04_zuncom = th04:zungen("obj/th04/zuncom.bin", {
 		"th04/res_huma.cpp",
 		"bin/masters.lib",
 	}) },
-	{ "-M", th04:branch(MODEL_TINY):link("memchk", { "th04_memchk.asm" }) },
+	-- `th04/memchka.cpp`, not `memchk.cpp`: the object basename must be unique
+	-- across obj/th04/, and `th04_memchk.asm` already claims `memchk.obj`
+	-- (kb/codegen/0071). It MUST stay ahead of the dump -- it carries main(),
+	-- which is the first thing both the _TEXT and the _DATA contribution emit.
+	{ "-M", th04:branch(MODEL_TINY):link("memchk", {
+		"th04/memchka.cpp",
+		"th04_memchk.asm",
+	}) },
 })
 th04:comcstm("zun.com", "th04/zun.txt", th04_zuncom, 621381155)
 th04:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
@@ -1068,30 +1368,97 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th04/hi_view.cpp",
 	"th04/op_title.cpp",
 	"th04/m_char.cpp",
+	"th04/rpyop.cpp",
 })
-th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
+local th04_main_inputs = {
 	{ "th04_main.asm", extra_inputs = {
 		th02_sprites["pellet"],
 		th02_sprites["sparks"],
 		th04_sprites["pelletbt"],
 		th04_sprites["pointnum"],
 	} },
+	"th04/mpn_put.cpp",
+	"th04/maintext_tail.asm",
 	"th04/slowdown.cpp",
+	"th04/entry.cpp",
+	"th04/stg_loop.cpp",
+	"th04/p_marisa.cpp",
+	"th04/laser_r.cpp",
+	"th04/gameover.cpp",
+	"th04/execl.cpp",
 	"th04/demo.cpp",
 	"th04/ems.cpp",
 	"th04/tile_set.cpp",
 	"th04/std.cpp",
+	"th04/end_ext.cpp",
+	"th04/map.cpp",
+	"th04/it_spl_d.cpp",
+	"th04/null.cpp",
+	"th04/pn_inv.cpp",
+	"th04/selectr.cpp",
 	"th04/circle.cpp",
+	"th04/bul_ginv.cpp",
 	"th04/tile.cpp",
 	"th04/playfld.cpp",
 	"th04/midboss4.cpp",
+	"th04/midbossx.cpp",
 	"th04/f_dialog.cpp",
 	"th04/dialog.cpp",
 	"th04/boss_exp.cpp",
+	"th04/boss_5r.cpp",
+	"th04/boss_bg.cpp",
+	-- POSITION-CRITICAL: must stay immediately before th04/boss_fg.cpp. Both
+	-- contribute to BOSS_FG_TEXT, and TLINK lays a segment's contributions out
+	-- in link order; bullets_render() precedes items_render() in the original.
+	"th04/bullet_r.cpp",
+	"th04/boss_fg.cpp",
+	"th04/mai.cpp",
 	"th04/stages.cpp",
+	"th04/hud_pnt.cpp",
+	"th04/hud_drm.cpp",
+	-- POSITION-CRITICAL: must stay immediately before th04/hud_put.cpp. Both
+	-- contribute to HUD_PUT_TEXT, and TLINK lays a segment's contributions
+	-- out in link order; hud_bar_put() precedes hud_put() in the original.
+	"th04/hud_bar.cpp",
+	"th04/hud_put.cpp",
+	"th04/hud_grz.cpp",
+	"th04/hud_pwr.cpp",
+	"th04/player_b.cpp",
+	"th04/shot_inv.cpp",
+	"th04/main_.cpp",
 	"th04/player_m.cpp",
 	"th04/player_p.cpp",
+	"th04/main_0.cpp",
+	-- POSITION-CRITICAL: must stay immediately before th04/scoreupd.asm, which
+	-- is main_01_TEXT's other contribution. See th04/main_01.cpp.
+	"th04/main_01.cpp",
 	"th04/scoreupd.asm",
+	-- Append-anywhere, and parked next to main_012.cpp only because it is the
+	-- other half of what used to be one segment: y6_fg.cpp is Y6_FG_TEXT's
+	-- ONLY C++ contribution, so its position in this list cannot reorder
+	-- anything. The segment's own place in group main_01 comes from
+	-- th04_main.asm, which defines it (and main_012_TEXT behind it) and is the
+	-- first object linked.
+	"th04/y6_fg.cpp",
+	-- shots_add(), into the MAIN_012_A_TEXT head carve immediately before the
+	-- remaining main_012_TEXT root contribution. Its object needs -k-.
+	"th04/shotsadd.cpp",
+	"th04/main_012.cpp",
+	"th04/main_033.cpp",
+	-- POSITION-CRITICAL: b6_next.cpp is yuuka6_phase_next() alone and must
+	-- stay immediately before main_034.cpp, whose object it would otherwise
+	-- shift by an odd number of bytes, dropping the padding in front of
+	-- elly_1BDB4()'s generated switch table. See th04/b6_next.cpp.
+	"th04/b6_next.cpp",
+	"th04/main_034.cpp",
+	"th04/main_035.cpp",
+	-- POSITION-CRITICAL: main_36r.cpp is Reimu's half of main_036_TEXT and
+	-- must stay immediately before main_036.cpp, which is Gengetsu's. They
+	-- are two objects rather than one because the padding in front of their
+	-- two generated switch tables is unreachable otherwise; see
+	-- th04/main_36r.cpp.
+	"th04/main_36r.cpp",
+	"th04/main_036.cpp",
 	"th04/hud_ovrl.cpp",
 	"th04/cfg_lres.cpp",
 	"th04/checkerb.cpp",
@@ -1121,22 +1488,88 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/snd_se.cpp",
 	"th04/cdg_load.asm",
 	"th04/gather.cpp",
+	"th04/std_run.cpp",
+	"th04/enm_btpl.cpp",
 	"th04/scrolly3.cpp",
 	"th04/motion_3.asm",
 	"th04/midboss.cpp",
 	"th04/hud_hp.cpp",
 	"th04/mb_dft.cpp",
+	"th04/mb_dfr.cpp",
 	"th04/vector2n.asm",
 	"th04/spark_a.asm",
 	"th04/grcg_3.cpp",
 	"th04/it_spl_u.cpp",
+	-- POSITION-CRITICAL: these two are the whole of MB_UPD_TEXT, the
+	-- kb/codegen/0080 head carve off ENM_POS_TEXT, whose root contribution is
+	-- now empty. mb_upd1.cpp must stay immediately before mb_upd.cpp: it is
+	-- 0x33F bytes of prefix, and folding it into that object instead flips the
+	-- parity of midboss3_update()'s `-a2` jump-table pad. See th04/mb_upd1.cpp.
+	"th04/mb_upd1.cpp",
+	"th04/mb_upd.cpp",
+	-- POSITION-CRITICAL: enemy_u.cpp is MUGETSU_TEXT's first C++ object and
+	-- replaces the root dump's former enemies_update() contribution. The four
+	-- Mugetsu boss objects follow in address order. bx1_pose.cpp must
+	-- be its own object because a translation unit that reaches
+	-- th04/main/bullet/bullet.hpp compiles the two pose drivers' dense
+	-- `switch` heads through AX instead of BX, length-neutrally; bx1_upd.cpp
+	-- must be its own because mugetsu_update()'s `-a2` table pad only appears
+	-- at an even object offset, which a zero prefix gives it and the 0x3D7 of
+	-- bx1_ptn.cpp ahead of it does not. See th04/bx1_gath.cpp.
+	"th04/enemy_u.cpp",
+	"th04/bx1_gath.cpp",
+	"th04/bx1_pose.cpp",
+	"th04/bx1_ptn.cpp",
+	"th04/bx1_upd.cpp",
+	-- POSITION-CRITICAL: must stay immediately before th04/enm_pos.cpp, which
+	-- is ENM_POS_TEXT's other C++ contribution. See th04/enm_pos1.cpp.
+	"th04/enm_pos1.cpp",
+	"th04/enm_pos.cpp",
+	-- POSITION-CRITICAL: these three are B4M_UPDATE_TEXT's C++ half in
+	-- address order, and enm_scr.cpp is its head. expl_sm.cpp must stay
+	-- immediately before boss_4m.cpp, whose object it would otherwise shift
+	-- by an odd number of bytes, moving the padding in front of both switch
+	-- tables b4m.cpp generates under `-a2`. See th04/expl_sm.cpp.
+	"th04/enm_scr.cpp",
+	"th04/expl_sm.cpp",
 	"th04/boss_4m.cpp",
 	"th04/bullet_u.cpp",
 	"th04/bullet_a.cpp",
+	-- POSITION-CRITICAL: these three are IT_UPDT_TEXT's whole contents in
+	-- address order, and hudnum.cpp is its head. The dump contributes nothing
+	-- to that segment any more, so link order alone decides where the two
+	-- gaiji number renderers and the bonus multipliers land.
+	"th04/hudnum.cpp",
+	"th04/itminit.cpp",
+	"th04/it_updt.cpp",
 	"th04/boss.cpp",
 	"th04/boss_4r.cpp",
 	"th04/boss_x2.cpp",
-})
+
+	-- Production oracle facade. The full validation oracle is linked only into
+	-- bin/th04/oracle/main.exe below.
+	"th04/orl_rel.cpp",
+	-- USER REPLAY MOD: production code in an isolated REPLAY_TEXT segment.
+	-- Keep mod-only segments at the tail of the link list.
+	"th04/replay.cpp",
+	-- PORTABLE CHECKPOINT MOD: field codecs in an isolated tail segment.
+	"th04/rp_ckpt.cpp",
+	-- SAVESTATE GUARD MOD: physical FAT verification in an isolated tail.
+	"th04/main/rp_guard.cpp",
+}
+th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link(
+	"main", th04_main_inputs
+)
+
+local th04_oracle_inputs = {}
+for i, input in ipairs(th04_main_inputs) do
+	th04_oracle_inputs[i] = (
+		(input == "th04/orl_rel.cpp") and "th04/oracle.cpp" or input
+	)
+end
+th04:branch(MODEL_LARGE, Subdir("oracle/"), {
+	cflags = "-DBINARY='M'",
+}):link("main", th04_oracle_inputs)
 th04:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th04/maine_e.cpp",
 	{ "th04_maine_master.asm", o = "mainem.obj" },
@@ -1170,7 +1603,10 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th04/bgimager.asm",
 	"th04/cdg_load.asm",
 	"th04/cutscene.cpp",
+	"th04/staffrol.cpp",
 	"th04/staff.cpp",
+	-- LANGUAGE OVERLAY MOD: optional presentation assets in a trailing segment.
+	"th04/rpyend.cpp",
 })
 -- ----
 
@@ -1182,9 +1618,16 @@ local th05_sprites = Sprites({
 	{ "th05/sprites/piano_l.bmp", "asm", "sPIANO_LABEL_FONT", 8, 8 },
 })
 
+local th05_zuninit_resident = th05:branch(MODEL_TINY):build({
+	"th05/zuninit/resident.cpp",
+})[1]
+
 local th05_zuncom = th05:zungen("obj/th05/zuncom.bin", {
 	{ "-O", "libs/kaja/ongchk.com" },
-	{ "-I", th05:branch(MODEL_ASM):link("zuninit", { "th05_zuninit.asm" }) },
+	{ "-I", th05:branch(MODEL_ASM):link("zuninit", {
+		"th05_zuninit.asm",
+		th05_zuninit_resident,
+	}) },
 	{ "-S", th05:branch(MODEL_TINY):link("res_kso", {
 		"th05/res_kso.cpp",
 		"bin/masters.lib",
@@ -1230,7 +1673,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th04/cdg_load.asm",
 	"th05/egcrect.cpp",
 	"th05/op_setup.cpp",
-	"th04/zunsoft.cpp",
+	"th05/zunsoft.cpp",
 	"th05/cfg.cpp",
 	"th05/op_title.cpp",
 	"th05/op_music.cpp",
@@ -1238,31 +1681,68 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th05/score_e.cpp",
 	"th05/hi_view.cpp",
 	"th05/m_char.cpp",
+	"th05/rpyop.cpp",
 })
-th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
+local th05_main_inputs = {
 	{ "th05_main.asm", extra_inputs = {
 		th02_sprites["pellet"],
 		th02_sprites["sparks"],
 		th04_sprites["pelletbt"],
 		th04_sprites["pointnum"],
 	} },
+	"th05/mpn_free.cpp",
+	"th05/maintext_tail.asm",
+	"th05/bbcheeto.cpp",
 	"th04/slowdown.cpp",
+	"th05/entry.cpp",
+	"th05/stg_loop.cpp",
+	"th05/execl.cpp",
 	"th05/demo.cpp",
 	"th05/ems.cpp",
 	"th05/cfg_lres.cpp",
 	"th05/std.cpp",
+	"th05/map.cpp",
+	"th05/end_ext.cpp",
 	"th04/tile.cpp",
 	"th05/main010.cpp",
+	"th05/main011.cpp",
+	"th05/it_spl_d.cpp",
+	"th05/pn_inv.cpp",
 	"th05/circle.cpp",
 	"th05/f_dialog.cpp",
 	"th05/dialog.cpp",
 	"th05/boss_exp.cpp",
 	"th05/playfld.cpp",
+	"th05/hud_pnt.cpp",
+	"th05/hud_drm.cpp",
+	"th05/hud_grz.cpp",
+	"th05/hud_pwr.cpp",
+	-- hud_hp_put(), into the MIDBOSSX_A_TEXT that a kb/codegen/0080 head carve
+	-- split off MIDBOSSX_TEXT for it. Position-free: it is that segment's only
+	-- contribution, and the segment's own place in the layout comes from
+	-- th05_main.asm's `group` and `segment` directives, which the dump declares
+	-- first. Listed with the other HUD objects rather than with MIDBOSSX_TEXT's
+	-- four, because it shares nothing with them.
+	"th05/hud_hp.cpp",
+	"th05/bombchar.cpp",
 	"th04/mb_inv.cpp",
 	"th04/boss_bd.cpp",
 	"th05/boss_bg.cpp",
+	-- shots_add(), into the SCORE_A_TEXT that a kb/codegen/0080 head carve
+	-- split off SCORE_TEXT for it. Ahead of score_rm.cpp because that is the
+	-- order the two segments have, though neither position is load-bearing:
+	-- each object is the only contribution to its own segment.
+	"th05/shotsadd.cpp",
+	"th05/selectr.cpp",
 	"th05/score_rm.cpp",
+	"th05/gameover.cpp",
 	"th05/laser_rh.cpp",
+	"th05/null.cpp",
+	"th05/player_b.cpp",
+	"th05/shot_inv.cpp",
+	-- Preserve the original object boundary before p_common.cpp. Its first
+	-- function has a word-aligned compiler-generated switch table.
+	"th05/main/player/shot_hit.cpp",
 	"th05/p_common.cpp",
 	"th05/p_reimu.cpp",
 	"th05/p_marisa.cpp",
@@ -1272,6 +1752,10 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/hud_bar.asm",
 	"th05/scoreupd.asm",
 	"th05/midboss5.cpp",
+	"th05/b34fg.cpp",
+	"th05/b6cbull.cpp",
+	"th05/stages.cpp",
+	"th05/midbossx.cpp",
 	"th05/hud_ovrl.cpp",
 	"th04/player_p.cpp",
 	"th04/vector2n.asm",
@@ -1282,6 +1766,8 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th05/bullet_1.asm",
 	"th05/bullet_c.cpp",
 	"th05/bullet.asm",
+	"th05/main/bullet/add_far.cpp",
+	"th05/main/bullet/tune.asm",
 	"th05/bullet_t.cpp",
 	"th03/vector.cpp",
 	"th03/hfliplut.cpp",
@@ -1303,24 +1789,74 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", {
 	"th04/cdg_load.asm",
 	"th04/scrolly3.cpp",
 	"th04/motion_3.asm",
+	"th05/main031.cpp",
+	"th05/enemy_u.cpp",
 	"th05/gather.cpp",
 	"th05/main032.cpp",
+	"th05/itmadd.cpp",
+	"th05/main033.cpp",
+	"th05/std_run.cpp",
+	"th05/enm_btpl.cpp",
 	"th05/midboss.cpp",
 	"th04/hud_hp.cpp",
 	"th05/mb_dft.cpp",
+	"th05/mb_dfr.cpp",
 	"th05/laser.cpp",
 	"th05/cheeto_u.cpp",
 	"th04/it_spl_u.cpp",
 	"th05/bullet_u.cpp",
 	"th05/midboss1.cpp",
 	"th05/boss_1.cpp",
+	"th05/midboss2.cpp",
 	"th05/boss_4.cpp",
+	-- BEFORE th05/b4mai.cpp, and that order is load-bearing: b4pair.cpp is
+	-- its own object only because @mai_yuki_update$qv takes its `-a2` pad on
+	-- the opposite parity from the three jump tables inside b4mai.obj, and
+	-- TLINK lays a segment out in link order (kb/codegen 0112 + 0114).
+	"th05/b4pair.cpp",
+	"th05/b4mai.cpp",
+	"th05/swords.cpp",
+	"th05/main035.cpp",
+	-- Append-anywhere, and parked next to main_036.cpp only because it is the
+	-- head of what used to be one segment with it: exalice.cpp is BX_TEXT's
+	-- ONLY C++ contribution, so its position in this list cannot reorder
+	-- anything. The segment's own place in group main_03 comes from
+	-- th05_main.asm, which defines it (and main_036_TEXT behind it) and is the
+	-- first object linked.
+	"th05/exalice.cpp",
+	-- Append-anywhere: main_036_TEXT has no other C++ contribution, so
+	-- TLINK puts this object at that segment's tail by construction.
+	"th05/main_036.cpp",
 	"th05/boss_6.cpp",
 	"th05/boss_x.cpp",
 	"th05/hud_num.asm",
 	"th05/boss.cpp",
 	"th05/main014.cpp",
-})
+
+	-- Production oracle facade. The full validation oracle is linked only into
+	-- bin/th05/oracle/main.exe below.
+	"th05/orl_rel.cpp",
+	-- USER REPLAY MOD: production code in an isolated REPLAY_TEXT segment.
+	-- Keep mod-only segments at the tail of the link list.
+	"th05/replay.cpp",
+	-- PORTABLE CHECKPOINT MOD: field codecs in an isolated tail segment.
+	"th05/rp_ckpt.cpp",
+	-- SAVESTATE GUARD MOD: physical FAT verification in an isolated tail.
+	"th05/main/rp_guard.cpp",
+}
+th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link(
+	"main", th05_main_inputs
+)
+
+local th05_oracle_inputs = {}
+for i, input in ipairs(th05_main_inputs) do
+	th05_oracle_inputs[i] = (
+		(input == "th05/orl_rel.cpp") and "th05/oracle.cpp" or input
+	)
+end
+th05:branch(MODEL_LARGE, Subdir("oracle/"), {
+	cflags = "-DBINARY='M'",
+}):link("main", th05_oracle_inputs)
 th05:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th05/maine_e.cpp",
 	{ "th05_maine_master.asm", o = "mainem.obj" },
@@ -1355,8 +1891,22 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th05/cutscene.cpp",
 	"th05/allcast.cpp",
 	"th05/regist.cpp",
+	-- POSITION-CRITICAL: th05/space.cpp, th05/verd_bmp.cpp and
+	-- th05/staffrol.cpp all contribute to MAINE_01__TEXT, and TLINK
+	-- concatenates a segment's contributions in link order. space.cpp holds
+	-- the head of the dump's block and has to stay immediately before
+	-- th05_maine.asm; verd_bmp.cpp holds what th05/end/verdict_bitmap.asm
+	-- used to contribute and has to stay immediately after it; staffrol.cpp
+	-- holds the tail and has to stay after that. th05_maine.asm itself now
+	-- contributes ZERO bytes here and sits between them only to keep that
+	-- order readable. Reordering any of the four moves every body below it.
+	"th05/space.cpp",
 	"th05_maine.asm",
+	"th05/verd_bmp.cpp",
+	"th05/staffrol.cpp",
 	"th05/staff.cpp",
+	-- LANGUAGE OVERLAY MOD: optional presentation assets in a trailing segment.
+	"th05/rpyend.cpp",
 })
 -- ----
 

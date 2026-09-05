@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include "libs/master.lib/master.hpp"
 #include "th01/resident.hpp"
+#include "th01/rpyfuuin.hpp"
+#include "th01/language.hpp"
 #include "th01/core/initexit.hpp"
 #include "th01/end/end.hpp"
 #include "th01/snd/mdrv2.h"
@@ -85,9 +87,24 @@ bool16 end_resident_clear(void)
 	return true;
 }
 
+void far t1replay_fuuin_abort_to_op(void)
+{
+	game_switch_binary();
+	execl(BINARY_OP, BINARY_OP, nullptr);
+}
+
 void main(int argc, const char *argv[])
 {
+	bool16 replay_continuation = (
+		(argc >= 2) && (argv[1][0] == 'r') && (argv[1][1] == '\0')
+	);
+
 	if(!mdrv2_resident()) {
+		return;
+	}
+	t1_language_load();
+	if(!t1replay_fuuin_entry(replay_continuation)) {
+		t1replay_fuuin_abort_to_op();
 		return;
 	}
 
@@ -95,7 +112,7 @@ void main(int argc, const char *argv[])
 	(argc);
 
 	// That's a hidden ending preview feature!
-	if(argv[1][0] != 't') {
+	if(t1replay_fuuin_active() || (argv[1][0] != 't')) {
 		if(!end_init()) {
 			return;
 		}
@@ -114,6 +131,6 @@ void main(int argc, const char *argv[])
 
 	game_init();
 	end_and_verdict_and_regist_animate();
-	game_switch_binary();
-	execl(BINARY_OP, BINARY_OP, nullptr);
+	t1replay_fuuin_terminal();
+	t1replay_fuuin_abort_to_op();
 }

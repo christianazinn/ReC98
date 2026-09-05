@@ -164,3 +164,64 @@ void near playfield_checkerboard_grcg_tdw_update_and_render(void)
 	#undef loops
 	#undef loops_and_vo_x
 }
+
+// ZUN's object for this code segment also held the two playfield fills at the
+// end of main_013_TEXT, and this one is the segment's new tail (kb/codegen
+// 0148 pushed the th04/hardware/grcg_fill_rows.asm include that used to sit
+// behind it into CHECKERB_TEXT). #pragma codeseg puts it back into
+// main_013_TEXT from this object, which costs no new translation unit and no
+// Tupfile.lua line; the group has to be named because the call below is NEAR
+// into a segment this object does not otherwise touch.
+//
+// THIS FILE MUST NOT DECLARE playfield_fill() ABOVE THIS POINT, and must not
+// include a header that does: #pragma codeseg binds a function to a segment at
+// its FIRST DECLARATION, so a declaration read under the default CHECKERB_TEXT
+// would emit the definition 0xE bytes late, into CHECKERB_TEXT, and the build
+// would still link and run (kb/codegen 0155). th04/main/boss/bg.cpp declares
+// it locally for its own callers, which is a different translation unit.
+//
+// -k- is already in force from the top of this file: the original has no stack
+// frame at all, `push di` is its first instruction, and that push is Turbo
+// C++'s own, inserted because the grcg_fill_playfield_rows_at() macro writes
+// _DI (kb/codegen 0050).
+#pragma codeseg main_013_TEXT main_01
+
+// The bomb backdrop's playfield fill, and the FIRST of this segment's three
+// C++ functions: it fills the 40 rows above and the 54 rows below the 274-row
+// band that th04/main/player/bombchar.cpp paints the bomb character portrait
+// into, which is what its hand name records. Both callers are already C++, in
+// bombchar.cpp, which is also where it is declared -- so the kb/codegen/0123
+// zero-byte alias the dump needed for the linker's underscore-decorated
+// spelling goes away with the body: `extern "C"` publishes exactly that name
+// from here.
+extern "C" void near playfield_fillm_0_40_384_274(void)
+{
+	grcg_fill_playfield_rows_at(  0, 40);
+	grcg_fill_playfield_rows_at(314, 54);
+}
+
+// Alignment padding after the function, in the original. main_013_TEXT is
+// `word public`, and this is the byte that kept the next function even. It has
+// to be emitted here rather than left to the assembler, and it lands in source
+// order (kb/codegen/0161) -- same device as th04/main/boss/colorfill.cpp.
+#pragma codestring "\x90"
+
+// The whole-screen fill that stage_setup() in th04/main/stage/setup_main.cpp
+// calls twice while setting a stage up. Its body, and the five macros it needs,
+// are shared with TH05 verbatim: the same function sits at 0xCFEE in
+// th05_main.asm's BOMB_BG_TEXT, byte-identical, and is compiled from this
+// same file by th05/main/player/bombchar.cpp. Nothing here selects a game.
+//
+// `-k-` is already in force from the top of this file, which is what the
+// shared body needs; TH05 brackets its own include with it.
+#include "th04/main/graph2pg.cpp"
+
+// Fills the entire playfield with the current GRCG tile register, assuming TDW
+// mode. Unlike TH05's boss_bg_fill_col_0(), it neither enables nor disables the
+// GRCG; both are the caller's job.
+extern "C" void near playfield_fill(void)
+{
+	grcg_fill_playfield_rows_at(0, PLAYFIELD_H);
+}
+
+#pragma codeseg

@@ -19,44 +19,26 @@ DGROUP	group _TEXT, _DATA
 _TEXT		segment byte 'CODE' use16
 		assume cs:_TEXT
 
-; =============== S U B R O U T I N E =======================================
-
-; Attributes: bp-based frame
-
-; int __cdecl main(int argc, const char **argv, const char **envp)
-public _main
-_main  proc near
-
-var_2		= word ptr -2
-argc		= word ptr  4
-argv		= word ptr  6
-envp		= word ptr  8
-
-		enter	2, 0
-		call	sub_3B6
-		mov	[bp+var_2], ax
-		push	offset DGROUP:asc_E8E	; "空きメインメモリチェック\n\n"
-		call	sub_38E
-		cmp	[bp+var_2], 7530h
-		ja	short loc_389
-		push	offset DGROUP:aVVxvVSlvsvVvvi ; "ちょっと足りないかも、もう少し増やして"...
-		call	sub_38E
-		mov	ax, 255
-		leave
-		retn
-; ---------------------------------------------------------------------------
-
-loc_389:
-		xor	ax, ax
-		leave
-		retn
-_main  endp
+; `main()` was the first thing this contribution emitted and is now
+; th04/memchka.cpp, listed ahead of this dump in Tupfile.lua's `memchk`
+; link so TLINK still lays it down first. Both `_DATA` string literals went
+; with it, which is why the segment at the bottom of this file is empty.
+; The `db 0` below is the original pad between main() and dos_puts2() and
+; belongs to THIS contribution -- it is what keeps dos_puts2 at 0x38E.
 		db 0
 
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_38E  proc near
+; void near pascal dos_puts2(const char near *string);
+;
+; Byte-for-byte master.lib's dos_puts2() (libs/master.lib/dos_puts2.asm)
+; assembled in the near model, pasted into this .COM rather than linked --
+; `memchk` does not pull masters.lib, so the name cannot collide here.
+; Hand-written: `mov bx, sp` for a frame and SI saved in CX rather than
+; pushed, which is upstream's own undecompilable shape.
+public DOS_PUTS2
+DOS_PUTS2  proc near
 		mov	bx, sp
 		mov	cx, si
 		mov	si, ss:[bx+2]
@@ -84,13 +66,20 @@ loc_3A7:
 loc_3B0:
 		mov	si, cx
 		retn	2
-sub_38E  endp
+DOS_PUTS2  endp
 		nop
 
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_3B6  proc near
+; unsigned near pascal main_memory_free_paragraphs(void);
+;
+; Asks DOS for an impossible 0FFFFh paragraphs purely to read back the
+; largest block it reports as available. Returns 0 if DOS failed with
+; anything other than error 8, and the same success in CF -- which no C++
+; declaration can express, so this one stays in ASM.
+public MAIN_MEMORY_FREE_PARAGRAPHS
+MAIN_MEMORY_FREE_PARAGRAPHS  proc near
 		mov	ah, 48h
 		mov	bx, 0FFFFh
 		int	21h		; DOS - 2+ - ALLOCATE MEMORY
@@ -106,13 +95,11 @@ loc_3C6:
 		xor	ax, ax
 		stc
 		retn
-sub_3B6  endp
+MAIN_MEMORY_FREE_PARAGRAPHS  endp
 _TEXT	ends
 
 _DATA	segment byte 'DATA' use16
-asc_E8E	db '空きメインメモリチェック',0Ah
-	db 0Ah,0
-aVVxvVSlvsvVvvi	db 'ちょっと足りないかも、もう少し増やしてから起動してね',0
+; Both string literals moved to th04/memchka.cpp with main(), their only reader.
 _DATA	ends
 
 		end

@@ -21,6 +21,12 @@
 #include "th01/hardware/palette.h"
 #include "th01/formats/cfg.hpp"
 #include "th01/formats/grp.h"
+#include "th01/language.hpp"
+#include "th01/replay_op.hpp"
+#include "th01/rpyfont.hpp"
+#if defined(T1RB)
+#include "th01/replay_milestone.hpp"
+#endif
 #include "th01/snd/mdrv2.h"
 #include "th01/shiftjis/debug.hpp"
 #include "th01/shiftjis/fns.hpp"
@@ -127,12 +133,16 @@ enum menu_id_t {
 	MID_MAIN,
 	MID_OPTION,
 	MID_MUSIC,
+	MID_REPLAY,
+	MID_PRACTICE,
 	MID_UPDATE_BGM_MODE__DELAY__SWITCH_TO_MAIN,
 	MID_DELAY__SWITCH_TO_OPTION,
+	MID_DELAY__SWITCH_TO_MAIN,
 };
 
-static const int MAIN_CHOICE_COUNT = 4;
-static const int OPTION_CHOICE_COUNT = 5;
+static const int MAIN_CHOICE_COUNT = 6;
+static const int OPTION_STOCK_CHOICE_COUNT = 5;
+static const int OPTION_CHOICE_COUNT = 6;
 static const int MUSIC_CHOICE_COUNT = 2;
 
 // ZUN bloat: Worse versions of the same macros in `clamp.hpp`, replacing `++`
@@ -347,6 +357,16 @@ void start_game(void)
 		opts.credit_lives_extra,
 		frame_rand
 	);
+	if(!resident) {
+		t1replay_op_command_clear();
+		return;
+	}
+	if(!t1replay_op_record_prepare()) {
+		t1replay_op_command_clear();
+		resident_free();
+		resident = 0;
+		return;
+	}
 	title_exit();
 	mdrv2_bgm_fade_out_nonblock();
 	game_switch_binary();
@@ -391,13 +411,11 @@ void start_game(void)
 	resident->unused_1 = 0;
 	resident->snd_need_init = true;
 	resident->pellet_speed = PELLET_SPEED_DEFAULT;
-
 	execl(BINARY_MAIN, BINARY_MAIN, nullptr);
 }
 
-void start_continue(void)
+static bool replay_carrier_create(void)
 {
-	cfg_save();
 	resident_create_and_stuff_set(
 		opts.rank,
 		opts.bgm_mode,
@@ -405,6 +423,105 @@ void start_continue(void)
 		opts.credit_lives_extra,
 		frame_rand
 	);
+	return (resident != 0);
+}
+
+static void replay_playback_start(void)
+{
+	replay_op_font_free();
+	if(!replay_carrier_create()) {
+		t1replay_op_command_clear();
+		t1replay_op_replay_enter();
+		return;
+	}
+	cfg_save();
+	title_exit();
+	mdrv2_bgm_fade_out_nonblock();
+	game_switch_binary();
+	execl(BINARY_MAIN, BINARY_MAIN, nullptr);
+}
+
+bool practice_start(void)
+{
+	t1replay_practice_start_t start;
+	int i;
+
+	t1replay_op_practice_start_get(start);
+	replay_op_font_free();
+	if(!replay_carrier_create()) {
+		#if T1REPLAY_PROCESS_MILESTONES
+		t1replay_process_milestone(T1RPM_PRACTICE_CARRIER_CREATE_FAILED);
+		#endif
+		t1replay_op_command_clear();
+		t1replay_op_practice_redraw();
+		return false;
+	}
+	if(!t1replay_op_record_prepare()) {
+		#if T1REPLAY_PROCESS_MILESTONES
+		t1replay_process_milestone(T1RPM_RECORD_COMMAND_WRITE_FAILED);
+		#endif
+		t1replay_op_command_clear();
+		resident_free();
+		resident = 0;
+		t1replay_op_practice_redraw();
+		return false;
+	}
+	#if T1REPLAY_PROCESS_MILESTONES
+		t1replay_process_milestone(T1RPM_RECORD_COMMAND_WRITTEN);
+	#endif
+	cfg_save();
+	resident->rank = start.rank;
+	resident->bgm_mode = opts.bgm_mode;
+	resident->rem_bombs = start.bombs;
+	resident->credit_lives_extra = opts.credit_lives_extra;
+	resident->end_flag = ES_NONE;
+	resident->unused_1 = 0;
+	resident->route = start.route;
+	resident->rem_lives = start.lives;
+	resident->snd_need_init = true;
+	resident->unused_2 = 0;
+	resident->debug_mode = DM_OFF;
+	resident->pellet_speed = start.pellet_speed;
+	resident->rand = start.rand;
+	resident->score = start.score;
+	resident->continues_total = 0;
+	for(i = 0; i < SCENE_COUNT; i++) {
+		resident->continues_per_scene[i] = 0;
+	}
+	for(i = 0; i < (STAGES_PER_SCENE - 1); i++) {
+		resident->bonus_per_stage[i] = 0;
+	}
+	resident->stage_id = static_cast<unsigned int>(
+		(start.scene * STAGES_PER_SCENE) + start.chapter
+	);
+	resident->hiscore = 0;
+	resident->score_highest = 0;
+	resident->point_value = start.point_value;
+	#if T1REPLAY_PROCESS_MILESTONES
+	t1replay_process_milestone(T1RPM_PRACTICE_CARRIER_COMMITTED);
+	#endif
+	title_exit();
+	mdrv2_bgm_fade_out_nonblock();
+	game_switch_binary();
+	execl(BINARY_MAIN, BINARY_MAIN, nullptr);
+	return true;
+}
+
+void start_continue(void)
+{
+	cfg_save();
+	// Continue is a native launch, never a replay command continuation.
+	t1replay_op_command_clear();
+	resident_create_and_stuff_set(
+		opts.rank,
+		opts.bgm_mode,
+		opts.credit_bombs,
+		opts.credit_lives_extra,
+		frame_rand
+	);
+	if(!resident) {
+		return;
+	}
 
 	if(resident->stage_id == 0) {
 		_ES = FP_SEG(cfg_load); // ZUN bloat: Yes, no point to this at all
@@ -438,11 +555,14 @@ static const int16_t FX = FX_WEIGHT_BLACK;
 
 static const screen_x_t MENU_LEFT = 220;
 static const screen_x_t MENU_CENTER_X = 316;
+static const screen_x_t MENU_NATIVE_CENTER_X = (
+	MENU_CENTER_X - (GLYPH_FULL_W * 3)
+);
 static const screen_y_t MENU_CENTER_Y = 316;
 static const pixel_t MENU_W = 176;
 
 static const pixel_t CHOICE_PADDED_H = 20;
-static const int CHOICE_COUNT_MAX = 5;
+static const int CHOICE_COUNT_MAX = 6;
 
 static const int TRACK_COUNT = 15;
 
@@ -504,18 +624,29 @@ void title_hit_key_put(int frame)
 
 void main_choice_unput_and_put(int choice, vc2 col)
 {
-	const shiftjis_t* CHOICES[MAIN_CHOICE_COUNT] = MAIN_CHOICES;
-
-	screen_x_t left = (MENU_CENTER_X - (MAIN_CHOICE_W / 2));
+	const shiftjis_t* CHOICES[4] = MAIN_CHOICES;
+	const shiftjis_t *choice_str;
+	screen_x_t left;
 	screen_y_t top = choice_top(choice, MAIN_CHOICE_COUNT);
 
+	if((choice == 3) || (choice == 4)) {
+		t1replay_op_main_choice_put(
+			choice, MENU_CENTER_X, top, col, FX
+		);
+		return;
+	}
+	choice_str = CHOICES[(choice < 3) ? choice : 3];
+	// The native strings include their original left-padding cells. Preserve
+	// their stock visual center independently of the two unpadded patch rows.
+	left = (MENU_NATIVE_CENTER_X - (shiftjis_w(choice_str) / 2));
+
 	// No unblitting necessary here, as only the colors change.
-	graph_putsa_fx(left, top, (col | FX), CHOICES[choice]);
+	graph_putsa_fx(left, top, (col | FX), choice_str);
 }
 
 void option_choice_unput_and_put(int choice, vc2 col)
 {
-	const shiftjis_t* CHOICES[OPTION_CHOICE_COUNT] = OPTION_CHOICES;
+	const shiftjis_t* CHOICES[OPTION_STOCK_CHOICE_COUNT] = OPTION_CHOICES;
 	const shiftjis_t* RANKS[RANK_COUNT] = RANKS_CAPS_CENTERED;
 	const shiftjis_t* MUSIC_MODES[BGM_MODE_COUNT] = BGM_MODES_CENTERED;
 	const shiftjis_t* START_LIVES[CFG_CREDIT_LIVES_EXTRA_MAX] = {
@@ -546,9 +677,11 @@ void option_choice_unput_and_put(int choice, vc2 col)
 			START_LIVES[opts.credit_lives_extra]
 		);
 	} else if(choice == 3) {
-		choice_put(left, top, col, CHOICES[choice]);
+		t1replay_op_language_choice_put(left, top, col, FX);
 	} else if(choice == 4) {
-		choice_put(left, top, col, CHOICES[choice]);
+		choice_put(left, top, col, CHOICES[3]);
+	} else if(choice == 5) {
+		choice_put(left, top, col, CHOICES[4]);
 	}
 }
 
@@ -572,7 +705,9 @@ void music_choice_unput_and_put(int choice, vc2 col)
 		graph_printf_fx(
 			left, top, (col | FX), "%s%.2d", CHOICES[choice], music_sel
 		);
-		choice_put(left, (top + CHOICE_PADDED_H), col, TITLES[music_sel]);
+		t1replay_op_music_title_put(
+			left, (top + CHOICE_PADDED_H), col, FX, music_sel, TITLES[music_sel]
+		);
 	} else if(choice == 1) {
 		choice_put(left, top, col, CHOICES[choice]);
 	}
@@ -589,6 +724,8 @@ void main_update_and_render(void)
 		main_choice_unput_and_put(1, COL_INACTIVE);
 		main_choice_unput_and_put(2, COL_INACTIVE);
 		main_choice_unput_and_put(3, COL_INACTIVE);
+		main_choice_unput_and_put(4, COL_INACTIVE);
+		main_choice_unput_and_put(5, COL_INACTIVE);
 
 		main_choice_unput_and_put(menu_sel, COL_ACTIVE);
 		in_this_menu = true;
@@ -609,6 +746,23 @@ void main_update_and_render(void)
 			in_this_menu = false;
 			break;
 		case 3:
+			if(t1replay_op_practice_enter(
+				opts.rank,
+				static_cast<int8_t>(opts.credit_lives_extra + 2),
+				opts.credit_bombs,
+				frame_rand
+			)) {
+				menu_id = MID_PRACTICE;
+				in_this_menu = false;
+			}
+			break;
+		case 4:
+			if(t1replay_op_replay_enter()) {
+				menu_id = MID_REPLAY;
+				in_this_menu = false;
+			}
+			break;
+		case 5:
 			quit = true;
 			break;
 		}
@@ -638,6 +792,7 @@ void option_update_and_render(void)
 		option_choice_unput_and_put(2, COL_INACTIVE);
 		option_choice_unput_and_put(3, COL_INACTIVE);
 		option_choice_unput_and_put(4, COL_INACTIVE);
+		option_choice_unput_and_put(5, COL_INACTIVE);
 	}
 	choice_render_if_changed(sel_prev, menu_sel, option_choice_unput_and_put);
 
@@ -656,6 +811,9 @@ void option_update_and_render(void)
 				opts.credit_lives_extra, (CFG_CREDIT_LIVES_EXTRA_MAX - 1)
 			);
 			break;
+		case 3:
+			t1replay_op_language_toggle();
+			break;
 		}
 		option_choice_unput_and_put(menu_sel, COL_ACTIVE);
 	});
@@ -671,16 +829,19 @@ void option_update_and_render(void)
 		case 2:
 			ring_inc(opts.credit_lives_extra, (CFG_CREDIT_LIVES_EXTRA_MAX - 1));
 			break;
+		case 3:
+			t1replay_op_language_toggle();
+			break;
 		}
 		option_choice_unput_and_put(menu_sel, COL_ACTIVE);
 	});
 
-	if(((input_ok || input_shot) && (menu_sel == 4)) || input_cancel) {
+	if(((input_ok || input_shot) && (menu_sel == 5)) || input_cancel) {
 		menu_id = MID_UPDATE_BGM_MODE__DELAY__SWITCH_TO_MAIN;
 		in_this_menu = false;
 		menu_sel = 2; // Option in the main menu
 	}
-	if((input_ok || input_shot) && (menu_sel == 3)) {
+	if((input_ok || input_shot) && (menu_sel == 4)) {
 		menu_id = MID_MUSIC;
 		in_this_menu = false;
 		menu_sel = 0; // Track selection in the Music Test
@@ -747,6 +908,7 @@ void main(int argc, const char *argv[])
 {
 	int bgm_mode_cur = 0;
 	int hit_key_frame = 0;
+	bool pending_save_flow = false;
 	const char* arg2; // ZUN bloat
 	const char* arg4; // ZUN bloat
 	uint8_t bios_flag;
@@ -791,6 +953,7 @@ void main(int argc, const char *argv[])
 	mdrv2_enable_if_board_installed();
 	game_init();
 	cfg_load();
+	t1_language_load();
 
 	bgm_mode_cur = opts.bgm_mode;
 
@@ -799,20 +962,43 @@ void main(int argc, const char *argv[])
 	int86(0x18, &in, &out);
 
 	key_start();
+	if(t1replay_op_pending_enter()) {
+		pending_save_flow = true;
+		menu_id = MID_REPLAY;
+	} else {
+		title_init();
 
-	title_init();
+		#if T1REPLAY_PROCESS_MILESTONES
+		if(t1replay_op_milestone_practice_bootstrap(
+			opts.rank,
+			static_cast<int8_t>(opts.credit_lives_extra + 2),
+			opts.credit_bombs,
+			frame_rand
+		)) {
+			practice_start();
+			return;
+		}
+		#endif
 
-	// Set the BIOS_FLAG to not beep when the keyboard buffer overflows, as
-	// we're clearing and setting its length to 0 below… I guess?
-	pokeb(0, 0x0500 /* BIOS_FLAG */, (peekb(0, 0x0500 /* BIOS_FLAG */) | 0x20));
+#if T1REPLAY_EXACT_TRACE
+		if(t1replay_op_exact_bootstrap()) {
+			replay_playback_start();
+			return;
+		}
+#endif
 
-	while(!key_sense_bios()) {
-		frame_delay(1);
-		title_hit_key_put(hit_key_frame);
-		hit_key_frame++;
+		// Set the BIOS_FLAG to not beep when the keyboard buffer overflows, as
+		// we're clearing and setting its length to 0 below… I guess?
+		pokeb(0, 0x0500 /* BIOS_FLAG */, (peekb(0, 0x0500 /* BIOS_FLAG */) | 0x20));
+
+		while(!key_sense_bios()) {
+			frame_delay(1);
+			title_hit_key_put(hit_key_frame);
+			hit_key_frame++;
+		}
+
+		title_window_put();
 	}
-
-	title_window_put();
 
 	// Since [frame_rand] is always 0 here, the white line animation always
 	// looks identical.
@@ -828,6 +1014,29 @@ void main(int argc, const char *argv[])
 		} else if(menu_id == MID_MUSIC) {
 			option_input_sense();
 			music_update_and_render();
+		} else if(menu_id == MID_REPLAY) {
+			t1replay_op_result_t result = t1replay_op_replay_update();
+			if(result.action == T1ROA_RETURN) {
+				t1replay_op_restore();
+				if(pending_save_flow) {
+					mdrv2_bgm_load("reimu.mdt");
+					mdrv2_bgm_play();
+					pending_save_flow = false;
+				}
+				menu_sel = 4;
+				menu_id = MID_DELAY__SWITCH_TO_MAIN;
+			} else if(result.action == T1ROA_PLAYBACK) {
+				replay_playback_start();
+			}
+		} else if(menu_id == MID_PRACTICE) {
+			t1replay_op_result_t result = t1replay_op_practice_update();
+			if(result.action == T1ROA_RETURN) {
+				t1replay_op_restore();
+				menu_sel = 3;
+				menu_id = MID_DELAY__SWITCH_TO_MAIN;
+			} else if(result.action == T1ROA_PRACTICE_RECORD) {
+				practice_start();
+			}
 		} else if(menu_id == MID_UPDATE_BGM_MODE__DELAY__SWITCH_TO_MAIN) {
 			if(opts.bgm_mode != bgm_mode_cur) {
 				if(opts.bgm_mode == BGM_MODE_OFF) {
@@ -850,6 +1059,9 @@ void main(int argc, const char *argv[])
 			// ZUN quirk: Same here.
 			frame_delay(15);
 			menu_id = MID_OPTION;
+		} else if(menu_id == MID_DELAY__SWITCH_TO_MAIN) {
+			frame_delay(15);
+			menu_id = MID_MAIN;
 		}
 
 		// Clear the PC-98 BIOS keyboard buffer… yeah, this is not a proper
@@ -870,6 +1082,27 @@ void main(int argc, const char *argv[])
 
 	game_exit();
 	mdrv2_bgm_stop();
+	#if !defined(T1RB)
+	// Keep the release OP owner at its frozen pre-tail extent. The
+	// Replay/Practice hooks above replace 14 bytes of title-owner code; these
+	// local NOPs occupy that extent without moving PF_TEXT or any later owner.
+	asm {
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+		nop
+	}
+	#endif
 	printf(GOODBYE);
 }
 /// ---------

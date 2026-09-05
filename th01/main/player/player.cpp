@@ -12,6 +12,7 @@
 #include "th01/main/player/shot.hpp"
 #include "th01/main/bullet/pellet.hpp"
 #include "th01/main/stage/timer.hpp"
+#include "th01/replay_format.hpp"
 
 /// Durations
 /// ---------
@@ -202,6 +203,41 @@ struct ModeFrame {
 // orb_player_hittest() bundles both the "repel/no repel" flag and the repel
 // friction.
 extern bool player_invincible_against_orb;
+extern int8_t player_swing_deflection_frames;
+
+enum player_bomb_flag_t {
+	PBF_NONE = 0,
+	PBF_START = 2,
+	PBF_ACTIVE = 3,
+
+	_player_bomb_flag_t_FORCE_INT16 = 0x7FFF
+};
+
+struct PlayerDashCycle {
+	int8_t v;
+
+	main_ptn_id_t to_cel(main_ptn_id_t base) const {
+		return static_cast<main_ptn_id_t>(
+			((v % DASH_FRAMES) < DASH_FRAMES_PER_CEL) ? base : (base + 1)
+		);
+	}
+	int8_t to_cel_int8(main_ptn_id_t base) const {
+		return ((v % DASH_FRAMES) < DASH_FRAMES_PER_CEL) ? base : (base + 1);
+	}
+};
+
+// These were function statics in player_unput_update_render(). Keeping their
+// storage private while giving the checkpoint owner explicit scalar access
+// avoids both a raw BSS dump and hidden state outside a future restore codec.
+static PlayerDashCycle t1replay_player_dash_cycle = { 0 };
+static ModeFrame t1replay_player_mode_frame = { 0 };
+static int8_t t1replay_player_mode = M_REGULAR;
+static x_direction_t t1replay_player_dash_direction = X_LEFT;
+static int8_t t1replay_player_bomb_flag = PBF_NONE;
+static bool t1replay_player_bombing = false;
+static int8_t t1replay_player_combo_enabled = false;
+static submode_t t1replay_player_submode;
+static int8_t t1replay_player_ptn_id_prev;
 /// ------------
 
 /// Helper functions
@@ -348,42 +384,15 @@ inline void special_start_shot(
 void player_unput_update_render(bool16 do_not_reset_player_state)
 {
 	#define swing_deflection_frames	player_swing_deflection_frames
-
-	enum bomb_flag_t {
-		BF_NONE = 0,
-		BF_START = 2,
-		BF_ACTIVE = 3,
-
-		_bomb_flag_t_FORCE_INT16 = 0x7FFF
-	};
-
-	static struct {
-		int8_t v;
-
-		main_ptn_id_t to_cel(main_ptn_id_t base) const {
-			return static_cast<main_ptn_id_t>(
-				((v % DASH_FRAMES) < DASH_FRAMES_PER_CEL) ? base : (base + 1)
-			);
-		}
-		// Shouldn't exist.
-		int8_t to_cel_int8(main_ptn_id_t base) const {
-			return (
-				((v % DASH_FRAMES) < DASH_FRAMES_PER_CEL) ? base : (base + 1)
-			);
-		}
-	} dash_cycle = { 0 };
-
-	// Garbage in M_REGULAR, valid in all other [mode]s.
-	static ModeFrame mode_frame = { 0 };
-
-	static int8_t mode = M_REGULAR; // mode_t
-	static x_direction_t dash_direction = X_LEFT;
-	static int8_t bomb_flag = BF_NONE; // ACTUAL TYPE: bomb_flag_t
-	static bool bombing = false; // ZUN bloat: Already covered by bomb_flag_t
-	static int8_t combo_enabled = false; // ACTUAL TYPE: bool
-	extern int8_t swing_deflection_frames;
-	static submode_t submode;
-	static int8_t ptn_id_prev; // ACTUAL TYPE: main_ptn_id_t
+	#define dash_cycle	t1replay_player_dash_cycle
+	#define mode_frame	t1replay_player_mode_frame
+	#define mode		t1replay_player_mode
+	#define dash_direction	t1replay_player_dash_direction
+	#define bomb_flag	t1replay_player_bomb_flag
+	#define bombing	t1replay_player_bombing
+	#define combo_enabled	t1replay_player_combo_enabled
+	#define submode	t1replay_player_submode
+	#define ptn_id_prev	t1replay_player_ptn_id_prev
 
 	int prev;
 	player_48x48_cel_t cel_prev;
@@ -406,7 +415,7 @@ void player_unput_update_render(bool16 do_not_reset_player_state)
 		mode = M_REGULAR;
 		submode.initial = -1;
 		dash_direction = X_LEFT;
-		bomb_flag = BF_NONE;
+		bomb_flag = PBF_NONE;
 		bomb_damaging = false;
 		player_sliding = false;
 		player_deflecting = false;
@@ -425,10 +434,10 @@ void player_unput_update_render(bool16 do_not_reset_player_state)
 
 	dash_cycle.v++;
 	dash_cycle.v &= (DASH_FRAMES - 1);
-	if(((rem_bombs != 0) || bombing) && (bomb_flag >= BF_START)) {
-		if(bomb_flag == BF_START) {
+	if(((rem_bombs != 0) || bombing) && (bomb_flag >= PBF_START)) {
+		if(bomb_flag == PBF_START) {
 			bomb_frame = 0;
-			bomb_flag = BF_ACTIVE;
+			bomb_flag = PBF_ACTIVE;
 			player_deflecting = true;
 			bombing = true;
 			rem_bombs--;
@@ -436,7 +445,7 @@ void player_unput_update_render(bool16 do_not_reset_player_state)
 		}
 		orb_player_hittest(1);
 		bomb_done = bomb_update_and_render(bomb_frame);
-		bomb_flag = (bomb_done == false) ? BF_ACTIVE : BF_NONE;
+		bomb_flag = (bomb_done == false) ? PBF_ACTIVE : PBF_NONE;
 		if(bomb_done) {
 			bombing = false;
 			input_bomb = false;
@@ -448,14 +457,14 @@ void player_unput_update_render(bool16 do_not_reset_player_state)
 		input_shot = false;
 		input_strike = false;
 		mode = M_REGULAR;
-		if(bomb_flag == BF_NONE) {
+		if(bomb_flag == PBF_NONE) {
 			player_deflecting = false;
 		}
 	} else if(
 		// Yes, not `< M_SPECIAL_FIRST`.
 		(input_bomb == true) && (mode != M_SPECIAL_FIRST) && (rem_bombs != 0)
 	) {
-		bomb_flag = BF_START;
+		bomb_flag = PBF_START;
 		input_bomb = false;
 		pellet_speed_raise(0.025f);
 	} else if(mode == M_REGULAR) {
@@ -884,6 +893,67 @@ void player_unput_update_render(bool16 do_not_reset_player_state)
 
 	#undef prev_left
 	#undef prev_cel_48x48
+	#undef ptn_id_prev
+	#undef submode
+	#undef combo_enabled
+	#undef bombing
+	#undef bomb_flag
+	#undef dash_direction
+	#undef mode
+	#undef mode_frame
+	#undef dash_cycle
+	#undef swing_deflection_frames
+}
+
+void t1replay_player_checkpoint_export(t1replay_checkpoint_player_t *checkpoint)
+{
+	checkpoint->player_left = player_left;
+	checkpoint->player_invincibility_time = player_invincibility_time;
+	checkpoint->cardcombo_cur = cardcombo_cur;
+	checkpoint->cardcombo_max = cardcombo_max;
+	checkpoint->swing_deflection_frames = player_swing_deflection_frames;
+	checkpoint->dash_cycle = t1replay_player_dash_cycle.v;
+	checkpoint->mode_frame = t1replay_player_mode_frame.v;
+	checkpoint->mode = t1replay_player_mode;
+	checkpoint->dash_direction = t1replay_player_dash_direction;
+	checkpoint->bomb_flag = t1replay_player_bomb_flag;
+	checkpoint->bombing = t1replay_player_bombing;
+	checkpoint->combo_enabled = t1replay_player_combo_enabled;
+	checkpoint->submode = t1replay_player_submode.initial;
+	checkpoint->ptn_id_prev = t1replay_player_ptn_id_prev;
+	checkpoint->player_deflecting = player_deflecting;
+	checkpoint->player_sliding = player_sliding;
+	checkpoint->player_is_hit = player_is_hit;
+	checkpoint->player_invincible = player_invincible;
+	checkpoint->player_invincible_against_orb = player_invincible_against_orb;
+	checkpoint->bomb_damaging = bomb_damaging;
+}
+
+void t1replay_player_checkpoint_import(
+	const t1replay_checkpoint_player_t *checkpoint
+)
+{
+	player_left = checkpoint->player_left;
+	player_invincibility_time = checkpoint->player_invincibility_time;
+	cardcombo_cur = checkpoint->cardcombo_cur;
+	cardcombo_max = checkpoint->cardcombo_max;
+	player_swing_deflection_frames = checkpoint->swing_deflection_frames;
+	t1replay_player_dash_cycle.v = checkpoint->dash_cycle;
+	t1replay_player_mode_frame.v = checkpoint->mode_frame;
+	t1replay_player_mode = checkpoint->mode;
+	t1replay_player_dash_direction =
+		static_cast<x_direction_t>(checkpoint->dash_direction);
+	t1replay_player_bomb_flag = checkpoint->bomb_flag;
+	t1replay_player_bombing = checkpoint->bombing;
+	t1replay_player_combo_enabled = checkpoint->combo_enabled;
+	t1replay_player_submode.initial = checkpoint->submode;
+	t1replay_player_ptn_id_prev = checkpoint->ptn_id_prev;
+	player_deflecting = checkpoint->player_deflecting;
+	player_sliding = checkpoint->player_sliding;
+	player_is_hit = checkpoint->player_is_hit;
+	player_invincible = checkpoint->player_invincible;
+	player_invincible_against_orb = checkpoint->player_invincible_against_orb;
+	bomb_damaging = checkpoint->bomb_damaging;
 }
 
 template <class T> inline T delta_abs(const T p1, const T p2) {

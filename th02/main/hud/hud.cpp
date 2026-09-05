@@ -11,6 +11,7 @@
 #include "th02/main/player/player.hpp"
 #include "th02/main/hud/hud.hpp"
 #include "th02/main/hud/overlay.hpp"
+#include "th02/language.hpp"
 
 // Gaiji strings
 // -------------
@@ -29,7 +30,9 @@ static const tram_cell_amount_t gsHISCORE_W = (4 * GAIJI_TRAM_W);
 extern const gaiji_th02_t gRANKS[RANK_COUNT][8];
 // -------------
 
+#define gaiji_entry_bfnt t2_language_main_gaiji_entry_bfnt
 #include "th02/gaiji/loadfree.cpp"
+#undef gaiji_entry_bfnt
 
 // Coordinates
 // -----------

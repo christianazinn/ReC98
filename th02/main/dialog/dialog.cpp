@@ -5,6 +5,7 @@
 #include "th02/resident.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/hardware/input.hpp"
+#include "th02/main/replay.hpp"
 #include "th02/hardware/pages.hpp"
 #include "th02/snd/snd.h"
 #include "th02/formats/dialog.hpp"
@@ -19,6 +20,7 @@
 #include "th02/main/player/player.hpp"
 #include "th02/main/tile/tile.hpp"
 #include "th02/sprites/face.hpp"
+#include "th02/language.hpp"
 
 // Coordinates
 // -----------
@@ -64,14 +66,14 @@ void dialog_load_and_init(void)
 	char* fn = dialog_fn;
 	fn[5] = ('0' + stage_id);
 
-	file_ropen(fn);
+	t2_language_main_file_ropen(fn);
 
 	// ZUN landmine: No check to ensure that the size is ≤ sizeof(dialog_text).
 	// Dynamic allocation would have made more sense...
 	size_t size = file_size();
 	file_read(dialog_text, size);
 
-	file_close();
+	t2_language_main_file_close();
 	dialog_box_cur = 0;
 }
 
@@ -186,8 +188,7 @@ void pascal near dialog_box_put(
 	);
 }
 
-// ZUN bloat: Turn this and the function below into a single
-// dialog_box_slide_animate() function.
+// ZUN bloat: Turn this and the function below into one common slide helper.
 #define dialog_box_slide_init(left, top_top, bottom_top, left_start) { \
 	top_top = scroll_screen_y_to_vram(top_top, BOX_TOP); \
 	scroll_add_scrolled(bottom_top, top_top, 0); \
@@ -218,7 +219,7 @@ void pascal near dialog_box_put(
 
 void near dialog_pre(void)
 {
-	// ZUN bloat: Deduplicate and move into dialog_box_slide_animate().
+	// ZUN bloat: Deduplicate this with the post-slide setup.
 	vram_y_t top_top;
 	vram_y_t bottom_top = DIALOG_BOX_PART_H;
 
@@ -260,7 +261,7 @@ void near dialog_pre(void)
 
 void near dialog_post(void)
 {
-	// ZUN bloat: Deduplicate and move into dialog_box_slide_animate().
+	// ZUN bloat: Deduplicate this with the pre-slide setup.
 	vram_y_t top_top;
 	vram_y_t bottom_top = DIALOG_BOX_PART_H;
 
@@ -321,7 +322,7 @@ void pascal near dialog_text_put(
 	tram_cell_amount_t line, const shiftjis_t* str, tram_atrb2 atrb, int n
 )
 {
-	// ZUN landmine: master.lib has text_putnsa() for this purpose, which works
+	// ZUN landmine: master.lib has a length-bounded text output routine for this
 	// without copying the string and risking a buffer overflow in the process,
 	// or wasting 40 bytes of conventional RAM on \0 bytes.
 	extern const Array<shiftjis_t, DIALOG_LINE_SIZE> clear_bytes;
@@ -358,6 +359,7 @@ void pascal near dialog_box_animate_and_advance(
 	int box = dialog_box_cur;
 	while(box_cursor <= ((DIALOG_BOX_LINES * DIALOG_LINE_LENGTH) + 8)) {
 		input_reset_sense();
+		replay_input_sample(T2REPLAY_PHASE_DIALOG);
 		dialog_face_put(face_topleft_id); // ZUN bloat: Every frame?
 
 		static_assert(DIALOG_BOX_LINES == 2);
@@ -388,7 +390,9 @@ void pascal near dialog_box_animate_and_advance(
 			box_cursor += static_cast<int>(sizeof(shiftjis_kanji_t));
 		}
 	}
-	key_delay();
+	if(!replay_input_wait_for_change()) {
+		return;
+	}
 	dialog_box_cur++;
 }
 // -----------

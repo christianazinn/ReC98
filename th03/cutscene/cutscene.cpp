@@ -16,6 +16,7 @@
 #include "libs/master.lib/master.hpp"
 #if (GAME >= 4)
 #include "th01/hardware/grcg.hpp" // ZUN bloat
+#include "th04/language_overlay.hpp"
 #endif
 #include "th02/v_colors.hpp"
 #include "th02/hardware/frmdelay.h"
@@ -285,9 +286,13 @@ bool16 pascal near cutscene_script_load(const char* fn)
 #endif
 	cutscene_script_free();
 
+#if (GAME >= 4)
+	if(!language_asset_file_ropen(fn)) {
+#else
 	if(!file_ropen(fn)) {
 #if (GAME == 3)
 		language_archive_end(language_switched);
+#endif
 #endif
 		return true;
 	}
@@ -300,9 +305,13 @@ bool16 pascal near cutscene_script_load(const char* fn)
 	script = reinterpret_cast<unsigned char far *>(hmem_allocbyte(size));
 #endif
 	file_read(script_p, size);
+#if (GAME >= 4)
+	language_asset_file_close();
+#else
 	file_close();
 #if (GAME == 3)
 	language_archive_end(language_switched);
+#endif
 #endif
 	return false;
 }
@@ -942,6 +951,8 @@ script_ret_t pascal near script_op(unsigned char c)
 #endif
 #if (GAME == 3)
 			language_pi_load(CUTSCENE_PIC_SLOT, fn);
+#elif (GAME >= 4)
+			language_asset_pi_load(CUTSCENE_PIC_SLOT, fn);
 #else
 			pi_load(CUTSCENE_PIC_SLOT, fn);
 #endif

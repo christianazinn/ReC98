@@ -1,5 +1,6 @@
 #include "th01/main/bullet/missile.hpp"
 #include "th01/main/player/player.hpp"
+#include "th01/replay_format.hpp"
 
 CMissiles Missiles;
 
@@ -74,6 +75,58 @@ void CMissiles::reset(void)
 	for(int i = 0; i < MISSILE_COUNT; i++) {
 		flag[i] = MF_FREE;
 	}
+}
+
+void CMissiles::checkpoint_export(
+	t1replay_checkpoint_missiles_t *checkpoint
+) const
+{
+	checkpoint->ptn_id_base = ptn_id_base;
+	for(int i = 0; i < MISSILE_COUNT; i++) {
+		t1replay_checkpoint_missile_t &dst = checkpoint->missiles[i];
+
+		dst.cur_left = cur_left[i].v;
+		dst.cur_top = cur_top[i].v;
+		dst.prev_left = prev_left[i].v;
+		dst.prev_top = prev_top[i].v;
+		dst.velocity_x = velocity_x[i].v;
+		dst.velocity_y = velocity_y[i].v;
+		dst.unknown = unknown[i];
+		dst.flag = flag[i];
+	}
+}
+
+void CMissiles::checkpoint_import(
+	const t1replay_checkpoint_missiles_t *checkpoint
+)
+{
+	ptn_id_base = checkpoint->ptn_id_base;
+	for(int i = 0; i < MISSILE_COUNT; i++) {
+		const t1replay_checkpoint_missile_t &src = checkpoint->missiles[i];
+
+		cur_left[i].v = src.cur_left;
+		cur_top[i].v = src.cur_top;
+		prev_left[i].v = src.prev_left;
+		prev_top[i].v = src.prev_top;
+		velocity_x[i].v = src.velocity_x;
+		velocity_y[i].v = src.velocity_y;
+		unknown[i] = src.unknown;
+		flag[i] = static_cast<missile_flag_t>(src.flag);
+	}
+}
+
+void t1replay_missiles_checkpoint_export(
+	t1replay_checkpoint_missiles_t *checkpoint
+)
+{
+	Missiles.checkpoint_export(checkpoint);
+}
+
+void t1replay_missiles_checkpoint_import(
+	const t1replay_checkpoint_missiles_t *checkpoint
+)
+{
+	Missiles.checkpoint_import(checkpoint);
 }
 
 // Missiles are blitted to unaligned X positions (and are, in fact, the only

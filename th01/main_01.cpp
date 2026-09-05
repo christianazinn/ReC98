@@ -7,11 +7,17 @@
 #include <new.h>
 #include <process.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th01/core/initexit.hpp"
 #include "th01/core/resstuff.hpp"
+#include "th01/language.hpp"
+#include "th01/replay.hpp"
+#if defined(T1RB)
+#include "th01/replay_milestone.hpp"
+#endif
 #include "th01/hardware/frmdelay.h"
 #include "th01/hardware/graph.h"
 #include "th01/hardware/palette.h"
@@ -143,6 +149,10 @@ struct {
 } ptn_slot_stg = { false };
 // --------------------------------------------
 
+// Kept beside input_sense() so the checkpoint exporter can preserve the
+// original edge-detection state without serializing any keyboard hardware.
+static uint8_t input_prev[16];
+
 inline void bomb_doubletap_update(uint8_t& pressed, uint8_t& other) {
 	if(bomb_doubletap_frame < BOMB_DOUBLETAP_WINDOW) {
 		pressed++;
@@ -155,7 +165,6 @@ inline void bomb_doubletap_update(uint8_t& pressed, uint8_t& other) {
 
 void input_sense(bool16 reset_repeat)
 {
-	static uint8_t input_prev[16];
 	int group_1, group_2, group_3, group_4;
 
 	if(reset_repeat == true) {
@@ -177,17 +186,20 @@ void input_sense(bool16 reset_repeat)
 		input_bomb = 0;
 		return;
 	}
+	// The replay stream advances once for every ordinary input pass, before the
+	// original edge detector reads its key groups. Reset passes consume nothing.
+	t1replay_frame_io();
 	#define bomb_doubletap_shot input_prev[12]
 	#define bomb_doubletap_strike input_prev[13]
 
-	group_1 = key_sense(7);
-	group_2 = key_sense(5);
-	group_3 = key_sense(8);
-	group_4 = key_sense(9);
-	group_1 |= key_sense(7);
-	group_2 |= key_sense(5);
-	group_3 |= key_sense(8);
-	group_4 |= key_sense(9);
+	group_1 = input_key_sense(7);
+	group_2 = input_key_sense(5);
+	group_3 = input_key_sense(8);
+	group_4 = input_key_sense(9);
+	group_1 |= input_key_sense(7);
+	group_2 |= input_key_sense(5);
+	group_3 |= input_key_sense(8);
+	group_4 |= input_key_sense(9);
 
 	input_onchange_bool_2(0, 8,
 		input_up, (group_1 & K7_ARROW_UP), (group_3 & K8_NUM_8)
@@ -226,8 +238,8 @@ void input_sense(bool16 reset_repeat)
 	}
 
 	if(mode_test == true) {
-		group_1 = key_sense(6);
-		group_1 |= key_sense(6);
+		group_1 = input_key_sense(6);
+		group_1 |= input_key_sense(6);
 
 		// ZUN bug: debug_mem() itself renders a sub-screen in a blocking way,
 		// and senses input after a 3-frame delay, thus recursing back into
@@ -253,6 +265,51 @@ void input_sense(bool16 reset_repeat)
 			input_mem_leave = false;
 		});
 	}
+}
+
+void t1replay_input_checkpoint_export(t1replay_checkpoint_input_t *out)
+{
+	int i;
+
+	for(i = 0; i < 16; i++) {
+		out->input_history[i] = input_prev[i];
+	}
+	out->input_lr = input_lr;
+	out->input_shot = input_shot;
+	out->input_ok = input_ok;
+	out->input_strike = input_strike;
+	out->input_up = input_up;
+	out->input_down = input_down;
+	out->input_bomb = input_bomb;
+	out->paused = paused;
+	out->player_is_hit = player_is_hit;
+	out->input_mem_enter = input_mem_enter;
+	out->input_mem_leave = input_mem_leave;
+	out->reserved_0 = 0;
+	out->bomb_doubletap_frame = bomb_doubletap_frame;
+	out->bomb_doubletap_frame_unused = bomb_doubletap_frame_unused;
+}
+
+void t1replay_input_checkpoint_import(const t1replay_checkpoint_input_t *in)
+{
+	int i;
+
+	for(i = 0; i < 16; i++) {
+		input_prev[i] = in->input_history[i];
+	}
+	input_lr = in->input_lr;
+	input_shot = (in->input_shot != 0);
+	input_ok = (in->input_ok != 0);
+	input_strike = (in->input_strike != 0);
+	input_up = (in->input_up != 0);
+	input_down = (in->input_down != 0);
+	input_bomb = (in->input_bomb != 0);
+	paused = (in->paused != 0);
+	player_is_hit = (in->player_is_hit != 0);
+	input_mem_enter = (in->input_mem_enter != 0);
+	input_mem_leave = (in->input_mem_leave != 0);
+	bomb_doubletap_frame = in->bomb_doubletap_frame;
+	bomb_doubletap_frame_unused = in->bomb_doubletap_frame_unused;
 }
 
 #include "th01/hardware/input_rs.cpp"
@@ -440,6 +497,17 @@ void boss_free(void)
 	}
 }
 
+void far t1replay_abort_to_op(void)
+{
+	// Process replacement owns transient gameplay allocations. Calling either
+	// REIIDEN-specific free path here could double-free a terminal-path object.
+	game_switch_binary();
+	key_end();
+	arc_free();
+	execl(BINARY_OP, BINARY_OP, nullptr);
+	exit(1);
+}
+
 inline void debug_startup_delay(const char* str) {
 	puts(str);
 	debug_vars();
@@ -464,9 +532,26 @@ int main(void)
 	int pellet_speed_raise_cycle;
 	int stage_id_copy;
 	char bgm_fn[16];
+	char replay_fuuin_arg[2];
+	bool16 replay_fuuin;
+	bool16 replay_checkpoint_restored;
+	#if defined(T1RB)
+	bool16 replay_stage4_clear_probe = false;
+	#endif
 
 	if(!mdrv2_resident()) {
 		error_resident_invalid();
+		return 1;
+	}
+	#if defined(T1RB)
+	t1replay_process_milestone(T1RPM_REIIDEN_ENTRY);
+	#endif
+	t1_language_load();
+	// Must run before resident_stuff_get(): first-process playback restores the
+	// exact resident start block before REIIDEN derives globals and RNG state.
+	t1replay_entry();
+	if(t1replay_abort_requested()) {
+		execl(BINARY_OP, BINARY_OP, nullptr);
 		return 1;
 	}
 	if(resident_stuff_get(
@@ -551,8 +636,18 @@ int main(void)
 	set_new_handler(out_of_memory_exit);
 	arc_key = ARC_KEY;
 	arc_load(ARC_FN);
+	#if defined(T1RB)
+	if(stage_id == BOSS_STAGE) {
+		t1replay_process_milestone(T1RPM_STAGE5_ARCHIVE_LOADED);
+	}
+	#endif
 	vram_planes_set();
 	scene_init_and_load(scene_id);
+	#if defined(T1RB)
+	if(stage_id == BOSS_STAGE) {
+		t1replay_process_milestone(T1RPM_STAGE5_SCENE_LOADED);
+	}
+	#endif
 
 	if(mode_debug == true) {
 		debug_startup_delay();
@@ -671,6 +766,11 @@ int main(void)
 			clear_vram_page_0 = false;
 			break;
 		}
+		#if defined(T1RB)
+		if(stage_id == BOSS_STAGE) {
+			t1replay_process_milestone(T1RPM_STAGE5_BOSS_LOADED);
+		}
+		#endif
 
 		if(boss_id != BID_NONE) {
 			bgm_reload_and_play_if_0 = 0;
@@ -693,11 +793,21 @@ int main(void)
 			);
 		} else if(boss_id == BID_KONNGARA) {
 			konngara_load_and_entrance(0);
-		} else if(boss_id == BID_SARIEL) {
-			sariel_entrance(0);
-		}
-		unnecessary_copy_of_the_initial_value_of_extend_next = extend_next;
-		hud_bg_snap_and_put();
+	} else if(boss_id == BID_SARIEL) {
+		sariel_entrance(0);
+	}
+	#if defined(T1RB)
+	if(stage_id == BOSS_STAGE) {
+		t1replay_process_milestone(T1RPM_STAGE5_ENTRANCE_COMPLETE);
+	}
+	#endif
+	#if defined(T1RB)
+	if(stage_id == ((3 * STAGES_PER_SCENE) + BOSS_STAGE)) {
+		t1replay_process_milestone(T1RPM_STAGE5_BOSS_INIT);
+	}
+	#endif
+	unnecessary_copy_of_the_initial_value_of_extend_next = extend_next;
+		t1replay_hud_bg_snap_and_put();
 
 		cardcombo_max = 0;
 		orb_in_portal = false;
@@ -726,6 +836,7 @@ int main(void)
 
 		// Life loop
 		while(1) {
+			replay_checkpoint_restored = false;
 			player_reset();
 			player_put_default();
 			orb_put_default();
@@ -738,7 +849,6 @@ int main(void)
 			bomb_doubletap_frame = (BOMB_DOUBLETAP_WINDOW * 3);
 			bomb_doubletap_frame_unused = (BOMB_DOUBLETAP_WINDOW * 3);
 			obstacles_update_and_render(true);
-
 			// Play stage BGM. Why inside this loop though? The code would be
 			// much simpler if that was part of the stage loop...
 			if(
@@ -752,62 +862,137 @@ int main(void)
 			}
 
 			input_reset_sense();
-
-			if(player_invincibility_time > 1) {
-				player_invincible = true;
+			#if defined(T1RB)
+			if((stage_id == (BOSS_STAGE - 1)) &&
+				t1replay_process_milestone_stage4_clear_probe()) {
+				replay_stage4_clear_probe = true;
+				t1replay_process_milestone(T1RPM_STAGE4_CLEAR_BEGIN);
+				// The no-input witness has reached the same fully loaded boundary
+				// as an ordinary Stage 4 run. Let it pass the initial Shot gate so
+				// it can exercise the actual clear, bonus, and process handoff path.
+				input_shot = true;
 			}
-			if(boss_id != BID_NONE) {
+			#endif
+
+			if(t1replay_checkpoint_restore_pending()) {
+				if(!t1replay_checkpoint_restore_apply(
+					&pellet_speed_raise_cycle
+				)) {
+					t1replay_abort_to_op();
+				}
+				replay_checkpoint_restored = true;
+			} else {
+				if(player_invincibility_time > 1) {
+					player_invincible = true;
+				}
+				if(boss_id != BID_NONE) {
 				// ZUN bloat: Moving these select entrance animations outside
 				// the main gameplay loop has no discernible effect.
-				switch(boss_id) {
-				case BID_SINGYOKU:
-					singyoku_main();
-					break;
+					switch(boss_id) {
+					case BID_SINGYOKU:
+						singyoku_main();
+						break;
 
-				case BID_MIMA:
-					mima_main();
-					break;
+					case BID_MIMA:
+						mima_main();
+						break;
 
-				case BID_KIKURI:
+					case BID_KIKURI:
 					// ZUN bloat: Kikuri has a blocking entrance animation as
 					// well, during which Reimu isn't even visible? And once
 					// it's done, this value is immediately re-sensed with the
 					// actual key state before Kikuri's code gets to execute,
 					// as this assignment completely bypasses the [input_prev]
 					// mechanism.
-					input_strike = false;
-					break;
+						input_strike = false;
+						break;
+					}
+				} else if(stage_wait_for_shot_to_begin == true) {
+					while(!input_shot) {
+						input_sense(false);
+
+						// Allow the player to move before starting the stage
+						player_unput_update_render();
+
+						frame_delay(1);
+						bomb_frame++;
+					}
 				}
-			} else if(stage_wait_for_shot_to_begin == true) {
-				while(!input_shot) {
-					input_sense(false);
 
-					// Allow the player to move before starting the stage
-					player_unput_update_render();
-
-					frame_delay(1);
-					bomb_frame++;
+				stage_wait_for_shot_to_begin = false;
+				input_shot = false;
+				timer_initialized = true;
+				irand_init(frame_rand);
+				bomb_doubletap_frame = BOMB_DOUBLETAP_WINDOW;
+				first_stage_in_scene = false;
+				pellet_speed_raise_cycle = 3000; // ZUN bloat: Reassigned below
+			}
+			#if defined(T1RB)
+			if(replay_stage4_clear_probe) {
+				stage_cleared = true;
+				player_is_hit = true;
+			}
+			// Private H reaches the native post-boss process boundary after the
+			// first boss resources and entrance have completed. It validates the
+			// REIIDEN-to-REIIDEN route without substituting a saved world state.
+			if((stage_id == BOSS_STAGE) &&
+				t1replay_process_milestone_handoff_probe()) {
+				t1replay_process_milestone(T1RPM_HANDOFF_PROBE_REACHED);
+				// This is the native boss-successor process sequence below,
+				// reached only after the first boss has initialized normally.
+				// The private route intentionally skips combat, not the resource
+				// decode, resident handoff, or self-exec ownership under test.
+				boss_free();
+				stage_id++;
+				resident->stage_id = stage_id;
+				resident->score = score;
+				resident->rem_lives = rem_lives;
+				resident->snd_need_init = true;
+				resident->route = route;
+				mdrv2_bgm_fade_out_nonblock();
+				resident->rem_bombs = rem_bombs;
+				if(t1replay_process_handoff(T1REPLAY_PROCESS_REIIDEN)) {
+					t1replay_process_milestone(T1RPM_REIIDEN_TEARDOWN);
+				}
+				game_switch_binary();
+				t1replay_chain_exec(BINARY_MAIN);
+				// Preserve the former variadic execl() call footprint.
+				asm {
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
 				}
 			}
-
-			stage_wait_for_shot_to_begin = false;
-			input_shot = false;
-			timer_initialized = true;
-			irand_init(frame_rand);
-			bomb_doubletap_frame = BOMB_DOUBLETAP_WINDOW;
-			first_stage_in_scene = false;
-			pellet_speed_raise_cycle = 3000; // ZUN bloat: Reassigned below
+			#endif
 
 			// Main gameplay loop
 			while(!player_is_hit) {
-				frame_rand++;
-				pellet_speed_raise_cycle = (
-					1800 - (rem_lives * 200) - (rem_bombs * 50)
-				);
-				if((frame_rand % pellet_speed_raise_cycle) == 0) {
-					pellet_speed_raise(0.025f);
+				if(replay_checkpoint_restored) {
+					replay_checkpoint_restored = false;
+				} else {
+					frame_rand++;
+					pellet_speed_raise_cycle = (
+						1800 - (rem_lives * 200) - (rem_bombs * 50)
+					);
+					if((frame_rand % pellet_speed_raise_cycle) == 0) {
+						pellet_speed_raise(0.025f);
+					}
+					t1replay_checkpoint_capture(pellet_speed_raise_cycle);
 				}
+				t1replay_gameplay_input_begin();
 				input_sense(false);
+				t1replay_gameplay_input_end();
 
 				if(player_invincibility_time > 1) {
 					player_invincibility_time--;
@@ -880,6 +1065,9 @@ int main(void)
 				}
 
 				if(game_cleared == true) {
+					t1replay_stage_complete(
+						static_cast<uint8_t>(stage_id), score
+					);
 					graphics_free_redundant_and_incomplete();
 					resident->end_flag = static_cast<end_sequence_t>(
 						ES_MAKAI + route
@@ -889,8 +1077,16 @@ int main(void)
 						resident->score_highest = score;
 					}
 					frame_delay(120);
+					replay_fuuin = t1replay_process_handoff(
+						T1REPLAY_PROCESS_FUUIN
+					);
+					replay_fuuin_arg[0] = 'r';
+					replay_fuuin_arg[1] = '\0';
 					game_switch_binary();
-					execl(BINARY_END, BINARY_END, nullptr);
+					execl(
+						BINARY_END, BINARY_END,
+						(replay_fuuin ? replay_fuuin_arg : nullptr), nullptr
+					);
 				}
 
 				// ZUN quirk: Placing this after the [game_cleared] branch robs
@@ -902,8 +1098,18 @@ int main(void)
 			}
 			// At this point, the player either lost a life or cleared a
 			// non-final stage.
+			#if defined(T1RB)
+			if(replay_stage4_clear_probe) {
+				t1replay_process_milestone(T1RPM_STAGE4_GAMEPLAY_LOOP_LEFT);
+			}
+			#endif
 			timer_initialized = false;
 			z_vsync_wait_and_scrollup(0);
+			#if defined(T1RB)
+			if(replay_stage4_clear_probe) {
+				t1replay_process_milestone(T1RPM_STAGE4_SCROLLUP_COMPLETE);
+			}
+			#endif
 			resident->rand = frame_rand;
 			test_damage = false;
 			bomb_frame = 200;
@@ -924,6 +1130,11 @@ int main(void)
 		}
 		// At this point, the player either cleared a non-final stage or
 		// game-overed.
+		#if defined(T1RB)
+		if(replay_stage4_clear_probe) {
+			t1replay_process_milestone(T1RPM_STAGE4_LIFE_LOOP_LEFT);
+		}
+		#endif
 		if(stage_cleared == true) {
 			stage_cleared = false;
 			player_is_hit = false;
@@ -941,6 +1152,19 @@ int main(void)
 			} else {
 				stagebonus_animate(stage_id);
 			}
+			#if defined(T1RB)
+			if(replay_stage4_clear_probe) {
+				t1replay_process_milestone(T1RPM_STAGE4_BONUS_COMPLETE);
+			}
+			#endif
+			t1replay_stage_complete(
+				static_cast<uint8_t>(stage_id - 1), score
+			);
+			#if defined(T1RB)
+			if(replay_stage4_clear_probe) {
+				t1replay_process_milestone(T1RPM_STAGE4_SPLIT_COMPLETE);
+			}
+			#endif
 			if(resident->pellet_speed < 0) {
 				resident->pellet_speed = 0;
 			}
@@ -954,8 +1178,42 @@ int main(void)
 				resident->route = route;
 				mdrv2_bgm_fade_out_nonblock();
 				resident->rem_bombs = rem_bombs;
+				#if defined(T1RB)
+				if(t1replay_process_handoff(T1REPLAY_PROCESS_REIIDEN)) {
+					t1replay_process_milestone(T1RPM_REIIDEN_TEARDOWN);
+				}
+				#else
+				t1replay_process_handoff(T1REPLAY_PROCESS_REIIDEN);
+				#endif
+				#if defined(T1RB)
+				if(replay_stage4_clear_probe) {
+					t1replay_process_milestone(T1RPM_STAGE4_HANDOFF_COMMITTED);
+				}
+				#endif
 				game_switch_binary();
-				execl(BINARY_MAIN, BINARY_MAIN, nullptr);
+				t1replay_chain_exec(BINARY_MAIN);
+				// Preserve the former variadic execl() call footprint.
+				asm {
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+					nop
+				}
+				#if defined(T1RB)
+				if(replay_stage4_clear_probe) {
+					t1replay_process_milestone(T1RPM_STAGE4_EXECL_RETURNED);
+				}
+				#endif
 			}
 			orb_in_portal = false;
 			if(boss_id == BID_NONE) {
@@ -986,7 +1244,7 @@ int main(void)
 	}
 	resident->score = score;
 
-	regist_menu(score, (stage_id + 1), (
+	t1replay_gameover_regist_menu(score, (stage_id + 1), (
 		!stage_on_route(stage_id) ? SCOREDAT_ROUTE_SHRINE :
 		(route == ROUTE_MAKAI) ? SCOREDAT_ROUTE_MAKAI : SCOREDAT_ROUTE_JIGOKU
 	));
@@ -995,8 +1253,12 @@ int main(void)
 	continue_menu();
 
 op:
+#if T1REPLAY_EXACT_TRACE
+	t1replay_exact_terminal_capture(T1REPLAY_END_MENU);
+#endif
 	graphics_free_redundant_and_incomplete();
 	boss_free();
+	t1replay_terminal(T1REPLAY_END_MENU);
 	game_switch_binary();
 	key_end();
 	arc_free();

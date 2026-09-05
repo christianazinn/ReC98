@@ -3,6 +3,7 @@
 #include "th04/formats/dialog.hpp"
 #include "th04/main/dialog/shared.cpp"
 #include "th04/main/ems.hpp"
+#include "th04/main/replay.hpp"
 #include "th04/main/tile/tile.hpp"
 #include "th04/sprites/main_pat.h"
 #include "th04/shiftjis/fns.hpp"
@@ -73,7 +74,7 @@ script_ret_t pascal near dialog_op(unsigned char c)
 		// ZUN bloat: Copy-pasted from the TH03 cutscene script parser, and not
 		// used in any of TH04's original scripts.
 		script_param_read_number_first(p1, 0);
-		input_wait_for_change(p1);
+		replay_input_wait_for_change(p1);
 		break;
 
 	case '=':
@@ -142,7 +143,7 @@ script_ret_t pascal near dialog_op(unsigned char c)
 	}
 
 	case '$':
-		input_wait_for_change(0);
+		replay_input_wait_for_change(0);
 		return STOP;
 
 	case '#':
@@ -201,7 +202,7 @@ void near dialog_run(void)
 				// held keys are always recognized as such, and don't cause a
 				// sporadic 2-frame delay before the text is displayed
 				// completely after all.
-				input_reset_sense();
+				replay_input_reset_sense_interstitial();
 
 				// Again, same iteration code as in TH03's cutscene system.
 				c = *(dialog_p++);

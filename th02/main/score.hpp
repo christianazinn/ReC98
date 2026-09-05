@@ -14,6 +14,10 @@ extern score_t score_delta;
 extern score_t hiscore;
 extern uint8_t hiscore_continues;
 
+// Amount of [score_delta] transferred into [score] during the previous frame.
+// This is consulted by the next score_update_and_render() call.
+extern unsigned int score_delta_transferred_prev;
+
 // Sets [extends_gained] based on the current [score].
 void near score_extend_init(void);
 

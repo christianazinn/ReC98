@@ -1,3 +1,12 @@
+// Guarded because th04/main/demo.cpp includes it directly while
+// th04/main/pause.cpp, which shares its translation unit, reaches it through
+// th04/hardware/input.h (kb/codegen/0129: at a collision set of ONE header,
+// guarding is the cheap fix; it was eleven that made guarding the wrong
+// answer). Byte-inert: nothing here is conditional on anything but GAME, which
+// is fixed per build.
+#ifndef TH04_HARDWARE_INPUTVAR_H
+#define TH04_HARDWARE_INPUTVAR_H
+
 #include "platform.h"
 
 // Changed from their TH03 values.
@@ -28,3 +37,5 @@ static const input_t INPUT_MOVEMENT = (
 
 extern input_t key_det; /* ZUN symbol [MAGNet2010] */
 extern bool shiftkey; /* ZUN symbol [MAGNet2010] */
+
+#endif /* TH04_HARDWARE_INPUTVAR_H */

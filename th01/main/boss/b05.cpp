@@ -14,13 +14,19 @@
 #include "th01/sprites/pellet.h"
 #include "th01/main/particle.hpp"
 #include "th01/main/hud/hp.hpp"
+#include "th01/main/stage/timer.hpp"
 #include "th01/main/player/player.hpp"
 #include "th01/main/player/shot.hpp"
 #include "th01/main/boss/defeat.hpp"
+#include "th01/main/boss/b05.hpp"
 #include "th01/main/boss/entity_a.hpp"
 #include "th01/main/boss/palette.hpp"
 #include "th01/main/bullet/pellet.hpp"
 #include "th01/main/stage/palette.hpp"
+
+#if T1REPLAY_CHECKPOINT_RESTORE || T1REPLAY_PIXEL_TRACE || T1REPLAY_PRACTICE_BOSS_PHASE
+#include "th01/hardware/graph.h"
+#endif
 
 // Coordinates
 // -----------
@@ -137,6 +143,50 @@ static union {
 	subpixel_t speed_in_subpixels;
 	int unknown;
 } pattern_state;
+
+// Originally function-local statics. Keeping these semantics private to this
+// translation unit exposes the real SinGyoku owner without ever binding the
+// common boss globals shadowed above.
+static unsigned char halfcircle_angle;
+static int8_t halfcircle_direction;
+static point_t slam_velocity;
+
+static struct {
+	int pattern_cur;
+	int16_t unused; // ZUN bloat
+
+	void frame_common(void) {
+		boss_phase_frame++;
+		invincibility_frame++;
+	}
+} phase = { 0, 0 };
+
+static struct {
+	bool16 invincible;
+
+	void update_and_render(const vc_t (&flash_colors)[1]) {
+		boss_hit_update_and_render(
+			invincibility_frame,
+			invincible,
+			boss_hp,
+			flash_colors,
+			(sizeof(flash_colors) / sizeof(flash_colors[0])),
+			3000,
+			boss_nop,
+			ent.hittest_orb(),
+			// A hitbox shifted 16 pixels to the right *and* with an
+			// additional 16 pixels on the right edge?
+			shot_hitbox_t(
+				(ent.cur_left + (SINGYOKU_W / 6)),
+				(ent.cur_top + (SINGYOKU_H / 3)),
+				(SINGYOKU_W + (SINGYOKU_W / 6)),
+				(SINGYOKU_H - (SINGYOKU_H / 3))
+			)
+		);
+	}
+} hit = { false };
+
+static bool16 initial_hp_rendered = false;
 // --------
 
 void singyoku_load(void)
@@ -307,23 +357,20 @@ void pattern_halfcircle_spray_downwards(void)
 		FIRE_FRAMES = (KEYFRAME_FIRE_DONE - KEYFRAME_FIRE),
 	};
 
-	static unsigned char angle;
-	static int8_t direction;
-
 	if(boss_phase_frame == 10) {
-		direction = ((irand() % 2) == 1) ? 1 : -1;
+		halfcircle_direction = ((irand() % 2) == 1) ? 1 : -1;
 	}
 	if(boss_phase_frame < KEYFRAME_FIRE) {
-		sphere_accelerate_rotation_and_render(direction);
+		sphere_accelerate_rotation_and_render(halfcircle_direction);
 		return;
 	}
 
 	if(boss_phase_frame == KEYFRAME_FIRE) {
 		select_for_rank(pattern_state.pellet_count, 10, 15, 20, 30);
-		angle = (direction == -1) ? 0x00 : 0x80;
+		halfcircle_angle = (halfcircle_direction == -1) ? 0x00 : 0x80;
 	}
 	if(boss_phase_frame < KEYFRAME_FIRE_DONE) {
-		sphere_rotate_and_render(direction, 1);
+		sphere_rotate_and_render(halfcircle_direction, 1);
 
 		if(
 			(boss_phase_frame % (FIRE_FRAMES / pattern_state.pellet_count)) == 0
@@ -331,10 +378,12 @@ void pattern_halfcircle_spray_downwards(void)
 			Pellets.add_single(
 				(ent.cur_center_x() - (PELLET_W / 2)),
 				(ent.cur_center_y() - (PELLET_H / 2)),
-				angle,
+				halfcircle_angle,
 				to_sp(3.125f)
 			);
-			angle -= ((direction * 0x80) / pattern_state.pellet_count);
+			halfcircle_angle -= (
+				(halfcircle_direction * 0x80) / pattern_state.pellet_count
+			);
 		}
 	} else {
 		boss_phase_frame = 0;
@@ -343,8 +392,6 @@ void pattern_halfcircle_spray_downwards(void)
 
 void pattern_slam_into_player_and_back_up(void)
 {
-	static point_t velocity;
-
 	if(boss_phase_frame < 100) {
 		sphere_accelerate_rotation_and_render(1);
 		return;
@@ -358,29 +405,31 @@ void pattern_slam_into_player_and_back_up(void)
 			(ent.cur_center_y() - (PLAYER_H / 2)),
 			player_left,
 			player_top,
-			velocity.x,
-			velocity.y,
+			slam_velocity.x,
+			slam_velocity.y,
 			pattern_state.speed_in_pixels
 		);
 	}
 
 	// Leftover debug code?
-	if(velocity.x != -PIXEL_NONE) {
-		sphere_move_rotate_and_render(inhibit_Z3(velocity.x), velocity.y);
+	if(slam_velocity.x != -PIXEL_NONE) {
+		sphere_move_rotate_and_render(
+			inhibit_Z3(slam_velocity.x), slam_velocity.y
+		);
 		if(ent.cur_top > (PLAYFIELD_BOTTOM - SINGYOKU_H)) {
 			// Nope, it's in fact a way to differentiate the two subphases of
 			// this "pattern", and their completion conditions...
-			velocity.x = -PIXEL_NONE;
+			slam_velocity.x = -PIXEL_NONE;
 
 			// ... except that this variable also fulfills that job.
-			velocity.y = -4;
+			slam_velocity.y = -4;
 		}
-	} else if(velocity.y == -4) { // See?
-		sphere_move_rotate_and_render(0, velocity.y);
+	} else if(slam_velocity.y == -4) { // See?
+		sphere_move_rotate_and_render(0, slam_velocity.y);
 		// < rather than <= and no clamping? That makes sure that SinGyoku will
 		// overshoot the base position.
 		if(ent.cur_top < BASE_TOP) {
-			velocity.y = 0;
+			slam_velocity.y = 0;
 		}
 	} else {
 		boss_phase_frame = 0;
@@ -609,41 +658,6 @@ void singyoku_main(void)
 {
 	const vc_t flash_colors[1] = { 13 };
 
-	static struct {
-		int pattern_cur;
-		int16_t unused; // ZUN bloat
-
-		void frame_common(void) {
-			boss_phase_frame++;
-			invincibility_frame++;
-		}
-	} phase = { 0, 0 };
-	static struct {
-		bool16 invincible;
-
-		void update_and_render(const vc_t (&flash_colors)[1]) {
-			boss_hit_update_and_render(
-				invincibility_frame,
-				invincible,
-				boss_hp,
-				flash_colors,
-				(sizeof(flash_colors) / sizeof(flash_colors[0])),
-				3000,
-				boss_nop,
-				ent.hittest_orb(),
-				// A hitbox shifted 16 pixels to the right *and* with an
-				// additional 16 pixels on the right edge?
-				shot_hitbox_t(
-					(ent.cur_left + (SINGYOKU_W / 6)),
-					(ent.cur_top + (SINGYOKU_H / 3)),
-					(SINGYOKU_W + (SINGYOKU_W / 6)),
-					(SINGYOKU_H - (SINGYOKU_H / 3))
-				)
-			);
-		}
-	} hit = { false };
-	static bool16 initial_hp_rendered = false;
-
 	// Entrance animation
 	if(boss_phase == 0) {
 		ent.cur_left = BASE_LEFT;
@@ -782,3 +796,375 @@ void singyoku_main(void)
 		singyoku_defeat_animate_and_select_route();
 	}
 }
+
+#pragma codeseg T1B05OWN_TEXT
+
+bool16 t1boss_singyoku_checkpoint_validate(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+)
+{
+	if(
+		!checkpoint ||
+		(checkpoint->owner != T1BOSS_SINGYOKU_CHECKPOINT_OWNER) ||
+		(checkpoint->schema != T1BOSS_SINGYOKU_CHECKPOINT_SCHEMA) ||
+		(checkpoint->reserved_0 != 0) ||
+		(checkpoint->reserved[0] != 0) ||
+		(checkpoint->reserved[1] != 0) ||
+		((checkpoint->phase != 1) && (checkpoint->phase != 2)) ||
+		(checkpoint->phase_frame < 0) ||
+		(checkpoint->invincibility_frame < 0) ||
+		(checkpoint->invincibility_frame >= BOSS_HIT_INVINCIBILITY_FRAMES) ||
+		(checkpoint->hit_invincible > 1) ||
+		(checkpoint->initial_hp_rendered > 1) ||
+		(checkpoint->halfcircle_direction < -1) ||
+		(checkpoint->halfcircle_direction > 1) ||
+		(checkpoint->sphere_image < 0) ||
+		(checkpoint->sphere_image >= SPHERE_CELS) ||
+		(checkpoint->person_image < C_WOMAN_STILL) ||
+		(checkpoint->person_image > C_MAN_ATTACK) ||
+		(checkpoint->sphere_left < (PLAYFIELD_LEFT - SINGYOKU_W)) ||
+		(checkpoint->sphere_left > PLAYFIELD_RIGHT) ||
+		(checkpoint->sphere_top < (PLAYFIELD_TOP - SINGYOKU_H)) ||
+		(checkpoint->sphere_top > PLAYFIELD_BOTTOM)
+	) {
+		return false;
+	}
+	if(checkpoint->phase == 1) {
+		return (
+			(checkpoint->hp >= HP_PHASE_1_END) &&
+			(checkpoint->hp <= HP_TOTAL) &&
+			(checkpoint->pattern_cur >= 0) &&
+			(checkpoint->pattern_cur <= 1)
+		);
+	}
+	return (
+		(checkpoint->hp > HP_PHASE_2_END) &&
+		(checkpoint->hp <= HP_PHASE_1_END) &&
+		(checkpoint->pattern_cur >= 0) &&
+		(checkpoint->pattern_cur <= 4)
+	);
+}
+
+bool16 t1boss_singyoku_checkpoint_capture(
+	t1boss_singyoku_checkpoint_t *checkpoint
+)
+{
+	t1boss_singyoku_checkpoint_t live;
+
+	if(!checkpoint) {
+		return false;
+	}
+	live.owner = T1BOSS_SINGYOKU_CHECKPOINT_OWNER;
+	live.schema = T1BOSS_SINGYOKU_CHECKPOINT_SCHEMA;
+	live.phase = boss_phase;
+	live.reserved_0 = 0;
+	live.phase_frame = boss_phase_frame;
+	live.hp = boss_hp;
+	live.invincibility_frame = invincibility_frame;
+	live.pattern_value = pattern_state.unknown;
+	live.pattern_cur = phase.pattern_cur;
+	live.hit_invincible = hit.invincible;
+	live.initial_hp_rendered = initial_hp_rendered;
+	live.slam_velocity_x = slam_velocity.x;
+	live.slam_velocity_y = slam_velocity.y;
+	live.sphere_left = ent.cur_left;
+	live.sphere_top = ent.cur_top;
+	live.halfcircle_angle = halfcircle_angle;
+	live.halfcircle_direction = halfcircle_direction;
+	live.sphere_image = ent_sphere.image();
+	live.person_image = ent_person.image();
+	live.reserved[0] = 0;
+	live.reserved[1] = 0;
+	if(!t1boss_singyoku_checkpoint_validate(&live)) {
+		return false;
+	}
+	*checkpoint = live;
+	return true;
+}
+
+bool16 t1boss_singyoku_ckpt_apply_loaded(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+)
+{
+	if(!t1boss_singyoku_checkpoint_validate(checkpoint)) {
+		return false;
+	}
+
+	ent.pos_set(checkpoint->sphere_left, checkpoint->sphere_top, 32);
+	ent.prev_left = checkpoint->sphere_left;
+	ent.prev_top = checkpoint->sphere_top;
+	ent.prev_delta_x = 0;
+	ent.prev_delta_y = 0;
+	ent.lock_frame = 0;
+	ent.hitbox_orb_set(
+		((SINGYOKU_W / 12) * 1), ((SINGYOKU_H / 12) * 1),
+		((SINGYOKU_W / 12) * 11), ((SINGYOKU_H / 12) * 11)
+	);
+	ent.hitbox_orb_inactive = false;
+	ent_sphere.set_image(checkpoint->sphere_image);
+	ent_person.set_image(checkpoint->person_image);
+	hud_hp_first_white = HP_PHASE_1_END;
+	hud_hp_first_redwhite = 2;
+
+	boss_phase = checkpoint->phase;
+	boss_phase_frame = checkpoint->phase_frame;
+	boss_hp = checkpoint->hp;
+	invincibility_frame = checkpoint->invincibility_frame;
+	pattern_state.unknown = checkpoint->pattern_value;
+	phase.pattern_cur = checkpoint->pattern_cur;
+	phase.unused = 0;
+	hit.invincible = checkpoint->hit_invincible;
+	initial_hp_rendered = checkpoint->initial_hp_rendered;
+	slam_velocity.x = checkpoint->slam_velocity_x;
+	slam_velocity.y = checkpoint->slam_velocity_y;
+	halfcircle_angle = checkpoint->halfcircle_angle;
+	halfcircle_direction = checkpoint->halfcircle_direction;
+	return true;
+}
+
+bool16 t1boss_singyoku_checkpoint_apply(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+)
+{
+	if(!t1boss_singyoku_checkpoint_validate(checkpoint)) {
+		return false;
+	}
+	// Rebuild pointer-backed .BOS slots from their native files. The snapshot
+	// contains only the semantic positions and image IDs applied below.
+	singyoku_ent_load();
+	return t1boss_singyoku_ckpt_apply_loaded(checkpoint);
+}
+
+bool16 t1boss_singyoku_practice_boss_phase_apply(uint8_t target)
+{
+	t1boss_singyoku_checkpoint_t start;
+
+	if(target != T1RPBPT_SINGYOKU_FIRST_COMBAT) {
+		return false;
+	}
+	// These are the native values immediately after the phase-0 entrance:
+	// 143 rotations from cel 0 leave the sphere at cel 7. The structure is
+	// only a pointer-free owner carrier for the existing apply/painter path;
+	// no serialized checkpoint enters this constructor.
+	start.owner = T1BOSS_SINGYOKU_CHECKPOINT_OWNER;
+	start.schema = T1BOSS_SINGYOKU_CHECKPOINT_SCHEMA;
+	start.phase = 1;
+	start.reserved_0 = 0;
+	start.phase_frame = 0;
+	start.hp = HP_TOTAL;
+	start.invincibility_frame = 0;
+	start.pattern_value = (
+		(rank == RANK_EASY) ? 70 :
+		(rank == RANK_NORMAL) ? 50 :
+		(rank == RANK_HARD) ? 30 :
+		(rank == RANK_LUNATIC) ? 10 :
+		50
+	);
+	start.pattern_cur = 0;
+	start.hit_invincible = false;
+	start.initial_hp_rendered = false;
+	start.slam_velocity_x = 0;
+	start.slam_velocity_y = 0;
+	start.sphere_left = BASE_LEFT;
+	start.sphere_top = BASE_TOP;
+	start.halfcircle_angle = 0;
+	start.halfcircle_direction = 0;
+	start.sphere_image = (143 % SPHERE_CELS);
+	start.person_image = C_WOMAN_STILL;
+	start.reserved[0] = 0;
+	start.reserved[1] = 0;
+	if(!t1boss_singyoku_ckpt_apply_loaded(&start)) {
+		return false;
+	}
+	boss_palette_show();
+	stage_palette_set(z_Palettes);
+	boss_palette_snap();
+	return t1boss_singyoku_presentation_reconstruct(&start);
+}
+
+#if T1REPLAY_CHECKPOINT_PRIVATE_RESTORE
+extern int8_t boss_id;
+
+bool16 t1boss_singyoku_phase2_owner_construct(void)
+{
+	t1boss_singyoku_checkpoint_t start;
+
+	// A direct phase-2 boundary starts from the native Stage 5 SinGyoku loader
+	// state. No checkpoint payload, entrance simulation, or resource reload is
+	// admitted here.
+	if(
+		!resident ||
+		(resident->stage_id != BOSS_STAGE) ||
+		(boss_id != BID_SINGYOKU) ||
+		(boss_phase != 0) ||
+		(boss_phase_frame != 0) ||
+		(boss_hp != HP_TOTAL) ||
+		(ent.cur_left != PLAYFIELD_RIGHT) ||
+		(ent.cur_top != PLAYFIELD_TOP) ||
+		(ent_sphere.image() != 0) ||
+		(ent_sphere.lock_frame != 0) ||
+		(ent.hitbox_orb_inactive != false)
+	) {
+		return false;
+	}
+
+	start.owner = T1BOSS_SINGYOKU_CHECKPOINT_OWNER;
+	start.schema = T1BOSS_SINGYOKU_CHECKPOINT_SCHEMA;
+	start.phase = 2;
+	start.reserved_0 = 0;
+	start.phase_frame = 0;
+	start.hp = HP_PHASE_1_END;
+	start.invincibility_frame = 0;
+	// At the first post-slam phase-2 boundary, the union still contains the
+	// native slam speed. Phase 2 overwrites it before reading it again.
+	start.pattern_value = (
+		(rank == RANK_EASY) ? 4 :
+		(rank == RANK_NORMAL) ? 4 :
+		(rank == RANK_HARD) ? 5 :
+		(rank == RANK_LUNATIC) ? 6 :
+		4
+	);
+	start.pattern_cur = 0;
+	start.hit_invincible = false;
+	start.initial_hp_rendered = true;
+	start.slam_velocity_x = 0;
+	start.slam_velocity_y = 0;
+	start.sphere_left = BASE_LEFT;
+	start.sphere_top = BASE_TOP;
+	start.halfcircle_angle = 0;
+	start.halfcircle_direction = 0;
+	start.sphere_image = 0;
+	start.person_image = C_WOMAN_STILL;
+	start.reserved[0] = 0;
+	start.reserved[1] = 0;
+	if(!t1boss_singyoku_ckpt_apply_loaded(&start)) {
+		return false;
+	}
+
+	// The skipped phase owns both the restored palette and the page-1 backing
+	// used by all later unputs. Rebuild those before drawing only page 0.
+	boss_palette_show();
+	stage_palette_set(z_Palettes);
+	boss_palette_snap();
+	return t1boss_singyoku_presentation_reconstruct(&start);
+}
+#endif
+
+#if T1REPLAY_CHECKPOINT_RESTORE || T1REPLAY_PIXEL_TRACE || T1REPLAY_PRACTICE_BOSS_PHASE
+static int t1boss_singyoku_presentation_person_cel(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+)
+{
+	int form = ((checkpoint->pattern_cur & 1) ? F_MAN : F_WOMAN);
+
+	if(checkpoint->phase_frame < TKF_PERSON_ATTACK_1) {
+		return (C_STILL + (C_PERSON_FORM * form));
+	}
+	if(checkpoint->phase_frame < TKF_PERSON_ATTACK_2) {
+		return (C_ATTACK_1 + (C_PERSON_FORM * form));
+	}
+	if(checkpoint->phase_frame < TKF_PERSON_STILL) {
+		return ((form == F_WOMAN) ? C_WOMAN_ATTACK_2 : C_MAN_ATTACK);
+	}
+	return (C_STILL + (C_PERSON_FORM * form));
+}
+
+bool16 t1boss_singyoku_presentation_validate(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+)
+{
+	if(
+		!t1boss_singyoku_checkpoint_validate(checkpoint) ||
+		checkpoint->hit_invincible ||
+		(!checkpoint->initial_hp_rendered &&
+		 (checkpoint->invincibility_frame >= checkpoint->hp)) ||
+		((checkpoint->phase == 2) && !checkpoint->initial_hp_rendered)
+	) {
+		return false;
+	}
+	if(checkpoint->phase == 1) {
+		return !(
+			(checkpoint->pattern_cur == 1) &&
+			(checkpoint->phase_frame >= 100) &&
+			(checkpoint->phase_frame & 1)
+		);
+	}
+	if(checkpoint->pattern_cur == 4) {
+		return !(
+			(checkpoint->phase_frame >= 100) &&
+			(checkpoint->phase_frame & 1)
+		);
+	}
+	return (
+		(checkpoint->phase_frame < TKF_START) ||
+		((checkpoint->phase_frame >= TKF_TO_PERSON_DONE) &&
+		 (checkpoint->phase_frame < TKF_TO_SPHERE))
+	);
+}
+
+static bool t1boss_singyoku_presentation_live_matches(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+)
+{
+	return (
+		(boss_phase == checkpoint->phase) &&
+		(boss_phase_frame == checkpoint->phase_frame) &&
+		(boss_hp == checkpoint->hp) &&
+		(invincibility_frame == checkpoint->invincibility_frame) &&
+		(phase.pattern_cur == checkpoint->pattern_cur) &&
+		(pattern_state.unknown == checkpoint->pattern_value) &&
+		(hit.invincible == checkpoint->hit_invincible) &&
+		(ent.cur_left == checkpoint->sphere_left) &&
+		(ent.cur_top == checkpoint->sphere_top) &&
+		(ent_sphere.image() == checkpoint->sphere_image) &&
+		(ent_person.image() == checkpoint->person_image)
+	);
+}
+
+bool16 t1boss_singyoku_presentation_reconstruct(
+	const t1boss_singyoku_checkpoint_t *checkpoint
+)
+{
+	if(
+		!t1boss_singyoku_presentation_validate(checkpoint) ||
+		!t1boss_singyoku_presentation_live_matches(checkpoint)
+	) {
+		return false;
+	}
+
+	// Native startup has rebuilt page 1 as the static unput backing. Select it
+	// first and rebuild page 0 from it, but never paint SinGyoku on page 1.
+	graph_accesspage_func(1);
+	graph_copy_accessed_page_to_other();
+	graph_accesspage_func(0);
+	// The pre-applied scenario already rebuilt the remaining HUD fields. The
+	// timer is imported later, and the boss entrance that normally builds the
+	// HP backing is skipped, so reconstruct those two presentation resources.
+	timer_put();
+	hud_hp_rerender(
+		checkpoint->initial_hp_rendered
+			? checkpoint->hp
+			: checkpoint->invincibility_frame
+	);
+	if(
+		(checkpoint->phase == 2) && (checkpoint->pattern_cur != 4) &&
+		(checkpoint->phase_frame >= TKF_TO_PERSON_DONE)
+	) {
+		ent_person.put_8(
+			checkpoint->sphere_left,
+			checkpoint->sphere_top,
+			t1boss_singyoku_presentation_person_cel(checkpoint)
+		);
+	} else {
+		ent_sphere.put_8(
+			checkpoint->sphere_left,
+			checkpoint->sphere_top,
+			checkpoint->sphere_image
+		);
+	}
+	graph_accesspage_func(0);
+	return true;
+}
+#endif
+
+#pragma codeseg

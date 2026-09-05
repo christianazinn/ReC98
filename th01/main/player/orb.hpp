@@ -146,4 +146,11 @@ void pascal orb_and_pellets_and_stage_unput_update_render__vsync_wait(
 	int stage_id
 );
 
+struct t1replay_checkpoint_orb_t;
+
+void t1replay_orb_checkpoint_export(t1replay_checkpoint_orb_t *checkpoint);
+void t1replay_orb_checkpoint_import(
+	const t1replay_checkpoint_orb_t *checkpoint
+);
+
 #endif /* TH01_MAIN_PLAYER_ORB_HPP */

@@ -1,1 +1,13 @@
+#pragma option -zCSTD_TEXT -zPmain_01
+
+void near egc_start_copy_noframe(void);
+#pragma codeseg STD_B_TEXT main_01
+void near tiles_scroll_and_egc_render(void);
+#pragma codeseg TILE_REDRAW_TEXT main_01
+#include "th04/main/tile/redraw.cpp"
+#pragma codeseg STD_TEXT main_01
+
+#include "th04/main/tile/render_a.cpp"
+
+#pragma codeseg STD_B_TEXT main_01
 #include "th05/formats/std.cpp"

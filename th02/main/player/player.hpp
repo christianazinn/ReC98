@@ -1,3 +1,6 @@
+#ifndef TH02_MAIN_PLAYER_PLAYER_HPP
+#define TH02_MAIN_PLAYER_PLAYER_HPP
+
 #include "pc98.h"
 
 #define PLAYER_W 32
@@ -51,25 +54,38 @@ static const pixel_t PLAYER_LEFT_TO_OPTION_LEFT_LEFT = (
 // of the sparks by temporarily mutating the position. This can definitely be
 // done in a cleaner and less redundant way.
 
-extern screen_x_t player_left_on_page[PAGE_COUNT];
-extern screen_y_t player_top_on_page[PAGE_COUNT];
+extern screen_x_t near player_left_on_page[PAGE_COUNT];
+extern screen_y_t near player_top_on_page[PAGE_COUNT];
 extern screen_x_t near* player_left_on_back_page;
 extern screen_y_t near* player_top_on_back_page;
 extern screen_point_t player_topleft;
 
-extern screen_point_t player_option_left_topleft[PAGE_COUNT];
+extern screen_point_t near player_option_left_topleft[PAGE_COUNT];
 extern screen_x_t near* player_option_left_left_on_back_page;
 extern screen_y_t near* player_option_left_top_on_back_page;
 
 inline screen_x_t player_center_x(void) {
 	return (player_topleft.x + (PLAYER_W / 2));
 }
-inline screen_x_t player_center_y(void) {
+inline screen_y_t player_center_y(void) {
 	return (player_topleft.y + (PLAYER_H / 2));
 }
 // ----------------
 
-extern main_patnum_t player_option_patnum;
+extern uint8_t player_option_patnum; // ACTUAL TYPE: main_patnum_t
+extern int player_patnum; // ACTUAL TYPE: main_patnum_t
+
+// Per-playchar movement speeds, in pixels per frame. All values are signed
+// (yes, allowing you to invert the controls with negative values!) and are set
+// once per game from the shottype.
+extern "C" int8_t playchar_speed_aligned_x;
+extern "C" int8_t playchar_speed_aligned_y;
+extern "C" int8_t playchar_speed_diagonal_x;
+extern "C" int8_t playchar_speed_diagonal_y;
+
+// Fires one round of the current shottype's shot. Set from the shottype
+// together with the speeds above.
+extern "C" void (near *playchar_shot_func)(void);
 
 extern enum {
 	PLAYER_NOT_HIT = false,
@@ -89,6 +105,9 @@ static const uint8_t POWER_MIN = 1;
 static const uint8_t POWER_MAX = 80;
 static const uint8_t MISS_INVINCIBILITY_FRAMES = 220;
 
+// Frames of invincibility granted after the player used a continue.
+static const uint8_t CONTINUE_INVINCIBILITY_FRAMES = 200;
+
 // Grants invincibility as long as it's true. Works independently from
 // [player_invincibility_time].
 extern bool player_invincible_via_bomb;
@@ -107,4 +126,29 @@ extern int power_overflow;
 
 extern uint8_t shot_level;
 
+#if (GAME == 2)
+// Invalidates the tiles covered by the player and its two options, then
+// carries the front page's position over to the back page.
+// The original decorated this function's public symbol in the upper-case
+// form that Turbo C++ reserves for pascal linkage, which is where the
+// calling convention below comes from (kb/codegen/0086).
+// Resets everything the player owns for one attempt - every shot slot, the
+// invincibility and miss state, the homing target, and the option sprite -
+// and then installs the shot function and the four movement speeds for
+// [resident]'s shottype. Singular, like the other scalar-state resets the
+// convention in th02/main/player/bomb.hpp spells out. stage_init() and
+// continue_resume() are its two callers.
+void near player_reset(void);
+
+void pascal near player_invalidate(void);
+
+void near player_update_and_render(void);
+
+// Reads the player's input for this frame: movement, the option positions,
+// the two shot streams, and the bomb key.
+void near player_move_and_shoot(void);
+#else
 void near player_invalidate();
+#endif
+
+#endif /* TH02_MAIN_PLAYER_PLAYER_HPP */

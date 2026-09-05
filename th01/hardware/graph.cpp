@@ -9,6 +9,17 @@
 #include "th01/hardware/grcg.hpp"
 #include "th01/hardware/graph.h"
 #include "th01/hardware/grppsafx.h"
+#if ((BINARY == 'M') && ( \
+	(defined(T1RP) && ((T1RP == 7) || (T1RP == 9))) || \
+	defined(T1ELXN) || defined(T1ELXD) || \
+	defined(T1KIKN) || defined(T1KIKD) || \
+	defined(T1SARN) || defined(T1SARD) \
+))
+#include "th01/rpypixel.hpp"
+#include "th01/t1elx.hpp"
+#include "th01/t1kik.hpp"
+#include "th01/t1sar.hpp"
+#endif
 #include "th01/hardware/vsync.hpp"
 #include "th01/hardware/palette.h"
 
@@ -16,7 +27,12 @@
 static screen_point_t graph_r_last_line_end;
 
 static int8_t unused; // ZUN bloat
+#if defined(T1RP) && ((T1RP == 4) || (T1RP == 5) || (T1RP == 6) || (T1RP == 8))
+page_t page_accessed;
+page_t page_shown;
+#else
 static page_t page_accessed;
+#endif
 
 /// VRAM plane "structures"
 /// -----------------------
@@ -164,12 +180,35 @@ void z_graph_hide()
 
 void graph_showpage_func(page_t page)
 {
+#if defined(T1RP) && ((T1RP == 4) || (T1RP == 5) || (T1RP == 6) || (T1RP == 8))
+	page_shown = page;
+#elif (BINARY == 'M') && defined(T1RP) && ((T1RP == 7) || (T1RP == 9))
+	// The private YuugenMagan witness needs the hardware page-show value, but
+	// its latch stays in the additive far-data probe rather than this stock
+	// module.
+	t1ymx_visible_page_set(page);
+#elif (BINARY == 'M') && (defined(T1ELXN) || defined(T1ELXD))
+	t1elx_visible_page_set(page);
+#elif (BINARY == 'M') && (defined(T1KIKN) || defined(T1KIKD))
+	t1kik_visible_page_set(page);
+#elif (BINARY == 'M') && (defined(T1SARN) || defined(T1SARD))
+	t1sar_visible_page_set(page);
+#endif
 	outportb(0xA4, page);
 }
 
 void graph_accesspage_func(int page)
 {
 	page_accessed = page;
+#if (BINARY == 'M') && defined(T1RP) && ((T1RP == 7) || (T1RP == 9))
+	t1ymx_accessed_page_set(page);
+#elif (BINARY == 'M') && (defined(T1ELXN) || defined(T1ELXD))
+	t1elx_accessed_page_set(page);
+#elif (BINARY == 'M') && (defined(T1KIKN) || defined(T1KIKD))
+	t1kik_accessed_page_set(page);
+#elif (BINARY == 'M') && (defined(T1SARN) || defined(T1SARD))
+	t1sar_accessed_page_set(page);
+#endif
 	outportb(0xA6, page);
 }
 /// -------------
@@ -947,7 +986,7 @@ struct respal_t {
 // ----------------
 
 // Memory Control Block
-// Adapted from FreeDOS' kernel/hdr/mcb.h
+// Adapted from the FreeDOS kernel's MCB header.
 // --------------------
 
 #define MCB_NORMAL 0x4d

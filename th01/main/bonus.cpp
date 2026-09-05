@@ -23,6 +23,9 @@
 #include "th01/main/player/shot.hpp"
 #include "th01/main/stage/palette.hpp"
 #include "th01/main/stage/stages.hpp"
+#if defined(T1RB)
+#include "th01/replay_milestone.hpp"
+#endif
 
 /// Coordinates
 /// -----------
@@ -352,12 +355,22 @@ void stagebonus_animate(int stage_num)
 	);
 	int val = 0;
 	unsigned int i;
+	#if defined(T1RB)
+	if(stage_num == BOSS_STAGE) {
+		t1replay_process_milestone(T1RPM_STAGE4_BONUS_ENTERED);
+	}
+	#endif
 
 	fullwidth_numeral(title->stage[0], (stage_num / 10));
 	fullwidth_numeral(title->stage[1], (stage_num % 10));
 
 	z_palette_set_all_show(stage_palette);
 	stagebonus_box_open_animate();
+	#if defined(T1RB)
+	if(stage_num == BOSS_STAGE) {
+		t1replay_process_milestone(T1RPM_STAGE4_BONUS_BOX_OPENED);
+	}
+	#endif
 
 	stagebonus_str_put(TITLE_LEFT, 0, V_RED, title->prefix->byte);
 	stagebonus_str_put(LABEL_LEFT, 2, V_WHITE, STAGEBONUS_SUBTITLE);
@@ -413,13 +426,30 @@ void stagebonus_animate(int stage_num)
 
 	// Don't you love explicitly spelling out everything that can happen?
 	score_extend_update_and_render();
+	#if defined(T1RB)
+	if(stage_num == BOSS_STAGE) {
+		t1replay_process_milestone(T1RPM_STAGE4_BONUS_RENDERED);
+	}
+	#endif
 
 	input_reset_sense();
 	input_shot = true;
 	input_ok = true;
+	#if defined(T1RB)
+	if(stage_num == BOSS_STAGE) {
+		// The hidden witness has no keyboard source. Model the release that an
+		// ordinary player supplies after inspecting the completed bonus screen.
+		input_shot = false;
+	}
+	#endif
 	while((input_shot == true) && (input_ok == true)) {
 		input_sense(false);
 	}
+	#if defined(T1RB)
+	if(stage_num == BOSS_STAGE) {
+		t1replay_process_milestone(T1RPM_STAGE4_BONUS_INPUT_RELEASED);
+	}
+	#endif
 
 	score_bonus = 0;
 

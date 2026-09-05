@@ -51,7 +51,9 @@ void pascal snd_load(const char fn[PF_FN_LEN], snd_load_func_t func)
 	reinterpret_cast<char near *>(_DX) = snd_load_fn;
 	_AX = 0x3D00;
 	geninterrupt(0x21);
-	_BX = _AX;
+	// `_BX = _AX` is the same instruction, but Turbo C++ spells it `8B D8`
+	// where ZUN's build has TASM's `89 C3`. kb/codegen/0037.
+	asm { mov bx, ax; }
 	// ZUN landmine: No error handling
 
 	// Using inline assembly rather than _AX to prevent parameters from being
