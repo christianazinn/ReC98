@@ -852,12 +852,32 @@ static unsigned t1replay_header_wire_size(void)
 	}
 	if(
 		t1replay_magic_matches(t1replay_header.magic, '6') &&
-		(t1replay_header.version == T1REPLAY_VERSION) &&
+		(t1replay_header.version == T1REPLAY_VERSION_PREVIOUS) &&
 		(t1replay_header.header_size == T1REPLAY_HEADER_SIZE)
 	) {
 		return T1REPLAY_HEADER_SIZE;
 	}
+	if(
+		t1replay_magic_matches(t1replay_header.magic, '7') &&
+		(t1replay_header.version == T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
+		(t1replay_header.header_size == T1REPLAY_HEADER_SIZE)
+	) {
+		return T1REPLAY_HEADER_SIZE;
+	}
+	if(
+		t1replay_magic_matches(t1replay_header.magic, '8') &&
+		(t1replay_header.version == T1REPLAY_VERSION) &&
+		(t1replay_header.header_size == T1REPLAY_HEADER_WIRE_SIZE)
+	) {
+		return T1REPLAY_HEADER_WIRE_SIZE;
+	}
 	return 0;
+}
+
+static unsigned t1replay_header_checksum_size(void)
+{
+	return ((t1replay_header.version == T1REPLAY_VERSION)
+		? T1REPLAY_HEADER_SIZE : t1replay_header_wire_size());
 }
 
 static bool t1replay_dos_datetime_valid(unsigned header_size)
@@ -882,6 +902,7 @@ static bool t1replay_header_read(bool finalized)
 	uint32_t stored_checksum;
 	uint32_t computed_checksum;
 	unsigned header_size;
+	unsigned prefix_size;
 	int fd = t1replay_dos_open(t1replay_slot_fn, T1REPLAY_DOS_ACCESS_READ);
 
 	if(fd < 0) {
@@ -893,13 +914,15 @@ static bool t1replay_header_read(bool finalized)
 			fd, &t1replay_header, T1REPLAY_HEADER_SIZE_LEGACY
 		) != T1REPLAY_HEADER_SIZE_LEGACY) ||
 		((header_size = t1replay_header_wire_size()) == 0) ||
-		((header_size > T1REPLAY_HEADER_SIZE_LEGACY) &&
+		((prefix_size = ((header_size > T1REPLAY_HEADER_SIZE)
+			? T1REPLAY_HEADER_SIZE : header_size)) == 0) ||
+		((prefix_size > T1REPLAY_HEADER_SIZE_LEGACY) &&
 		 (t1replay_dos_read(
 			fd,
 			(reinterpret_cast<uint8_t far *>(&t1replay_header) +
 			 T1REPLAY_HEADER_SIZE_LEGACY),
-			(header_size - T1REPLAY_HEADER_SIZE_LEGACY)
-		 ) != (header_size - T1REPLAY_HEADER_SIZE_LEGACY))) ||
+			(prefix_size - T1REPLAY_HEADER_SIZE_LEGACY)
+		 ) != (prefix_size - T1REPLAY_HEADER_SIZE_LEGACY))) ||
 		!t1replay_dos_size(fd, &file_size)
 	) {
 		t1replay_dos_close(fd);
@@ -908,7 +931,8 @@ static bool t1replay_header_read(bool finalized)
 	stored_checksum = t1replay_header.header_checksum;
 	t1replay_header.header_checksum = 0;
 	computed_checksum = t1replay_fnv1a(
-		T1REPLAY_FNV1A_BASIS, &t1replay_header, header_size
+		T1REPLAY_FNV1A_BASIS, &t1replay_header,
+		t1replay_header_checksum_size()
 	);
 	t1replay_header.header_checksum = stored_checksum;
 	if(
@@ -927,8 +951,16 @@ static bool t1replay_header_read(bool finalized)
 			(T1REPLAY_INPUT_SIZE_MAX / T1REPLAY_PACKET_SIZE)) ||
 		(t1replay_header.input_size !=
 			(t1replay_header.packet_count * T1REPLAY_PACKET_SIZE)) ||
-		(file_size !=
-			(t1replay_header.input_offset + t1replay_header.input_size)) ||
+		((((t1replay_header.version ==
+		   T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) ||
+		  (t1replay_header.version == T1REPLAY_VERSION)) &&
+		  (file_size < (t1replay_header.input_offset +
+		   t1replay_header.input_size + T1REPLAY_ACCELERATOR_HEADER_SIZE))) ||
+		 (((t1replay_header.version !=
+		   T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
+		  (t1replay_header.version != T1REPLAY_VERSION)) &&
+		  (file_size != (t1replay_header.input_offset +
+		   t1replay_header.input_size)))) ||
 		(stored_checksum != computed_checksum) ||
 		(t1replay_header.start_checksum != t1replay_fnv1a(
 			T1REPLAY_FNV1A_BASIS, &t1replay_header.start,
@@ -1721,5 +1753,9 @@ bool16 far t1replay_fuuin_playback(void)
 {
 	return (t1replay_mode == T1RM_PLAYBACK);
 }
+
+// Keep this replay-owned segment's growth paragraph-aligned so every
+// following stock and patch segment retains its audited phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg

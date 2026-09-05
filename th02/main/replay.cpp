@@ -3859,7 +3859,7 @@ static uint16_t t2replay_header_wire_size(void)
 	}
 	if(
 		t2replay_magic_matches(t2replay_header.magic, '3') &&
-		(t2replay_header.version == T2REPLAY_VERSION) &&
+		(t2replay_header.version == T2REPLAY_VERSION_TELEMETRY) &&
 		(t2replay_header.header_size == T2REPLAY_HEADER_SIZE)
 	) {
 		return T2REPLAY_HEADER_SIZE;
@@ -3871,17 +3871,49 @@ static uint16_t t2replay_header_wire_size(void)
 	) {
 		return T2REPLAY_HEADER_SIZE;
 	}
+	if(
+		t2replay_magic_matches(t2replay_header.magic, '5') &&
+		(t2replay_header.version == T2REPLAY_VERSION) &&
+		(t2replay_header.header_size == T2REPLAY_HEADER_WIRE_SIZE)
+	) {
+		return T2REPLAY_HEADER_WIRE_SIZE;
+	}
 	return 0;
+}
+
+static uint16_t t2replay_header_checksum_size(void)
+{
+	return (
+		(t2replay_header.version == T2REPLAY_VERSION)
+			? T2REPLAY_HEADER_SIZE : t2replay_header_wire_size()
+	);
 }
 
 static void t2replay_header_checksum_set(void)
 {
-	uint16_t wire_size = t2replay_header_wire_size();
+	uint16_t checksum_size = t2replay_header_checksum_size();
 
 	t2replay_header.header_checksum = 0;
 	t2replay_header.header_checksum = t2replay_fnv1a(
-		T2REPLAY_FNV1A_BASIS, &t2replay_header, wire_size
+		T2REPLAY_FNV1A_BASIS, &t2replay_header, checksum_size
 	);
+}
+
+static bool t2replay_header_opaque_tail_create(int fd)
+{
+	uint8_t zero[32];
+	unsigned left = T2REPLAY_HEADER_OPAQUE_SIZE;
+	unsigned count;
+
+	t2replay_memclear(zero, sizeof(zero));
+	while(left != 0) {
+		count = ((left > sizeof(zero)) ? sizeof(zero) : left);
+		if(t2replay_dos_write(fd, zero, count) != count) {
+			return false;
+		}
+		left -= count;
+	}
+	return true;
 }
 
 static bool t2replay_header_write(bool create)
@@ -3898,8 +3930,9 @@ static bool t2replay_header_write(bool create)
 	t2replay_header_checksum_set();
 	if(!t2replay_dos_seek(fd, 0) ||
 		(t2replay_dos_write(
-			fd, &t2replay_header, t2replay_header.header_size
-		) != t2replay_header.header_size)) {
+			fd, &t2replay_header, sizeof(t2replay_header)
+		) != sizeof(t2replay_header)) ||
+		(create && !t2replay_header_opaque_tail_create(fd))) {
 		t2replay_dos_close(fd);
 		return false;
 	}
@@ -4395,9 +4428,11 @@ static bool t2replay_payload_validate(int fd, uint32_t file_size)
 		t2replay_header.input_offset + t2replay_header.input_size
 	);
 	if(
-		((t2replay_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
+		(((t2replay_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) ||
+		  (t2replay_header.version == T2REPLAY_VERSION)) &&
 		 (file_size < (input_end + T2REPLAY_ACCELERATOR_HEADER_SIZE))) ||
 		((t2replay_header.version != T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
+		 (t2replay_header.version != T2REPLAY_VERSION) &&
 		 (file_size != input_end))
 	) {
 		return false;
@@ -4484,7 +4519,8 @@ static bool t2replay_header_read(void)
 		) != T2REPLAY_HEADER_SIZE_LEGACY) ||
 		(((t2replay_header.magic[5] == '2') ||
 		  (t2replay_header.magic[5] == '3') ||
-		  (t2replay_header.magic[5] == '4')) &&
+		  (t2replay_header.magic[5] == '4') ||
+		  (t2replay_header.magic[5] == '5')) &&
 		 (t2replay_dos_read(
 			fd,
 			reinterpret_cast<uint8_t far *>(&t2replay_header) +
@@ -4500,7 +4536,9 @@ static bool t2replay_header_read(void)
 	stored_checksum = t2replay_header.header_checksum;
 	t2replay_header.header_checksum = 0;
 	computed_checksum = (wire_size == 0) ? 0 : t2replay_fnv1a(
-		T2REPLAY_FNV1A_BASIS, &t2replay_header, wire_size
+		T2REPLAY_FNV1A_BASIS, &t2replay_header,
+		((t2replay_header.version == T2REPLAY_VERSION)
+			? T2REPLAY_HEADER_SIZE : wire_size)
 	);
 	t2replay_header.header_checksum = stored_checksum;
 	if(
@@ -4545,7 +4583,8 @@ static bool t2replay_header_read(void)
 	}
 	t2replay_dos_close(fd);
 	if(
-		(t2replay_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
+		((t2replay_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) ||
+		 (t2replay_header.version == T2REPLAY_VERSION)) &&
 		!t2replay_embedded_stage_seek_load(
 			static_cast<uint8_t>(t2replay_header.start.stage),
 			&accelerator_start, &accelerator_sample, &accelerator_packet,
@@ -4997,7 +5036,8 @@ static bool t2replay_stage_seek_load(
 	uint32_t far *prefix_checksum
 )
 {
-	if(t2replay_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) {
+	if((t2replay_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) ||
+	   (t2replay_header.version == T2REPLAY_VERSION)) {
 		return t2replay_embedded_stage_seek_load(
 			selected_stage, start, sample_anchor, packet_anchor, prefix_checksum
 		);
@@ -6185,9 +6225,9 @@ static void t2replay_header_capture(void)
 	t2replay_header.magic[2] = 'R';
 	t2replay_header.magic[3] = 'P';
 	t2replay_header.magic[4] = 'Y';
-	t2replay_header.magic[5] = '3';
+	t2replay_header.magic[5] = '5';
 	t2replay_header.version = T2REPLAY_VERSION;
-	t2replay_header.header_size = T2REPLAY_HEADER_SIZE;
+	t2replay_header.header_size = T2REPLAY_HEADER_WIRE_SIZE;
 	t2replay_header.packet_size = T2REPLAY_PACKET_SIZE;
 	t2replay_header.flags = T2REPLAY_DEFAULT_FLAGS;
 	t2replay_header.status = T2REPLAY_STATUS_RECORDING;
@@ -6195,7 +6235,7 @@ static void t2replay_header_capture(void)
 	t2replay_header.ruleset = T2REPLAY_RULESET_STOCK;
 	t2replay_header.input_semantics = T2REPLAY_INPUT_SEMANTICS_KEY_DET;
 	t2replay_header.stage_count = T2REPLAY_STAGE_COUNT;
-	t2replay_header.input_offset = T2REPLAY_HEADER_SIZE;
+	t2replay_header.input_offset = T2REPLAY_HEADER_WIRE_SIZE;
 	t2replay_header.start.resident_frame = static_cast<uint32_t>(resident->frame);
 	// main_entry() assigns this exact resident value to [random_seed] immediately
 	// before stage_init(). stage_init() then consumes it to fill [randring].
@@ -6307,10 +6347,12 @@ static bool t2replay_command_valid(const t2replay_command_t far *command)
 		((command->mode != T2REPLAY_COMMAND_RECORD) &&
 		 (command->mode != T2REPLAY_COMMAND_PLAYBACK) &&
 		 (command->mode != T2REPLAY_COMMAND_PRACTICE)) ||
-		((command->mode != T2REPLAY_COMMAND_RECORD) &&
+		((command->mode == T2REPLAY_COMMAND_PLAYBACK) &&
 		 (command->slot >= T2REPLAY_SLOT_COUNT)) ||
 		((command->mode == T2REPLAY_COMMAND_RECORD) &&
 		 (command->slot >= T2REPLAY_SLOT_COUNT) &&
+		 (command->slot != T2REPLAY_TEMP_SLOT)) ||
+		((command->mode == T2REPLAY_COMMAND_PRACTICE) &&
 		 (command->slot != T2REPLAY_TEMP_SLOT)) ||
 		((command->flags & ~T2REPLAY_COMMAND_KNOWN_FLAGS) != 0)) {
 		return false;
@@ -7719,7 +7761,7 @@ bool replay_input_wait_for_change(void)
 	// historical live-input behavior; V3 is the first self-contained format.
 	if(
 		(t2replay_mode == T2RM_PLAYBACK) &&
-		(t2replay_header.version < T2REPLAY_VERSION)
+		(t2replay_header.version < T2REPLAY_VERSION_TELEMETRY)
 	) {
 		key_delay();
 		return true;
@@ -7946,6 +7988,10 @@ bool replay_playback_exit_requested(void)
 {
 	return (t2replay_mode == T2RM_PLAYBACK) && (t2replay_failed || quit);
 }
+
+// Keep this replay-owned segment's growth paragraph-aligned so every
+// following stock and patch segment retains its audited phase.
+#pragma codestring "\x90\x90\x90"
 
 #pragma codeseg T2RCKVAL_TEXT
 // Read-only bridge for the later common-apply parcel. Keeping it in its own

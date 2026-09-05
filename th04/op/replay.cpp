@@ -1203,10 +1203,13 @@ static bool replay_op_header_valid(
 		(replay_op_header.magic[5] != ('0' + replay_op_header.version)) ||
 		(
 			(replay_op_header.version != REPLAY_USER_VERSION) &&
+			(replay_op_header.version != REPLAY_USER_VERSION_V6) &&
 			(replay_op_header.version != REPLAY_USER_VERSION_V5) &&
 			(replay_op_header.version != REPLAY_USER_VERSION_LEGACY)
 		) ||
-		(replay_op_header.header_size != REPLAY_USER_HEADER_SIZE) ||
+		(replay_op_header.header_size !=
+			((replay_op_header.version == REPLAY_USER_VERSION)
+				? REPLAY_USER_HEADER_WIRE_SIZE : REPLAY_USER_HEADER_SIZE)) ||
 		(replay_op_header.packet_size != REPLAY_USER_PACKET_SIZE) ||
 		((replay_op_header.flags & ~REPLAY_USER_KNOWN_FLAGS) != 0) ||
 		((replay_op_header.flags & (REPLAY_USER_FLAG_RLE_INPUT |
@@ -1219,7 +1222,9 @@ static bool replay_op_header_valid(
 		((replay_op_header.mode == RUM_PRACTICE) !=
 		 ((replay_op_header.flags & REPLAY_USER_FLAG_PRACTICE) != 0)) ||
 		(replay_op_header.input_semantics != REPLAY_USER_INPUT_SEMANTICS) ||
-		(replay_op_header.input_offset != REPLAY_USER_INPUT_OFFSET) ||
+		(replay_op_header.input_offset !=
+			((replay_op_header.version == REPLAY_USER_VERSION)
+				? REPLAY_USER_INPUT_OFFSET : REPLAY_USER_INPUT_OFFSET_LEGACY)) ||
 		(replay_op_header.input_size > REPLAY_USER_INPUT_SIZE_MAX) ||
 		(replay_op_header.packet_count >
 		 (REPLAY_USER_INPUT_SIZE_MAX / REPLAY_USER_PACKET_SIZE)) ||
@@ -1229,7 +1234,8 @@ static bool replay_op_header_valid(
 		(replay_op_header.stage_reached > STAGE_EXTRA) ||
 		(replay_op_header.stage_directory_checksum == 0) ||
 		(
-			(replay_op_header.version == REPLAY_USER_VERSION) !=
+			((replay_op_header.version == REPLAY_USER_VERSION) ||
+			 (replay_op_header.version == REPLAY_USER_VERSION_V6)) !=
 			(replay_op_header.start.schema == REPLAY_START_SCHEMA)
 		) ||
 		!replay_op_start_valid(
@@ -1306,7 +1312,7 @@ static bool replay_op_stage_entry_read(
 		return false;
 	}
 	offset = (
-		REPLAY_USER_HEADER_SIZE +
+		replay_op_header.header_size +
 		static_cast<uint16_t>(stage * REPLAY_STAGE_ENTRY_SIZE)
 	);
 	fh = replay_op_dos_open(replay_op_slot_fn);
@@ -1340,7 +1346,7 @@ static bool replay_op_stage_directory_valid(int fh)
 		return false;
 	}
 	if(
-		!replay_op_dos_seek(fh, REPLAY_USER_HEADER_SIZE) ||
+		!replay_op_dos_seek(fh, replay_op_header.header_size) ||
 		(replay_op_dos_read(
 			fh, buffer, REPLAY_STAGE_DIRECTORY_SIZE
 		) != REPLAY_STAGE_DIRECTORY_SIZE)
@@ -2417,6 +2423,16 @@ static void replay_browser_slot_put(uint8_t slot, bool selected, vram_y_t top)
 static void replay_browser_footer_put(uint8_t sel)
 {
 	char *p = replay_op_line;
+	*p++ = 'R'; *p++ = 'e'; *p++ = 'p'; *p++ = 'l'; *p++ = 'a';
+	*p++ = 'y'; *p++ = 's'; *p++ = ':'; *p++ = ' '; *p++ = 'O';
+	if(replay_recording_enabled()) {
+		*p++ = 'n';
+	} else {
+		*p++ = 'f'; *p++ = 'f';
+	}
+	replay_op_line_put(32, 356, V_WHITE, p);
+
+	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_PAGE);
 	*p++ = ' ';
 	p = replay_op_uint_append(p, ((sel / REPLAY_OP_SLOT_ROWS) + 1), 2);
@@ -4046,8 +4062,12 @@ bool replay_practice_record_prepare(
 	}
 	return replay_op_command_write(
 		RCM_RECORD, 0,
-		(REPLAY_COMMAND_FLAG_PRACTICE |
-		 REPLAY_COMMAND_FLAG_TEMP_CAPTURE),
+		static_cast<uint8_t>(
+			REPLAY_COMMAND_FLAG_PRACTICE |
+			(replay_recording_enabled()
+				? REPLAY_COMMAND_FLAG_TEMP_CAPTURE
+				: REPLAY_COMMAND_FLAG_NO_RECORD)
+		),
 		&start
 	);
 }
@@ -4056,6 +4076,7 @@ bool replay_browser(void)
 {
 	uint8_t sel = 0;
 	bool input_allowed = false;
+	bool replay_toggle_prev = ((peekb(0, KEYGROUP_2) & K2_R) != 0);
 	graph_putsa_fx_func_t previous_func;
 
 	if(!replay_op_screen_begin(ROB_REPLAY, previous_func, true)) {
@@ -4065,7 +4086,16 @@ bool replay_browser(void)
 	palette_black_in(1);
 
 	while(1) {
+		bool replay_toggle;
+
 		input_reset_sense_interface();
+		replay_toggle = ((peekb(0, KEYGROUP_2) & K2_R) != 0);
+		if(replay_toggle && !replay_toggle_prev) {
+			if(replay_recording_enabled_set(!replay_recording_enabled())) {
+				replay_browser_render(sel);
+			}
+		}
+		replay_toggle_prev = replay_toggle;
 		if(key_det == INPUT_NONE) {
 			input_allowed = true;
 		}
@@ -5131,7 +5161,7 @@ static bool replay_main_start_game(void)
 	#else
 		resident->demo_num = 0;
 	#endif
-	if(!resident->debug) {
+	if(!resident->debug && replay_recording_enabled()) {
 		if(!replay_record_next_prepare()) {
 			return false;
 		}
@@ -5167,7 +5197,7 @@ static bool replay_main_start_extra(void)
 	#else
 		resident->demo_num = 0;
 	#endif
-	if(!resident->debug) {
+	if(!resident->debug && replay_recording_enabled()) {
 		if(!replay_record_next_prepare()) {
 			return false;
 		}
@@ -5225,8 +5255,12 @@ static bool replay_main_start_restart_apply(
 	}
 	// A normal RECORD command has no launch-state payload. Make its primary
 	// and witness durable before changing any resident value used by OP's title.
-	if(!replay_record_next_prepare()) {
-		return false;
+	if(replay_recording_enabled()) {
+		if(!replay_record_next_prepare()) {
+			return false;
+		}
+	} else {
+		replay_command_clear();
 	}
 	resident->rand = start->resident_rand;
 	if(start->stage != STAGE_EXTRA) {
@@ -5558,5 +5592,9 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 #else
 	#pragma codestring "\x90\x90\x90"
 #endif
+
+// The recording preference and V7 wire-header handling remain in this
+// replay-owned tail. Preserve the following stock CRT paragraph phase.
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg

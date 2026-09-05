@@ -12,6 +12,11 @@
 
 #define LANGUAGE_CONFIG_SIZE 8
 #define LANGUAGE_CONFIG_VERSION 1
+#define LANGUAGE_CONFIG_LANGUAGE_MASK 0x01
+#define LANGUAGE_CONFIG_REPLAY_RECORDING_DISABLED 0x40
+#define LANGUAGE_CONFIG_KNOWN_MASK ( \
+	LANGUAGE_CONFIG_LANGUAGE_MASK | LANGUAGE_CONFIG_REPLAY_RECORDING_DISABLED \
+)
 #define LANGUAGE_OPTION_STOCK_TOP ((GAME == 5) ? 250 : 224)
 #define LANGUAGE_OPTION_TOP (LANGUAGE_OPTION_STOCK_TOP - LANGUAGE_OPTION_LABEL_H)
 #define LANGUAGE_OPTION_LEFT 224
@@ -31,6 +36,7 @@
 
 static bool language_loaded;
 static language_preference_t language_current;
+static bool replay_recording_current;
 static char language_config_fn[11];
 static char language_menu_bgm_fn[3];
 static char language_se_fn[5];
@@ -642,6 +648,7 @@ static void language_config_load(void)
 	}
 	language_loaded = true;
 	language_current = LANGUAGE_JAPANESE;
+	replay_recording_current = true;
 	language_config_name_set();
 	fh = replay_op_dos_open(language_config_fn);
 	if(fh < 0) {
@@ -660,12 +667,18 @@ static void language_config_load(void)
 		(data[0] != 'T') || (data[1] != ('0' + GAME)) ||
 		(data[2] != 'L') || (data[3] != 'G') ||
 		(data[4] != LANGUAGE_CONFIG_VERSION) ||
-		(data[5] > LANGUAGE_ENGLISH) ||
+		((data[5] & ~LANGUAGE_CONFIG_KNOWN_MASK) != 0) ||
+		((data[5] & LANGUAGE_CONFIG_LANGUAGE_MASK) > LANGUAGE_ENGLISH) ||
 		(data[6] != sum) || (data[7] != static_cast<uint8_t>(~sum))
 	) {
 		return;
 	}
-	language_current = static_cast<language_preference_t>(data[5]);
+	language_current = static_cast<language_preference_t>(
+		data[5] & LANGUAGE_CONFIG_LANGUAGE_MASK
+	);
+	replay_recording_current = (
+		(data[5] & LANGUAGE_CONFIG_REPLAY_RECORDING_DISABLED) == 0
+	);
 }
 
 language_preference_t language_preference_get(void)
@@ -674,7 +687,9 @@ language_preference_t language_preference_get(void)
 	return language_current;
 }
 
-bool16 language_preference_set(language_preference_t preference)
+static bool16 language_config_set(
+	language_preference_t preference, bool16 replay_recording
+)
 {
 	uint8_t data[LANGUAGE_CONFIG_SIZE];
 	uint8_t sum;
@@ -685,7 +700,8 @@ bool16 language_preference_set(language_preference_t preference)
 	if(preference > LANGUAGE_ENGLISH) {
 		return false;
 	}
-	if(preference == language_current) {
+	if((preference == language_current) &&
+	   (static_cast<bool>(replay_recording) == replay_recording_current)) {
 		return true;
 	}
 	previous = language_current;
@@ -696,7 +712,10 @@ bool16 language_preference_set(language_preference_t preference)
 	data[2] = 'L';
 	data[3] = 'G';
 	data[4] = LANGUAGE_CONFIG_VERSION;
-	data[5] = language_current;
+	data[5] = static_cast<uint8_t>(
+		language_current |
+		(replay_recording ? 0 : LANGUAGE_CONFIG_REPLAY_RECORDING_DISABLED)
+	);
 	sum = language_config_checksum(data);
 	data[6] = sum;
 	data[7] = static_cast<uint8_t>(~sum);
@@ -712,7 +731,25 @@ bool16 language_preference_set(language_preference_t preference)
 	}
 	replay_op_dos_close(fh);
 	replay_op_dos_flush();
+	replay_recording_current = (replay_recording != 0);
 	return true;
+}
+
+bool16 language_preference_set(language_preference_t preference)
+{
+	return language_config_set(preference, replay_recording_current);
+}
+
+bool16 replay_recording_enabled(void)
+{
+	language_config_load();
+	return replay_recording_current;
+}
+
+bool16 replay_recording_enabled_set(bool16 enabled)
+{
+	language_config_load();
+	return language_config_set(language_current, enabled);
 }
 
 static screen_y_t language_option_choice_top(language_option_choice_t sel)

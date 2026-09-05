@@ -138,6 +138,7 @@ struct t1replay_op_input_t {
 	bool enter;
 	bool strike;
 	bool cancel;
+	bool replay_toggle;
 	bool left_held;
 	bool right_held;
 };
@@ -154,6 +155,7 @@ static bool t1replay_op_prev_ok;
 static bool t1replay_op_prev_enter;
 static bool t1replay_op_prev_strike;
 static bool t1replay_op_prev_cancel;
+static bool t1replay_op_prev_replay_toggle;
 static uint8_t t1replay_op_horizontal_hold;
 static uint8_t t1replay_op_detail_split;
 static bool t1replay_op_save_pending;
@@ -718,7 +720,7 @@ static unsigned t1replay_op_header_wire_size(const t1replay_header_t *header)
 	}
 	if(
 		t1replay_op_magic_matches(header->magic, '6') &&
-		(header->version == T1REPLAY_VERSION) &&
+		(header->version == T1REPLAY_VERSION_PREVIOUS) &&
 		(header->header_size == T1REPLAY_HEADER_SIZE)
 	) {
 		return T1REPLAY_HEADER_SIZE;
@@ -730,7 +732,32 @@ static unsigned t1replay_op_header_wire_size(const t1replay_header_t *header)
 	) {
 		return T1REPLAY_HEADER_SIZE;
 	}
+	if(
+		t1replay_op_magic_matches(header->magic, '8') &&
+		(header->version == T1REPLAY_VERSION) &&
+		(header->header_size == T1REPLAY_HEADER_WIRE_SIZE)
+	) {
+		return T1REPLAY_HEADER_WIRE_SIZE;
+	}
 	return 0;
+}
+
+static unsigned t1replay_op_header_checksum_size(
+	const t1replay_header_t *header
+)
+{
+	return ((header->version == T1REPLAY_VERSION)
+		? T1REPLAY_HEADER_SIZE : t1replay_op_header_wire_size(header));
+}
+
+static bool t1replay_op_header_has_accelerator(
+	const t1replay_header_t *header
+)
+{
+	return (
+		(header->version == T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) ||
+		(header->version == T1REPLAY_VERSION)
+	);
 }
 
 static bool t1replay_op_dos_datetime_valid(
@@ -794,7 +821,8 @@ static bool t1replay_op_header_valid(t1replay_header_t *header)
 	}
 	header->header_checksum = 0;
 	header_checksum = t1replay_op_fnv1a(
-		T1REPLAY_FNV1A_BASIS, header, header_size
+		T1REPLAY_FNV1A_BASIS, header,
+		t1replay_op_header_checksum_size(header)
 	);
 	header->header_checksum = stored_header_checksum;
 	return (header_checksum == stored_header_checksum);
@@ -802,7 +830,7 @@ static bool t1replay_op_header_valid(t1replay_header_t *header)
 
 static void t1replay_op_header_checksum_set(t1replay_header_t *header)
 {
-	unsigned header_size = t1replay_op_header_wire_size(header);
+	unsigned header_size = t1replay_op_header_checksum_size(header);
 
 	header->header_checksum = 0;
 	header->header_checksum = t1replay_op_fnv1a(
@@ -991,6 +1019,7 @@ static void t1replay_op_file_read(
 	char mode[3];
 	FILE *fp;
 	unsigned header_size;
+	unsigned prefix_size;
 
 	memset(&result, 0, sizeof(result));
 	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
@@ -1004,12 +1033,14 @@ static void t1replay_op_file_read(
 			&result.header, 1, T1REPLAY_HEADER_SIZE_LEGACY, fp
 		) == T1REPLAY_HEADER_SIZE_LEGACY) &&
 		((header_size = t1replay_op_header_wire_size(&result.header)) != 0) &&
-		((header_size == T1REPLAY_HEADER_SIZE_LEGACY) ||
+		((prefix_size = ((header_size > T1REPLAY_HEADER_SIZE)
+			? T1REPLAY_HEADER_SIZE : header_size)) != 0) &&
+		((prefix_size == T1REPLAY_HEADER_SIZE_LEGACY) ||
 		 (fread(
 			(reinterpret_cast<uint8_t *>(&result.header) +
 			 T1REPLAY_HEADER_SIZE_LEGACY),
-			1, (header_size - T1REPLAY_HEADER_SIZE_LEGACY), fp
-		  ) == (header_size - T1REPLAY_HEADER_SIZE_LEGACY))
+			1, (prefix_size - T1REPLAY_HEADER_SIZE_LEGACY), fp
+		  ) == (prefix_size - T1REPLAY_HEADER_SIZE_LEGACY))
 		)
 	) {
 		result.valid = t1replay_op_header_valid(&result.header);
@@ -1209,8 +1240,8 @@ static bool t1replay_op_pending_name_commit(const uint8_t *name)
 	valid = (
 		(fseek(fp, 0L, SEEK_SET) == 0) &&
 		(fwrite(
-			&pending.header, 1, pending.header.header_size, fp
-		) == pending.header.header_size) &&
+			&pending.header, 1, sizeof(pending.header), fp
+		) == sizeof(pending.header)) &&
 		(fflush(fp) == 0)
 	);
 	if(fclose(fp) != 0) {
@@ -1370,6 +1401,9 @@ bool t1replay_op_record_prepare(void)
 	t1replay_op_restart_practice_armed = false;
 	t1replay_op_command_clear();
 	t1replay_op_pending_discard();
+	if(!t1_replay_recording_enabled()) {
+		return true;
+	}
 	if(!t1replay_op_command_write(
 		T1REPLAY_COMMAND_RECORD, T1REPLAY_SLOT_PENDING,
 		T1REPLAY_COMMAND_CHECKPOINT_STAGE_NONE, 0, T1REPLAY_PROCESS_NONE
@@ -2791,13 +2825,11 @@ void t1replay_op_language_choice_put(int left, int top, int col, int fx)
 	);
 }
 
-bool t1replay_op_language_toggle(void)
+static bool t1replay_op_settings_write(
+	t1_language_preference_t preference, bool replay_recording
+)
 {
 	uint8_t data[8];
-	t1_language_preference_t preference = (
-		(t1_language_get() == T1LANG_JAPANESE)
-			? T1LANG_ENGLISH : T1LANG_JAPANESE
-	);
 	char fn[11];
 	char mode[3];
 	FILE *fp;
@@ -2805,7 +2837,10 @@ bool t1replay_op_language_toggle(void)
 
 	data[0] = 'T'; data[1] = '1'; data[2] = 'L'; data[3] = 'G';
 	data[4] = 1;
-	data[5] = static_cast<uint8_t>(preference);
+	data[5] = static_cast<uint8_t>(
+		preference |
+		(replay_recording ? 0 : T1_SETTINGS_REPLAY_RECORDING_DISABLED)
+	);
 	data[6] = t1replay_op_language_checksum(data);
 	data[7] = static_cast<uint8_t>(~data[6]);
 	t1replay_op_language_config_fn(fn);
@@ -2823,7 +2858,22 @@ bool t1replay_op_language_toggle(void)
 	}
 	t1replay_op_dos_flush();
 	t1_language_load();
-	return (t1_language_get() == preference);
+	return (
+		(t1_language_get() == preference) &&
+		(t1_replay_recording_enabled() == replay_recording)
+	);
+}
+
+bool t1replay_op_language_toggle(void)
+{
+	t1_language_preference_t preference = (
+		(t1_language_get() == T1LANG_JAPANESE)
+			? T1LANG_ENGLISH : T1LANG_JAPANESE
+	);
+
+	return t1replay_op_settings_write(
+		preference, t1_replay_recording_enabled()
+	);
 }
 
 void t1replay_op_music_title_put(
@@ -2986,6 +3036,7 @@ static void t1replay_op_input_read(t1replay_op_input_t& input)
 	bool ok;
 	bool strike;
 	bool cancel;
+	bool replay_toggle;
 
 	in.h.ah = 0x04;
 	in.h.al = 7; int86(0x18, &in, &out7);
@@ -3002,8 +3053,9 @@ static void t1replay_op_input_read(t1replay_op_input_t& input)
 	ok = (enter || (out5.h.ah & K5_Z));
 	strike = (out5.h.ah & K5_X);
 	cancel = (out0.h.ah & K0_ESC);
+	replay_toggle = ((peekb(0, KEYGROUP_2) & K2_R) != 0);
 	if(t1replay_op_wait_release) {
-		input.up = input.down = input.left = input.right = input.ok = input.enter = input.strike = input.cancel = false;
+		input.up = input.down = input.left = input.right = input.ok = input.enter = input.strike = input.cancel = input.replay_toggle = false;
 		input.left_held = input.right_held = false;
 		if(!up && !down && !left && !right && !ok && !strike && !cancel) {
 			t1replay_op_wait_release = false;
@@ -3017,6 +3069,9 @@ static void t1replay_op_input_read(t1replay_op_input_t& input)
 		input.enter = (enter && !t1replay_op_prev_enter);
 		input.strike = (strike && !t1replay_op_prev_strike);
 		input.cancel = (cancel && !t1replay_op_prev_cancel);
+		input.replay_toggle = (
+			replay_toggle && !t1replay_op_prev_replay_toggle
+		);
 		input.left_held = left;
 		input.right_held = right;
 	}
@@ -3028,6 +3083,7 @@ static void t1replay_op_input_read(t1replay_op_input_t& input)
 	t1replay_op_prev_enter = enter;
 	t1replay_op_prev_strike = strike;
 	t1replay_op_prev_cancel = cancel;
+	t1replay_op_prev_replay_toggle = replay_toggle;
 }
 
 static void t1replay_op_input_reset(void)
@@ -3040,6 +3096,7 @@ static void t1replay_op_input_reset(void)
 	t1replay_op_prev_enter = false;
 	t1replay_op_prev_strike = false;
 	t1replay_op_prev_cancel = false;
+	t1replay_op_prev_replay_toggle = false;
 	t1replay_op_horizontal_hold = 0;
 	t1replay_op_wait_release = true;
 }
@@ -3904,10 +3961,7 @@ static bool t1replay_op_checkpoint_probe(
 	t1replay_checkpoint_pacing_t pacing;
 	bool valid;
 
-	if(
-		(replay_header->version == T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
-		t1replay_op_magic_matches(replay_header->magic, '7')
-	) {
+	if(t1replay_op_header_has_accelerator(replay_header)) {
 		return t1replay_op_embedded_checkpoint_probe(
 			slot, replay_header, stage_id, process_seq, source_process
 		);
@@ -4149,6 +4203,7 @@ static bool t1replay_op_accelerator_candidate_build(
 	uint32_t raw_checksum;
 	uint32_t accelerator_checksum;
 	uint32_t input_left;
+	uint32_t tail_left;
 	long file_size;
 	unsigned want;
 	FILE *checkpoint = 0;
@@ -4228,8 +4283,10 @@ static bool t1replay_op_accelerator_candidate_build(
 		payload_offset += entries[stage_id].stored_size;
 	}
 
-	final_header.magic[5] = '7';
-	final_header.version = T1REPLAY_VERSION_EMBEDDED_ACCELERATOR;
+	if(final_header.version == T1REPLAY_VERSION_PREVIOUS) {
+		final_header.magic[5] = '7';
+		final_header.version = T1REPLAY_VERSION_EMBEDDED_ACCELERATOR;
+	}
 	t1replay_op_header_checksum_set(&final_header);
 	memset(&accelerator_header, 0, sizeof(accelerator_header));
 	accelerator_header.magic[0] = 'T'; accelerator_header.magic[1] = '1';
@@ -4252,6 +4309,21 @@ static bool t1replay_op_accelerator_candidate_build(
 	if(!source || !candidate ||
 		(fwrite(&final_header, 1, sizeof(final_header), candidate) !=
 		 sizeof(final_header)) ||
+		(fseek(source, static_cast<long>(sizeof(final_header)), SEEK_SET) != 0)) {
+		goto done;
+	}
+	tail_left = (pending_header->input_offset - sizeof(final_header));
+	while(tail_left != 0) {
+		want = static_cast<unsigned>(
+			(tail_left > sizeof(bytes)) ? sizeof(bytes) : tail_left
+		);
+		if((fread(bytes, 1, want, source) != want) ||
+			(fwrite(bytes, 1, want, candidate) != want)) {
+			goto done;
+		}
+		tail_left -= want;
+	}
+	if(
 		(fseek(source, static_cast<long>(pending_header->input_offset), SEEK_SET) != 0)) {
 		goto done;
 	}
@@ -4717,6 +4789,14 @@ static bool t1replay_op_replay_render(void)
 	p = t1replay_op_uint_append(p, t1replay_op_page + 1, 2);
 	*p++ = '/'; *p++ = '1'; *p++ = '0';
 	t1replay_op_text_center(356, T1REPLAY_OP_COL_LABEL, p);
+	p = t1replay_op_text;
+	memcpy(p, "Replays: ", 9); p += 9;
+	if(t1_replay_recording_enabled()) {
+		*p++ = 'O'; *p++ = 'n';
+	} else {
+		*p++ = 'O'; *p++ = 'f'; *p++ = 'f';
+	}
+	t1replay_op_text_put(32, 356, T1REPLAY_OP_COL_LABEL, p);
 	return true;
 }
 
@@ -4977,6 +5057,18 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 	result.slot = 0;
 
 	t1replay_op_input_read(input);
+	if(
+		!t1replay_op_save_pending && !t1replay_op_name_active &&
+		!t1replay_op_save_decision && !t1replay_op_detail_active() &&
+		input.replay_toggle
+	) {
+		if(t1replay_op_settings_write(
+			t1_language_get(), !t1_replay_recording_enabled()
+		)) {
+			t1replay_op_replay_render();
+		}
+		return result;
+	}
 	if(t1replay_op_name_active) {
 		if(input.cancel) {
 			t1replay_op_name_keyboard_restore();
@@ -5690,3 +5782,7 @@ void t1replay_op_practice_start_get(t1replay_practice_start_t& start)
 		start.chapter = BOSS_STAGE;
 	}
 }
+
+// Keep this replay-owned segment's growth paragraph-aligned so every
+// following stock and patch segment retains its audited phase.
+#pragma codestring "\x90"

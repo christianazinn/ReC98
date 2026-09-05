@@ -160,6 +160,7 @@ static bool t1replay_checkpoint_capture_attempted;
 static t1replay_checkpoint_t far *t1replay_checkpoint;
 static bool t1replay_checkpoint_restore_is_pending;
 static bool t1replay_checkpoint_restore_is_direct;
+static bool t1replay_no_record_practice;
 #if T1REPLAY_WORLD_CAPTURE
 	static t1replay_checkpoint_t t1replay_exact_snapshot;
 #endif
@@ -1559,7 +1560,7 @@ static unsigned t1replay_header_wire_size(void)
 	}
 	if(
 		t1replay_magic_matches(t1replay_header.magic, '6') &&
-		(t1replay_header.version == T1REPLAY_VERSION) &&
+		(t1replay_header.version == T1REPLAY_VERSION_PREVIOUS) &&
 		(t1replay_header.header_size == T1REPLAY_HEADER_SIZE)
 	) {
 		return T1REPLAY_HEADER_SIZE;
@@ -1571,7 +1572,20 @@ static unsigned t1replay_header_wire_size(void)
 	) {
 		return T1REPLAY_HEADER_SIZE;
 	}
+	if(
+		t1replay_magic_matches(t1replay_header.magic, '8') &&
+		(t1replay_header.version == T1REPLAY_VERSION) &&
+		(t1replay_header.header_size == T1REPLAY_HEADER_WIRE_SIZE)
+	) {
+		return T1REPLAY_HEADER_WIRE_SIZE;
+	}
 	return 0;
+}
+
+static unsigned t1replay_header_checksum_size(void)
+{
+	return ((t1replay_header.version == T1REPLAY_VERSION)
+		? T1REPLAY_HEADER_SIZE : t1replay_header_wire_size());
 }
 
 static bool t1replay_dos_datetime_valid(unsigned header_size)
@@ -1592,6 +1606,9 @@ static bool t1replay_dos_datetime_valid(unsigned header_size)
 
 static bool t1replay_header_write(bool create)
 {
+	uint8_t zeroes[32];
+	unsigned tail_left;
+	unsigned want;
 	int fd = (create ?
 		t1replay_dos_create(t1replay_slot_fn) :
 		t1replay_dos_open(t1replay_slot_fn, T1REPLAY_DOS_ACCESS_RW)
@@ -1607,6 +1624,18 @@ static bool t1replay_header_write(bool create)
 		 sizeof(t1replay_header))) {
 		t1replay_dos_close(fd);
 		return false;
+	}
+	if(create && (t1replay_header.version == T1REPLAY_VERSION)) {
+		t1replay_memclear(zeroes, sizeof(zeroes));
+		tail_left = T1REPLAY_HEADER_OPAQUE_SIZE;
+		while(tail_left != 0) {
+			want = ((tail_left > sizeof(zeroes)) ? sizeof(zeroes) : tail_left);
+			if(t1replay_dos_write(fd, zeroes, want) != want) {
+				t1replay_dos_close(fd);
+				return false;
+			}
+			tail_left -= want;
+		}
 	}
 	t1replay_dos_close(fd);
 	return true;
@@ -1785,6 +1814,7 @@ static bool t1replay_header_read(bool finalized)
 	uint32_t stored_checksum;
 	uint32_t computed_checksum;
 	unsigned header_size;
+	unsigned prefix_size;
 	int fd = t1replay_dos_open(t1replay_slot_fn, T1REPLAY_DOS_ACCESS_READ);
 
 	if(fd < 0) {
@@ -1796,13 +1826,15 @@ static bool t1replay_header_read(bool finalized)
 			fd, &t1replay_header, T1REPLAY_HEADER_SIZE_LEGACY
 		) != T1REPLAY_HEADER_SIZE_LEGACY) ||
 		((header_size = t1replay_header_wire_size()) == 0) ||
-		((header_size > T1REPLAY_HEADER_SIZE_LEGACY) &&
+		((prefix_size = ((header_size > T1REPLAY_HEADER_SIZE)
+			? T1REPLAY_HEADER_SIZE : header_size)) == 0) ||
+		((prefix_size > T1REPLAY_HEADER_SIZE_LEGACY) &&
 		 (t1replay_dos_read(
 			fd,
 			(reinterpret_cast<uint8_t far *>(&t1replay_header) +
 			 T1REPLAY_HEADER_SIZE_LEGACY),
-			(header_size - T1REPLAY_HEADER_SIZE_LEGACY)
-		 ) != (header_size - T1REPLAY_HEADER_SIZE_LEGACY))) ||
+			(prefix_size - T1REPLAY_HEADER_SIZE_LEGACY)
+		 ) != (prefix_size - T1REPLAY_HEADER_SIZE_LEGACY))) ||
 		!t1replay_dos_size(fd, &file_size)
 	) {
 		t1replay_dos_close(fd);
@@ -1811,7 +1843,8 @@ static bool t1replay_header_read(bool finalized)
 	stored_checksum = t1replay_header.header_checksum;
 	t1replay_header.header_checksum = 0;
 	computed_checksum = t1replay_fnv1a(
-		T1REPLAY_FNV1A_BASIS, &t1replay_header, header_size
+		T1REPLAY_FNV1A_BASIS, &t1replay_header,
+		t1replay_header_checksum_size()
 	);
 	t1replay_header.header_checksum = stored_checksum;
 	if(
@@ -1829,12 +1862,14 @@ static bool t1replay_header_read(bool finalized)
 			(T1REPLAY_INPUT_SIZE_MAX / T1REPLAY_PACKET_SIZE)) ||
 		(t1replay_header.input_size !=
 			(t1replay_header.packet_count * T1REPLAY_PACKET_SIZE)) ||
-		(((t1replay_header.version ==
-		   T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
+		((((t1replay_header.version ==
+		   T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) ||
+		  (t1replay_header.version == T1REPLAY_VERSION)) &&
 		  (file_size < (t1replay_header.input_offset +
 		   t1replay_header.input_size + T1REPLAY_ACCELERATOR_HEADER_SIZE))) ||
-		 ((t1replay_header.version !=
+		 (((t1replay_header.version !=
 		   T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
+		  (t1replay_header.version != T1REPLAY_VERSION)) &&
 		  (file_size != (t1replay_header.input_offset +
 		   t1replay_header.input_size)))) ||
 		(stored_checksum != computed_checksum) ||
@@ -2092,8 +2127,8 @@ static bool t1replay_checkpoint_read(uint8_t slot, uint8_t stage_id)
 		return false;
 	}
 	if(
-		(t1replay_header.version == T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
-		t1replay_magic_matches(t1replay_header.magic, '7')
+		(t1replay_header.version == T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) ||
+		(t1replay_header.version == T1REPLAY_VERSION)
 	) {
 		valid = t1replay_checkpoint_read_embedded(stage_id);
 		if(!valid) {
@@ -2502,15 +2537,15 @@ static void t1replay_header_capture(void)
 	t1replay_memclear(&t1replay_header, sizeof(t1replay_header));
 	t1replay_header.magic[0] = 'T'; t1replay_header.magic[1] = '1';
 	t1replay_header.magic[2] = 'R'; t1replay_header.magic[3] = 'P';
-	t1replay_header.magic[4] = 'Y'; t1replay_header.magic[5] = '6';
+	t1replay_header.magic[4] = 'Y'; t1replay_header.magic[5] = '8';
 	t1replay_header.version = T1REPLAY_VERSION;
-	t1replay_header.header_size = T1REPLAY_HEADER_SIZE;
+	t1replay_header.header_size = T1REPLAY_HEADER_WIRE_SIZE;
 	t1replay_header.packet_size = T1REPLAY_PACKET_SIZE;
 	t1replay_header.flags = T1REPLAY_FLAGS_REQUIRED;
 	t1replay_header.status = T1REPLAY_STATUS_RECORDING;
 	t1replay_header.game_id = 1;
 	t1replay_header.input_semantics = T1REPLAY_INPUT_SEMANTICS_LATCHED_GROUPS;
-	t1replay_header.input_offset = T1REPLAY_HEADER_SIZE;
+	t1replay_header.input_offset = T1REPLAY_HEADER_WIRE_SIZE;
 	for(i = 0; i < T1REPLAY_NAME_BYTES; i++) {
 		t1replay_header.name[i] = ' ';
 	}
@@ -2874,6 +2909,7 @@ static void t1replay_state_reset(void)
 	t1replay_checkpoint_capture_attempted = false;
 	t1replay_checkpoint_restore_is_pending = false;
 	t1replay_checkpoint_restore_is_direct = false;
+	t1replay_no_record_practice = false;
 	t1replay_memclear(t1replay_keys, sizeof(t1replay_keys));
 #if T1REPLAY_PRIVATE_PIXEL_TRACE
 	t1replay_pixel_probe_reset();
@@ -3212,6 +3248,21 @@ void far t1replay_entry(void)
 			#endif
 			if(t1replay_command_delete_failed) {
 				t1replay_abort_before_start();
+				return;
+			}
+			start_resident = ResData<resident_t>::exist(resident_id);
+			resident = start_resident;
+			if(start_resident) {
+				t1replay_memclear(&t1replay_header, sizeof(t1replay_header));
+				t1replay_start_capture();
+				if(t1replay_practice_from_restart(&t1replay_header.start)) {
+					t1replay_no_record_practice = true;
+					if(
+						t1replay_header.start.practice_boss_phase != T1RPBPT_NONE
+					) {
+						t1replay_checkpoint_restore_is_pending = true;
+					}
+				}
 			}
 			return;
 		}
@@ -3387,6 +3438,20 @@ static void t1replay_checkpoint_scenario_apply(
 	extend_next = ((score / SCORE_PER_EXTEND) + 1);
 }
 
+static bool t1replay_practice_direct_context_valid(void)
+{
+	if(t1replay_no_record_practice) {
+		return ((t1replay_mode == T1RM_DISABLED) && resident);
+	}
+	return (
+		((t1replay_mode == T1RM_RECORD) ||
+		 (t1replay_mode == T1RM_PLAYBACK)) &&
+		resident && t1replay_res &&
+		(t1replay_res->process_seq == 0) &&
+		(t1replay_res->source_process == T1REPLAY_PROCESS_NONE)
+	);
+}
+
 #if T1REPLAY_KONNGARA_PHASE1_DIRECT_TRACE
 static bool t1replay_practice_konngara_phase1_restore_apply(
 	int *pellet_speed_raise_cycle
@@ -3396,11 +3461,7 @@ static bool t1replay_practice_konngara_phase1_restore_apply(
 
 	if(
 		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
-		((t1replay_mode != T1RM_RECORD) &&
-		 (t1replay_mode != T1RM_PLAYBACK)) ||
-		!resident || !t1replay_res ||
-		(t1replay_res->process_seq != 0) ||
-		(t1replay_res->source_process != T1REPLAY_PROCESS_NONE) ||
+		!t1replay_practice_direct_context_valid() ||
 		!t1replay_practice_boss_phase_start_valid(start) ||
 		(start->practice_boss_phase != T1REPLAY_PRIVATE_KONNGARA_PHASE1_TARGET) ||
 		(resident->stage_id != ((STAGES_PER_SCENE * 3) + BOSS_STAGE)) ||
@@ -3439,11 +3500,7 @@ static bool t1replay_practice_yuugenmagan_first_combat_restore_apply(
 
 	if(
 		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
-		((t1replay_mode != T1RM_RECORD) &&
-		 (t1replay_mode != T1RM_PLAYBACK)) ||
-		!resident || !t1replay_res ||
-		(t1replay_res->process_seq != 0) ||
-		(t1replay_res->source_process != T1REPLAY_PROCESS_NONE) ||
+		!t1replay_practice_direct_context_valid() ||
 		!t1replay_practice_boss_phase_start_valid(start) ||
 		(start->practice_boss_phase !=
 			T1REPLAY_PRIVATE_YUUGENMAGAN_FIRST_COMBAT_TARGET) ||
@@ -3484,11 +3541,7 @@ static bool t1replay_practice_elis_first_combat_restore_apply(
 
 	if(
 		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
-		((t1replay_mode != T1RM_RECORD) &&
-		 (t1replay_mode != T1RM_PLAYBACK)) ||
-		!resident || !t1replay_res ||
-		(t1replay_res->process_seq != 0) ||
-		(t1replay_res->source_process != T1REPLAY_PROCESS_NONE) ||
+		!t1replay_practice_direct_context_valid() ||
 		!t1replay_practice_boss_phase_start_valid(start) ||
 		(start->practice_boss_phase !=
 			T1REPLAY_PRIVATE_ELIS_FIRST_COMBAT_TARGET) ||
@@ -3530,11 +3583,7 @@ static bool t1replay_practice_kikuri_first_combat_restore_apply(
 
 	if(
 		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
-		((t1replay_mode != T1RM_RECORD) &&
-		 (t1replay_mode != T1RM_PLAYBACK)) ||
-		!resident || !t1replay_res ||
-		(t1replay_res->process_seq != 0) ||
-		(t1replay_res->source_process != T1REPLAY_PROCESS_NONE) ||
+		!t1replay_practice_direct_context_valid() ||
 		!t1replay_practice_boss_phase_start_valid(start) ||
 		(start->practice_boss_phase !=
 			T1REPLAY_PRIVATE_KIKURI_FIRST_COMBAT_TARGET) ||
@@ -3576,11 +3625,7 @@ static bool t1replay_practice_sariel_first_combat_restore_apply(
 
 	if(
 		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
-		((t1replay_mode != T1RM_RECORD) &&
-		 (t1replay_mode != T1RM_PLAYBACK)) ||
-		!resident || !t1replay_res ||
-		(t1replay_res->process_seq != 0) ||
-		(t1replay_res->source_process != T1REPLAY_PROCESS_NONE) ||
+		!t1replay_practice_direct_context_valid() ||
 		!t1replay_practice_boss_phase_start_valid(start) ||
 		(start->practice_boss_phase !=
 			T1REPLAY_PRIVATE_SARIEL_FIRST_COMBAT_TARGET) ||
@@ -3621,11 +3666,7 @@ static bool t1replay_practice_boss_phase_restore_apply(
 
 	if(
 		!t1replay_checkpoint_restore_is_pending || !pellet_speed_raise_cycle ||
-		((t1replay_mode != T1RM_RECORD) &&
-		 (t1replay_mode != T1RM_PLAYBACK)) ||
-		!resident || !t1replay_res ||
-		(t1replay_res->process_seq != 0) ||
-		(t1replay_res->source_process != T1REPLAY_PROCESS_NONE) ||
+		!t1replay_practice_direct_context_valid() ||
 		!t1replay_practice_boss_phase_start_valid(start) ||
 		(start->practice_boss_phase == T1RPBPT_NONE)
 	) {
@@ -5044,5 +5085,9 @@ bool16 far t1replay_abort_requested(void)
 {
 	return t1replay_abort_pending;
 }
+
+// Keep this replay-owned segment's growth paragraph-aligned so every
+// following stock and patch segment retains its audited phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg

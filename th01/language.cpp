@@ -36,6 +36,7 @@ typedef char t1_language_config_extent_size_check[
 
 // Zero-initialization intentionally means Japanese before the first load.
 static t1_language_preference_t t1_language_runtime;
+static bool t1_replay_recording_runtime;
 
 static void t1_language_config_fn_set(char *fn)
 {
@@ -137,6 +138,7 @@ void far t1_language_load(void)
 	// A receiver must never retain a stale selection after a missing or invalid
 	// file. The all-zero BSS state also deliberately means Japanese.
 	t1_language_runtime = T1LANG_JAPANESE;
+	t1_replay_recording_runtime = true;
 	t1_language_config_fn_set(fn);
 	fh = t1_language_dos_open(fn);
 	if(fh < 0) {
@@ -156,14 +158,18 @@ void far t1_language_load(void)
 		(config->magic[2] != 'L') ||
 		(config->magic[3] != 'G') ||
 		(config->version != T1LANG_CONFIG_VERSION) ||
-		(config->preference > T1LANG_ENGLISH) ||
+		((config->preference & ~T1_SETTINGS_KNOWN_MASK) != 0) ||
+		((config->preference & T1_SETTINGS_LANGUAGE_MASK) > T1LANG_ENGLISH) ||
 		(config->checksum != checksum) ||
 		(config->checksum_inverse != static_cast<uint8_t>(~checksum))
 	) {
 		return;
 	}
 	t1_language_runtime = static_cast<t1_language_preference_t>(
-		config->preference
+		config->preference & T1_SETTINGS_LANGUAGE_MASK
+	);
+	t1_replay_recording_runtime = (
+		(config->preference & T1_SETTINGS_REPLAY_RECORDING_DISABLED) == 0
 	);
 }
 
@@ -171,5 +177,15 @@ t1_language_preference_t far t1_language_get(void)
 {
 	return t1_language_runtime;
 }
+
+bool far t1_replay_recording_enabled(void)
+{
+	return t1_replay_recording_runtime;
+}
+
+// Keep this shared patch segment's growth paragraph-aligned in OP, REIIDEN,
+// and FUUIN so every following segment retains its audited phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg

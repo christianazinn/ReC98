@@ -632,7 +632,7 @@ static uint16_t t2op_header_wire_size(void)
 	}
 	if(
 		(t2op_header.magic[5] == '3') &&
-		(t2op_header.version == T2REPLAY_VERSION) &&
+		(t2op_header.version == T2REPLAY_VERSION_TELEMETRY) &&
 		(t2op_header.header_size == T2REPLAY_HEADER_SIZE)
 	) {
 		return T2REPLAY_HEADER_SIZE;
@@ -644,7 +644,22 @@ static uint16_t t2op_header_wire_size(void)
 	) {
 		return T2REPLAY_HEADER_SIZE;
 	}
+	if(
+		(t2op_header.magic[5] == '5') &&
+		(t2op_header.version == T2REPLAY_VERSION) &&
+		(t2op_header.header_size == T2REPLAY_HEADER_WIRE_SIZE)
+	) {
+		return T2REPLAY_HEADER_WIRE_SIZE;
+	}
 	return 0;
+}
+
+static uint16_t t2op_header_checksum_size(void)
+{
+	return (
+		(t2op_header.version == T2REPLAY_VERSION)
+			? T2REPLAY_HEADER_SIZE : t2op_header_wire_size()
+	);
 }
 
 static bool t2op_header_valid(void)
@@ -682,7 +697,7 @@ static bool t2op_header_valid(void)
 			t2op_header.reserved + T2REPLAY_RESERVED_NAME_OFFSET
 		) ||
 		!t2op_dos_datetime_valid() ||
-		((wire_size == T2REPLAY_HEADER_SIZE) &&
+		((t2op_header.version >= T2REPLAY_VERSION_TELEMETRY) &&
 		 (t2op_header.slow_frames > t2op_header.timed_frames))
 	) {
 		return false;
@@ -698,7 +713,7 @@ static bool t2op_header_valid(void)
 	}
 	t2op_header.header_checksum = 0;
 	computed = t2op_fnv1a(
-		T2REPLAY_FNV1A_BASIS, &t2op_header, wire_size
+		T2REPLAY_FNV1A_BASIS, &t2op_header, t2op_header_checksum_size()
 	);
 	t2op_header.header_checksum = stored;
 	return (stored == computed);
@@ -992,11 +1007,11 @@ static void t2op_extra_unlock_update(void)
 
 static void t2op_header_checksum_set(void)
 {
-	uint16_t wire_size = t2op_header_wire_size();
+	uint16_t checksum_size = t2op_header_checksum_size();
 
 	t2op_header.header_checksum = 0;
 	t2op_header.header_checksum = t2op_fnv1a(
-		T2REPLAY_FNV1A_BASIS, &t2op_header, wire_size
+		T2REPLAY_FNV1A_BASIS, &t2op_header, checksum_size
 	);
 }
 
@@ -1016,7 +1031,8 @@ static bool t2op_pending_header_write(void)
 	t2op_header_checksum_set();
 	written = (
 		t2op_dos_seek(fd, 0) &&
-		(t2op_dos_write(fd, &t2op_header, wire_size) == wire_size)
+		(t2op_dos_write(fd, &t2op_header, sizeof(t2op_header)) ==
+		 sizeof(t2op_header))
 	);
 	t2op_dos_close(fd);
 	if(written) {
@@ -1336,7 +1352,7 @@ static bool t2op_pending_replay_validate(const char far *fn)
 	}
 	wire_size = t2op_header_wire_size();
 	if(
-		(wire_size == T2REPLAY_HEADER_SIZE) &&
+		(wire_size >= T2REPLAY_HEADER_SIZE) &&
 		(t2op_dos_read(
 			fd, reinterpret_cast<uint8_t far *>(&t2op_header) +
 			T2REPLAY_HEADER_SIZE_LEGACY,
@@ -1665,13 +1681,19 @@ static bool t2op_stage_seek_valid(uint8_t slot)
 
 	t2op_slot_set(slot);
 	if(
-		(t2op_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
-		(t2op_header.magic[5] == '4')
+		((t2op_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
+		 (t2op_header.magic[5] == '4')) ||
+		((t2op_header.version == T2REPLAY_VERSION) &&
+		 (t2op_header.magic[5] == '5') && (slot != T2REPLAY_TEMP_SLOT))
 	) {
 		return t2op_embedded_accelerator_valid();
 	}
-	if((t2op_header.version != T2REPLAY_VERSION) ||
-		(t2op_header.magic[5] != '3') ||
+	if(!(
+		((t2op_header.version == T2REPLAY_VERSION_TELEMETRY) &&
+		 (t2op_header.magic[5] == '3')) ||
+		((t2op_header.version == T2REPLAY_VERSION) &&
+		 (t2op_header.magic[5] == '5') && (slot == T2REPLAY_TEMP_SLOT))
+	) ||
 		!t2op_pending_replay_validate(t2op_slot_fn)) {
 		return false;
 	}
@@ -1814,8 +1836,6 @@ static bool t2op_accelerator_candidate_build(char *candidate_fn)
 	seek_fd = -1;
 
 	final_header = t2op_header;
-	final_header.magic[5] = '4';
-	final_header.version = T2REPLAY_VERSION_EMBEDDED_ACCELERATOR;
 	final_header.header_checksum = 0;
 	final_header.header_checksum = t2op_fnv1a(
 		T2REPLAY_FNV1A_BASIS, &final_header, T2REPLAY_HEADER_SIZE
@@ -1855,8 +1875,24 @@ static bool t2op_accelerator_candidate_build(char *candidate_fn)
 	candidate_fd = t2op_dos_create(candidate_fn);
 	if((replay_fd < 0) || (candidate_fd < 0) ||
 		(t2op_dos_write(candidate_fd, &final_header, sizeof(final_header)) !=
-		 sizeof(final_header)) ||
-		!t2op_dos_seek(replay_fd, T2REPLAY_HEADER_SIZE)) {
+		 sizeof(final_header))) {
+		goto done;
+	}
+	if(!t2op_dos_seek(replay_fd, T2REPLAY_HEADER_OPAQUE_OFFSET)) {
+		goto done;
+	}
+	input_left = T2REPLAY_HEADER_OPAQUE_SIZE;
+	while(input_left != 0) {
+		want = static_cast<unsigned>(
+			(input_left > sizeof(copy_buffer)) ? sizeof(copy_buffer) : input_left
+		);
+		if((t2op_dos_read(replay_fd, copy_buffer, want) != want) ||
+			(t2op_dos_write(candidate_fd, copy_buffer, want) != want)) {
+			goto done;
+		}
+		input_left -= want;
+	}
+	if(!t2op_dos_seek(replay_fd, t2op_header.input_offset)) {
 		goto done;
 	}
 	input_left = t2op_header.input_size;
@@ -1940,7 +1976,7 @@ static bool t2op_header_read_path(const char *fn)
 	read = file_read(&t2op_header, T2REPLAY_HEADER_SIZE_LEGACY);
 	if(read == T2REPLAY_HEADER_SIZE_LEGACY) {
 		wire_size = t2op_header_wire_size();
-		if(wire_size == T2REPLAY_HEADER_SIZE) {
+		if(wire_size >= T2REPLAY_HEADER_SIZE) {
 			read += file_read(
 				reinterpret_cast<uint8_t *>(&t2op_header) +
 				T2REPLAY_HEADER_SIZE_LEGACY,
@@ -1951,7 +1987,9 @@ static bool t2op_header_read_path(const char *fn)
 		wire_size = 0;
 	}
 	file_close();
-	if((wire_size == 0) || (read != wire_size)) {
+	if((wire_size == 0) || (read != static_cast<int>(
+		(wire_size < T2REPLAY_HEADER_SIZE) ? wire_size : T2REPLAY_HEADER_SIZE
+	))) {
 		return false;
 	}
 	// Numbered-slot browsing stays header-only; MAIN owns full payload validation.
@@ -4437,6 +4475,7 @@ void far replay_op_restart_or_snd_load(const char *fn, int func)
 	t2replay_start_t start;
 	uint8_t flags;
 	char request_fn[11];
+	char handoff_fn[12];
 
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 	replay_practice_diag_boot(31);
@@ -4458,12 +4497,25 @@ void far replay_op_restart_or_snd_load(const char *fn, int func)
 	t2op_temp_set();
 	t2op_file_delete(t2op_slot_fn);
 	t2op_file_delete(t2op_seek_fn);
-	if(!t2op_command_write(
-		T2REPLAY_COMMAND_RECORD, T2REPLAY_TEMP_SLOT, flags, 0,
-		(flags & T2REPLAY_COMMAND_FLAG_PRACTICE) ? &start : 0
-	)) {
-		snd_load(fn, static_cast<snd_load_func_t>(func));
-		return;
+	if(t2_replay_recording_enabled()) {
+		if(!t2op_command_write(
+			T2REPLAY_COMMAND_RECORD, T2REPLAY_TEMP_SLOT, flags, 0,
+			(flags & T2REPLAY_COMMAND_FLAG_PRACTICE) ? &start : 0
+		)) {
+			snd_load(fn, static_cast<snd_load_func_t>(func));
+			return;
+		}
+	} else if(flags & T2REPLAY_COMMAND_FLAG_PRACTICE) {
+		if(!t2op_command_write(
+			T2REPLAY_COMMAND_PRACTICE, T2REPLAY_TEMP_SLOT, flags, 0, &start
+		)) {
+			snd_load(fn, static_cast<snd_load_func_t>(func));
+			return;
+		}
+	} else {
+		t2op_file_delete(t2op_command_fn);
+		t2op_handoff_fn_set(handoff_fn);
+		t2op_file_delete(handoff_fn);
 	}
 	t2_language_op_bridge(T2LOB_START_INIT, 0, 0);
 	t2op_resident_apply(&start);
@@ -4511,7 +4563,8 @@ static void t2op_practice_start(void)
 	t2op_file_delete(t2op_slot_fn);
 	t2op_file_delete(t2op_seek_fn);
 	if(!t2op_command_write(
-		T2REPLAY_COMMAND_RECORD,
+		(t2_replay_recording_enabled()
+			? T2REPLAY_COMMAND_RECORD : T2REPLAY_COMMAND_PRACTICE),
 		T2REPLAY_TEMP_SLOT,
 		static_cast<uint8_t>(
 			T2REPLAY_COMMAND_FLAG_PRACTICE |
@@ -4591,6 +4644,7 @@ void far replay_practice_diag_autostart(void)
 static void t2op_record_then_start(bool extra)
 {
 	char request_fn[11];
+	char handoff_fn[12];
 
 	t2op_paths_init();
 	t2op_save_request_fn_set(request_fn);
@@ -4598,11 +4652,17 @@ static void t2op_record_then_start(bool extra)
 	t2op_temp_set();
 	t2op_file_delete(t2op_slot_fn);
 	t2op_file_delete(t2op_seek_fn);
-	if(!t2op_command_write(
-		T2REPLAY_COMMAND_RECORD, T2REPLAY_TEMP_SLOT,
-		(t2_autofire_get() ? T2REPLAY_COMMAND_FLAG_AUTOFIRE : 0), 0, 0
-	)) {
-		return;
+	if(t2_replay_recording_enabled()) {
+		if(!t2op_command_write(
+			T2REPLAY_COMMAND_RECORD, T2REPLAY_TEMP_SLOT,
+			(t2_autofire_get() ? T2REPLAY_COMMAND_FLAG_AUTOFIRE : 0), 0, 0
+		)) {
+			return;
+		}
+	} else {
+		t2op_file_delete(t2op_command_fn);
+		t2op_handoff_fn_set(handoff_fn);
+		t2op_file_delete(handoff_fn);
 	}
 	if(extra) {
 		t2_language_op_bridge(T2LOB_START_EXTRA, 0, 0);
@@ -4684,6 +4744,14 @@ static void t2op_browser_render(void)
 	p = t2op_char(p, '/');
 	p = t2op_u32_append(p, (T2REPLAY_SLOT_COUNT / T2OP_SLOT_ROWS), 2);
 	t2op_word_center_at(356, TX_YELLOW, p);
+	p = t2op_word_append(t2op_line, T2OW_REPLAY);
+	p = t2op_char(p, 's');
+	p = t2op_char(p, ':');
+	p = t2op_char(p, ' ');
+	p = t2op_word_append(
+		p, (t2_replay_recording_enabled() ? T2OW_ON : T2OW_OFF)
+	);
+	t2op_word_put_at(32, 356, TX_WHITE, p);
 	t2op_surface_draw_end(page_drawn);
 }
 
@@ -5208,6 +5276,7 @@ static void t2op_browser_saved_wait(void)
 static void t2op_browser(bool save_pending, const uint8_t far *pending_name)
 {
 	bool input_allowed = false;
+	bool replay_toggle_prev = ((peekb(0, KEYGROUP_2) & K2_R) != 0);
 
 	if(!t2op_replay_surface_prepare(T2ORS_BROWSER)) {
 		t2op_title_return_request();
@@ -5218,7 +5287,15 @@ static void t2op_browser(bool save_pending, const uint8_t far *pending_name)
 		palette_black_in(1);
 	}
 	while(1) {
+		bool replay_toggle;
+
 		input_reset_sense();
+		replay_toggle = ((peekb(0, KEYGROUP_2) & K2_R) != 0);
+		if(!save_pending && replay_toggle && !replay_toggle_prev) {
+			t2_replay_recording_set(!t2_replay_recording_enabled());
+			t2op_browser_render();
+		}
+		replay_toggle_prev = replay_toggle;
 		if(key_det == INPUT_NONE) {
 			input_allowed = true;
 		}
@@ -5477,6 +5554,10 @@ void far replay_title_update_and_render(void)
 		t2_language_op_bridge(T2LOB_START_DEMO, 0, 0);
 	}
 }
+
+// Keep this replay-owned segment's growth paragraph-aligned so every
+// following stock and patch segment retains its audited phase.
+#pragma codestring "\x90\x90"
 
 #pragma codeseg
 

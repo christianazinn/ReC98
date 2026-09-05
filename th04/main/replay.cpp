@@ -850,9 +850,26 @@ static void replay_header_checksum_set(void)
 static uint32_t replay_stage_entry_offset(uint8_t stage)
 {
 	return (
-		REPLAY_USER_HEADER_SIZE +
+		replay_header.header_size +
 		static_cast<uint16_t>(stage * REPLAY_STAGE_ENTRY_SIZE)
 	);
+}
+
+static bool replay_header_opaque_tail_create(int fh)
+{
+	uint8_t zeros[32];
+	uint16_t remaining = REPLAY_USER_HEADER_OPAQUE_SIZE;
+	unsigned len;
+
+	replay_memclear(zeros, sizeof(zeros));
+	while(remaining != 0) {
+		len = ((remaining > sizeof(zeros)) ? sizeof(zeros) : remaining);
+		if(replay_dos_write(fh, zeros, len) != len) {
+			return false;
+		}
+		remaining -= len;
+	}
+	return true;
 }
 
 static bool replay_stage_directory_create(int fh)
@@ -922,7 +939,7 @@ static bool replay_stage_directory_hash(uint32_t far *hash)
 		return false;
 	}
 	if(
-		!replay_dos_seek(fh, REPLAY_USER_HEADER_SIZE) ||
+		!replay_dos_seek(fh, replay_header.header_size) ||
 		(replay_dos_read(
 			fh, replay_buffer, REPLAY_STAGE_DIRECTORY_SIZE
 		) != REPLAY_STAGE_DIRECTORY_SIZE)
@@ -954,6 +971,7 @@ static bool replay_header_write(bool create)
 		!replay_dos_seek(fh, 0) ||
 		(replay_dos_write(fh, &replay_header, sizeof(replay_header)) !=
 		 sizeof(replay_header)) ||
+		(create && !replay_header_opaque_tail_create(fh)) ||
 		(create && !replay_stage_directory_create(fh))
 	) {
 		replay_dos_close(fh);
@@ -1420,7 +1438,7 @@ static bool replay_stage_directory_valid(void)
 		return false;
 	}
 	if(
-		!replay_dos_seek(fh, REPLAY_USER_HEADER_SIZE) ||
+		!replay_dos_seek(fh, replay_header.header_size) ||
 		(replay_dos_read(
 			fh, replay_buffer, REPLAY_STAGE_DIRECTORY_SIZE
 		) != REPLAY_STAGE_DIRECTORY_SIZE)
@@ -1510,6 +1528,7 @@ static bool replay_header_read(void)
 		(replay_header.magic[5] != ('0' + replay_header.version)) ||
 		(
 			(replay_header.version != REPLAY_USER_VERSION) &&
+			(replay_header.version != REPLAY_USER_VERSION_V6) &&
 			(replay_header.version != REPLAY_USER_VERSION_V5) &&
 			(replay_header.version != REPLAY_USER_VERSION_LEGACY)
 		)
@@ -1546,7 +1565,9 @@ static bool replay_header_read(void)
 		return false;
 	}
 	if(
-		(replay_header.header_size != REPLAY_USER_HEADER_SIZE) ||
+		(replay_header.header_size !=
+			((replay_header.version == REPLAY_USER_VERSION)
+				? REPLAY_USER_HEADER_WIRE_SIZE : REPLAY_USER_HEADER_SIZE)) ||
 		(replay_header.packet_size != REPLAY_USER_PACKET_SIZE) ||
 		((replay_header.flags & ~REPLAY_USER_KNOWN_FLAGS) != 0) ||
 		((replay_header.flags & (REPLAY_USER_FLAG_RLE_INPUT |
@@ -1559,7 +1580,9 @@ static bool replay_header_read(void)
 		((replay_header.mode == RUM_PRACTICE) !=
 		 ((replay_header.flags & REPLAY_USER_FLAG_PRACTICE) != 0)) ||
 		(replay_header.input_semantics != REPLAY_USER_INPUT_SEMANTICS) ||
-		(replay_header.input_offset != REPLAY_USER_INPUT_OFFSET) ||
+		(replay_header.input_offset !=
+			((replay_header.version == REPLAY_USER_VERSION)
+				? REPLAY_USER_INPUT_OFFSET : REPLAY_USER_INPUT_OFFSET_LEGACY)) ||
 		(replay_header.input_size > REPLAY_USER_INPUT_SIZE_MAX) ||
 		(replay_header.packet_count >
 		 (REPLAY_USER_INPUT_SIZE_MAX / REPLAY_USER_PACKET_SIZE)) ||
@@ -1569,7 +1592,8 @@ static bool replay_header_read(void)
 		(replay_header.stage_reached > STAGE_EXTRA) ||
 		(replay_header.stage_directory_checksum == 0) ||
 		(
-			(replay_header.version == REPLAY_USER_VERSION) !=
+			((replay_header.version == REPLAY_USER_VERSION) ||
+			 (replay_header.version == REPLAY_USER_VERSION_V6)) !=
 			(replay_header.start.schema == REPLAY_START_SCHEMA)
 		) ||
 		!replay_start_config_valid(
@@ -1954,7 +1978,7 @@ static void replay_header_capture(void)
 	replay_header.magic[4] = 'Y';
 	replay_header.magic[5] = ('0' + REPLAY_USER_VERSION);
 	replay_header.version = REPLAY_USER_VERSION;
-	replay_header.header_size = REPLAY_USER_HEADER_SIZE;
+	replay_header.header_size = REPLAY_USER_HEADER_WIRE_SIZE;
 	replay_header.packet_size = REPLAY_USER_PACKET_SIZE;
 	replay_header.flags = (
 		REPLAY_USER_FLAG_RLE_INPUT | REPLAY_USER_FLAG_SHIFT_INPUT
@@ -3892,8 +3916,12 @@ bool replay_playback_active(void)
 	#if (GAME == 4)
 		#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 	#endif
-	// v0.1.2 adds the playback HUD label. Keep the following CRT segment on
-	// the foundation paragraph phase in both game builds.
+// v0.1.2 adds the playback HUD label. Keep the following CRT segment on
+// the foundation paragraph phase in both game builds.
+	#pragma codestring "\x90\x90\x90\x90\x90\x90"
+
+// The recording preference and V7 wire-header handling remain in this
+// replay-owned tail. Preserve the following stock CRT paragraph phase.
 	#pragma codestring "\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg

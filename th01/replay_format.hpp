@@ -6,7 +6,9 @@
  * complete V4 header. V6 appends the packed DOS recording date and time while
  * retaining the compact packet geometry, native replay name, and fieldwise
  * terminal/stage summary. V7 keeps that header and appends compressed,
- * self-contained stage accelerators when OP finalizes a capture.
+ * self-contained stage accelerators when OP finalizes a capture. V8 moves
+ * the input stream to a power-of-two boundary and leaves the appended bytes
+ * opaque to the game.
  */
 
 #include "platform.h"
@@ -15,11 +17,16 @@
 
 #define T1REPLAY_VERSION_LEGACY 4
 #define T1REPLAY_VERSION_TELEMETRY 5
-#define T1REPLAY_VERSION 6
+#define T1REPLAY_VERSION_PREVIOUS 6
 #define T1REPLAY_VERSION_EMBEDDED_ACCELERATOR 7
+#define T1REPLAY_VERSION 8
 #define T1REPLAY_HEADER_SIZE_LEGACY 258
 #define T1REPLAY_HEADER_SIZE_TELEMETRY 266
 #define T1REPLAY_HEADER_SIZE 270
+#define T1REPLAY_HEADER_WIRE_SIZE 384
+#define T1REPLAY_HEADER_OPAQUE_OFFSET T1REPLAY_HEADER_SIZE
+#define T1REPLAY_HEADER_OPAQUE_SIZE \
+	(T1REPLAY_HEADER_WIRE_SIZE - T1REPLAY_HEADER_OPAQUE_OFFSET)
 #define T1REPLAY_START_SIZE 64
 #define T1REPLAY_SUMMARY_SIZE 128
 #define T1REPLAY_STAGE_SUMMARY_SIZE 6
@@ -37,8 +44,9 @@
 #define T1REPLAY_ACCELERATOR_CODEC_ZERO_LITERAL 1
 
 // REIIDEN captures temporary semantic checkpoints as T1CPTSS.CKP. OP embeds
-// every valid checkpoint into a finalized T1RPY7 replay and removes the
-// temporary files; T1RPY4 through T1RPY6 remain sequentially playable.
+// every valid checkpoint into a finalized current replay and removes the
+// temporary files; T1RPY4 through T1RPY6 remain sequentially playable and
+// T1RPY7 remains playable with its embedded accelerators.
 #define T1REPLAY_CHECKPOINT_SCHEMA 4
 #define T1REPLAY_CHECKPOINT_HEADER_SIZE 32
 #define T1REPLAY_CHECKPOINT_GROUP_SIZE 16
@@ -395,7 +403,7 @@ struct t1replay_summary_t {
 };
 
 struct t1replay_header_t {
-	char magic[8]; // T1RPY7 when finalized by OP; V4 through V6 remain readable.
+	char magic[8]; // T1RPY8 currently; V4 through V7 remain readable.
 	uint16_t version;
 	uint16_t header_size;
 	uint16_t packet_size;

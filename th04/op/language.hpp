@@ -12,6 +12,8 @@ enum language_preference_t {
 
 language_preference_t language_preference_get(void);
 bool16 language_preference_set(language_preference_t preference);
+bool16 replay_recording_enabled(void);
+bool16 replay_recording_enabled_set(bool16 enabled);
 bool16 language_op_english_selected(void);
 const char *language_op_main_label(int choice);
 const char *language_op_main_desc(int desc_id);
