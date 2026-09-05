@@ -3864,6 +3864,13 @@ static uint16_t t2replay_header_wire_size(void)
 	) {
 		return T2REPLAY_HEADER_SIZE;
 	}
+	if(
+		t2replay_magic_matches(t2replay_header.magic, '4') &&
+		(t2replay_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
+		(t2replay_header.header_size == T2REPLAY_HEADER_SIZE)
+	) {
+		return T2REPLAY_HEADER_SIZE;
+	}
 	return 0;
 }
 
@@ -4364,6 +4371,12 @@ static bool t2replay_packet_is_valid(
 	return false;
 }
 
+static bool t2replay_embedded_stage_seek_load(
+	uint8_t selected_stage, t2replay_start_t far *start,
+	uint32_t far *sample_anchor, uint32_t far *packet_anchor,
+	uint32_t far *prefix_checksum
+);
+
 static bool t2replay_payload_validate(int fd, uint32_t file_size)
 {
 	uint32_t hash = T2REPLAY_FNV1A_BASIS;
@@ -4378,7 +4391,15 @@ static bool t2replay_payload_validate(int fd, uint32_t file_size)
 	uint8_t terminal_reason = 0;
 	uint8_t terminal_stage = 0;
 
-	if(file_size != (t2replay_header.input_offset + t2replay_header.input_size)) {
+	uint32_t input_end = (
+		t2replay_header.input_offset + t2replay_header.input_size
+	);
+	if(
+		((t2replay_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
+		 (file_size < (input_end + T2REPLAY_ACCELERATOR_HEADER_SIZE))) ||
+		((t2replay_header.version != T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
+		 (file_size != input_end))
+	) {
 		return false;
 	}
 	if(!t2replay_dos_seek(fd, t2replay_header.input_offset)) {
@@ -4446,6 +4467,10 @@ static bool t2replay_header_read(void)
 	uint32_t stored_checksum;
 	uint32_t computed_checksum;
 	uint16_t wire_size;
+	t2replay_start_t accelerator_start;
+	uint32_t accelerator_sample;
+	uint32_t accelerator_packet;
+	uint32_t accelerator_prefix;
 	int fd;
 
 	fd = t2replay_dos_open(t2replay_slot_fn, T2REPLAY_DOS_ACCESS_READ);
@@ -4458,7 +4483,8 @@ static bool t2replay_header_read(void)
 			fd, &t2replay_header, T2REPLAY_HEADER_SIZE_LEGACY
 		) != T2REPLAY_HEADER_SIZE_LEGACY) ||
 		(((t2replay_header.magic[5] == '2') ||
-		  (t2replay_header.magic[5] == '3')) &&
+		  (t2replay_header.magic[5] == '3') ||
+		  (t2replay_header.magic[5] == '4')) &&
 		 (t2replay_dos_read(
 			fd,
 			reinterpret_cast<uint8_t far *>(&t2replay_header) +
@@ -4518,6 +4544,16 @@ static bool t2replay_header_read(void)
 		return false;
 	}
 	t2replay_dos_close(fd);
+	if(
+		(t2replay_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
+		!t2replay_embedded_stage_seek_load(
+			static_cast<uint8_t>(t2replay_header.start.stage),
+			&accelerator_start, &accelerator_sample, &accelerator_packet,
+			&accelerator_prefix
+		)
+	) {
+		return false;
+	}
 	t2replay_buffer_len = 0;
 	t2replay_buffer_pos = 0;
 	return true;
@@ -4698,7 +4734,7 @@ static bool t2replay_stage_seek_prefix_valid(
 	return valid;
 }
 
-static bool t2replay_stage_seek_load(
+static bool t2replay_external_stage_seek_load(
 	uint8_t slot, uint8_t selected_stage, t2replay_start_t far *start,
 	uint32_t far *sample_anchor, uint32_t far *packet_anchor,
 	uint32_t far *prefix_checksum
@@ -4820,6 +4856,155 @@ static bool t2replay_stage_seek_load(
 	*packet_anchor = selected.packet_anchor;
 	*prefix_checksum = selected.prefix_checksum;
 	return true;
+}
+
+static bool t2replay_accelerator_checksum(
+	int fd, uint32_t tail_offset, uint32_t size, uint32_t far *checksum
+)
+{
+	uint8_t bytes[64];
+	uint32_t offset = 0;
+	uint32_t hash = T2REPLAY_FNV1A_BASIS;
+	unsigned want;
+	unsigned i;
+
+	if(!t2replay_dos_seek(fd, tail_offset)) {
+		return false;
+	}
+	while(offset < size) {
+		want = static_cast<unsigned>(
+			((size - offset) > sizeof(bytes)) ? sizeof(bytes) : (size - offset)
+		);
+		if(t2replay_dos_read(fd, bytes, want) != want) {
+			return false;
+		}
+		for(i = 0; i < want; i++) {
+			if(((offset + i) >= 28) && ((offset + i) < 32)) {
+				bytes[i] = 0;
+			}
+		}
+		hash = t2replay_fnv1a(hash, bytes, want);
+		offset += want;
+	}
+	*checksum = hash;
+	return true;
+}
+
+static bool t2replay_embedded_stage_seek_load(
+	uint8_t selected_stage, t2replay_start_t far *start,
+	uint32_t far *sample_anchor, uint32_t far *packet_anchor,
+	uint32_t far *prefix_checksum
+)
+{
+	t2replay_accelerator_header_t header;
+	t2replay_accelerator_entry_t entry;
+	t2replay_accelerator_entry_t selected;
+	t2replay_public_seek_entry_t prefix_entry;
+	uint32_t file_size;
+	uint32_t checksum;
+	uint32_t tail_offset = (
+		t2replay_header.input_offset + t2replay_header.input_size
+	);
+	uint32_t directory_checksum = T2REPLAY_FNV1A_BASIS;
+	uint32_t expected_start_offset;
+	uint8_t i;
+	int fd = t2replay_dos_open(t2replay_slot_fn, T2REPLAY_DOS_ACCESS_READ);
+	bool found = false;
+
+	if(fd < 0) {
+		return false;
+	}
+	t2replay_memclear(&header, sizeof(header));
+	t2replay_memclear(&selected, sizeof(selected));
+	if(!t2replay_dos_size(fd, &file_size) || !t2replay_dos_seek(fd, tail_offset) ||
+		(t2replay_dos_read(fd, &header, sizeof(header)) != sizeof(header)) ||
+		(header.magic[0] != 'T') || (header.magic[1] != '2') ||
+		(header.magic[2] != 'A') || (header.magic[3] != 'C') ||
+		(header.magic[4] != 'C') || (header.magic[5] != '1') ||
+		(header.magic[6] != '\0') || (header.magic[7] != '\0') ||
+		(header.version != T2REPLAY_ACCELERATOR_VERSION) ||
+		(header.header_size != T2REPLAY_ACCELERATOR_HEADER_SIZE) ||
+		(header.entry_size != T2REPLAY_ACCELERATOR_ENTRY_SIZE) ||
+		(header.entry_count != static_cast<uint16_t>(
+			t2replay_header.stage_reached - t2replay_header.start.stage + 1
+		)) ||
+		(header.total_size != (T2REPLAY_ACCELERATOR_HEADER_SIZE +
+			(static_cast<uint32_t>(header.entry_count) *
+			 (T2REPLAY_ACCELERATOR_ENTRY_SIZE + T2REPLAY_START_SIZE)))) ||
+		(file_size != (tail_offset + header.total_size)) ||
+		(header.replay_header_checksum != t2replay_header.header_checksum) ||
+		!t2replay_accelerator_checksum(
+			fd, tail_offset, header.total_size, &checksum
+		) || (checksum != header.accelerator_checksum) ||
+		!t2replay_dos_seek(fd, tail_offset + header.header_size)) {
+		t2replay_dos_close(fd);
+		return false;
+	}
+	expected_start_offset = T2REPLAY_ACCELERATOR_HEADER_SIZE +
+		(static_cast<uint32_t>(header.entry_count) *
+		 T2REPLAY_ACCELERATOR_ENTRY_SIZE);
+	for(i = 0; i < header.entry_count; i++) {
+		if((t2replay_dos_read(fd, &entry, sizeof(entry)) != sizeof(entry)) ||
+			(entry.stage_id != static_cast<uint8_t>(
+				t2replay_header.start.stage + i
+			)) || (entry.schema != T2REPLAY_STAGE_SEEK_SCHEMA) ||
+			(entry.reserved != 0) ||
+			(entry.start_offset != expected_start_offset) ||
+			(entry.packet_anchor >= t2replay_header.packet_count) ||
+			(entry.sample_anchor > t2replay_header.sample_count)) {
+			t2replay_dos_close(fd);
+			return false;
+		}
+		directory_checksum = t2replay_fnv1a(
+			directory_checksum, &entry, sizeof(entry)
+		);
+		if(entry.stage_id == selected_stage) {
+			selected = entry;
+			found = true;
+		}
+		expected_start_offset += T2REPLAY_START_SIZE;
+	}
+	if((directory_checksum != header.directory_checksum) || !found ||
+		!t2replay_dos_seek(fd, tail_offset + selected.start_offset) ||
+		(t2replay_dos_read(fd, start, sizeof(*start)) != sizeof(*start))) {
+		t2replay_dos_close(fd);
+		return false;
+	}
+	t2replay_dos_close(fd);
+	if((selected.start_checksum != t2replay_fnv1a(
+		T2REPLAY_FNV1A_BASIS, start, sizeof(*start)
+	)) || !t2replay_stage_seek_start_valid(start) ||
+		(start->stage != static_cast<int8_t>(selected_stage))) {
+		return false;
+	}
+	t2replay_memclear(&prefix_entry, sizeof(prefix_entry));
+	prefix_entry.stage_id = selected.stage_id;
+	prefix_entry.sample_anchor = selected.sample_anchor;
+	prefix_entry.packet_anchor = selected.packet_anchor;
+	prefix_entry.prefix_checksum = selected.prefix_checksum;
+	if(!t2replay_stage_seek_prefix_valid(&prefix_entry)) {
+		return false;
+	}
+	*sample_anchor = selected.sample_anchor;
+	*packet_anchor = selected.packet_anchor;
+	*prefix_checksum = selected.prefix_checksum;
+	return true;
+}
+
+static bool t2replay_stage_seek_load(
+	uint8_t slot, uint8_t selected_stage, t2replay_start_t far *start,
+	uint32_t far *sample_anchor, uint32_t far *packet_anchor,
+	uint32_t far *prefix_checksum
+)
+{
+	if(t2replay_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) {
+		return t2replay_embedded_stage_seek_load(
+			selected_stage, start, sample_anchor, packet_anchor, prefix_checksum
+		);
+	}
+	return t2replay_external_stage_seek_load(
+		slot, selected_stage, start, sample_anchor, packet_anchor, prefix_checksum
+	);
 }
 
 #if T2REPLAY_EXACT_APPLY

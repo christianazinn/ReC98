@@ -5,7 +5,8 @@
  * TH01's user replay format. V5 appends run-wide slowdown telemetry to the
  * complete V4 header. V6 appends the packed DOS recording date and time while
  * retaining the compact packet geometry, native replay name, and fieldwise
- * terminal/stage summary.
+ * terminal/stage summary. V7 keeps that header and appends compressed,
+ * self-contained stage accelerators when OP finalizes a capture.
  */
 
 #include "platform.h"
@@ -15,6 +16,7 @@
 #define T1REPLAY_VERSION_LEGACY 4
 #define T1REPLAY_VERSION_TELEMETRY 5
 #define T1REPLAY_VERSION 6
+#define T1REPLAY_VERSION_EMBEDDED_ACCELERATOR 7
 #define T1REPLAY_HEADER_SIZE_LEGACY 258
 #define T1REPLAY_HEADER_SIZE_TELEMETRY 266
 #define T1REPLAY_HEADER_SIZE 270
@@ -28,8 +30,15 @@
 #define T1REPLAY_SLOT_PENDING T1REPLAY_SLOT_COUNT
 #define T1REPLAY_INPUT_SIZE_MAX 0x00400000UL
 
-// Private TH01 semantic checkpoint sidecars are intentionally separate from
-// T1RPY6. Each T1CxxSS.CKP is keyed by replay slot xx and reached stage SS.
+#define T1REPLAY_ACCELERATOR_VERSION 1
+#define T1REPLAY_ACCELERATOR_HEADER_SIZE 32
+#define T1REPLAY_ACCELERATOR_ENTRY_SIZE 36
+#define T1REPLAY_ACCELERATOR_CODEC_RAW 0
+#define T1REPLAY_ACCELERATOR_CODEC_ZERO_LITERAL 1
+
+// REIIDEN captures temporary semantic checkpoints as T1CPTSS.CKP. OP embeds
+// every valid checkpoint into a finalized T1RPY7 replay and removes the
+// temporary files; T1RPY4 through T1RPY6 remain sequentially playable.
 #define T1REPLAY_CHECKPOINT_SCHEMA 4
 #define T1REPLAY_CHECKPOINT_HEADER_SIZE 32
 #define T1REPLAY_CHECKPOINT_GROUP_SIZE 16
@@ -386,7 +395,7 @@ struct t1replay_summary_t {
 };
 
 struct t1replay_header_t {
-	char magic[8]; // "T1RPY6\\0\\0"; V4 and V5 remain readable.
+	char magic[8]; // T1RPY7 when finalized by OP; V4 through V6 remain readable.
 	uint16_t version;
 	uint16_t header_size;
 	uint16_t packet_size;
@@ -411,6 +420,34 @@ struct t1replay_header_t {
 	uint32_t slow_frames;
 	uint16_t dos_date;
 	uint16_t dos_time;
+};
+
+struct t1replay_accelerator_header_t {
+	char magic[8]; // "T1ACC1\\0\\0"
+	uint16_t version;
+	uint16_t header_size;
+	uint16_t entry_size;
+	uint16_t entry_count;
+	uint32_t total_size;
+	uint32_t replay_header_checksum;
+	uint32_t directory_checksum;
+	uint32_t accelerator_checksum;
+};
+
+struct t1replay_accelerator_entry_t {
+	uint8_t stage_id;
+	uint8_t process_seq;
+	uint8_t source_process;
+	uint8_t codec;
+	uint32_t payload_offset;
+	uint16_t stored_size;
+	uint16_t decoded_size;
+	uint32_t decoded_checksum;
+	uint32_t sample_anchor;
+	uint32_t packet_anchor;
+	uint32_t input_anchor;
+	uint32_t prefix_checksum;
+	uint32_t stored_checksum;
 };
 
 // The native score-registration keyboard accepts full-width ASCII letters and
@@ -1008,6 +1045,14 @@ typedef char t1replay_start_size_check[
 ];
 typedef char t1replay_header_size_check[
 	(sizeof(t1replay_header_t) == T1REPLAY_HEADER_SIZE) ? 1 : -1
+];
+typedef char t1replay_accelerator_header_size_check[
+	(sizeof(t1replay_accelerator_header_t) ==
+	 T1REPLAY_ACCELERATOR_HEADER_SIZE) ? 1 : -1
+];
+typedef char t1replay_accelerator_entry_size_check[
+	(sizeof(t1replay_accelerator_entry_t) ==
+	 T1REPLAY_ACCELERATOR_ENTRY_SIZE) ? 1 : -1
 ];
 typedef char t1replay_stage_summary_size_check[
 	(sizeof(t1replay_stage_summary_t) == T1REPLAY_STAGE_SUMMARY_SIZE) ? 1 : -1

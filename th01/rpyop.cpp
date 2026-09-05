@@ -369,48 +369,6 @@ static bool t1op_ckpt_destinations_empty(uint8_t slot)
 	return true;
 }
 
-static void t1op_ckpt_pending_rollback(uint8_t slot)
-{
-	char pending_fn[12];
-	char destination_fn[12];
-	uint8_t stage_id;
-
-	for(stage_id = 0; stage_id < STAGE_COUNT; stage_id++) {
-		t1replay_op_checkpoint_fn(
-			pending_fn, T1REPLAY_SLOT_PENDING, stage_id
-		);
-		t1replay_op_checkpoint_fn(destination_fn, slot, stage_id);
-		if(!t1replay_op_file_exists(pending_fn) &&
-			t1replay_op_file_exists(destination_fn)) {
-			if(rename(destination_fn, pending_fn) == 0) {
-				t1replay_op_dos_flush();
-			}
-		}
-	}
-}
-
-static bool t1op_ckpt_pending_stage(uint8_t slot)
-{
-	char pending_fn[12];
-	char destination_fn[12];
-	uint8_t stage_id;
-
-	for(stage_id = 0; stage_id < STAGE_COUNT; stage_id++) {
-		t1replay_op_checkpoint_fn(
-			pending_fn, T1REPLAY_SLOT_PENDING, stage_id
-		);
-		t1replay_op_checkpoint_fn(destination_fn, slot, stage_id);
-		if(t1replay_op_file_exists(pending_fn) &&
-			(rename(pending_fn, destination_fn) != 0)) {
-			t1op_ckpt_pending_rollback(slot);
-			return false;
-		}
-		if(t1replay_op_file_exists(destination_fn)) {
-			t1replay_op_dos_flush();
-		}
-	}
-	return true;
-}
 #endif
 
 #if T1REPLAY_FUUIN_SCORE_PROOF
@@ -761,6 +719,13 @@ static unsigned t1replay_op_header_wire_size(const t1replay_header_t *header)
 	if(
 		t1replay_op_magic_matches(header->magic, '6') &&
 		(header->version == T1REPLAY_VERSION) &&
+		(header->header_size == T1REPLAY_HEADER_SIZE)
+	) {
+		return T1REPLAY_HEADER_SIZE;
+	}
+	if(
+		t1replay_op_magic_matches(header->magic, '7') &&
+		(header->version == T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
 		(header->header_size == T1REPLAY_HEADER_SIZE)
 	) {
 		return T1REPLAY_HEADER_SIZE;
@@ -1808,6 +1773,11 @@ static bool t1op_backup_stage(uint8_t slot)
 	return true;
 }
 
+static void t1replay_op_accelerator_candidate_fn(char *fn);
+static bool t1replay_op_accelerator_candidate_build(
+	const t1replay_header_t *pending_header, char *candidate_fn
+);
+
 static bool t1replay_op_pending_commit(uint8_t slot)
 {
 	t1replay_op_slot_t pending;
@@ -1815,6 +1785,7 @@ static bool t1replay_op_pending_commit(uint8_t slot)
 	t1replay_save_request_t request;
 	char pending_fn[10];
 	char destination_fn[11];
+	char candidate_fn[10];
 #if T1REPLAY_FUUIN_SCORE_PROOF
 	t1replay_score_proof_t proof;
 	bool proof_staged = false;
@@ -1867,8 +1838,10 @@ static bool t1replay_op_pending_commit(uint8_t slot)
 		t1replay_op_pending_score_proof_discard();
 	}
 #endif
-#if T1REPLAY_CHECKPOINT_EMIT || T1REPLAY_CHECKPOINT_RESTORE
-	if(!t1op_ckpt_pending_stage(slot)) {
+	t1replay_op_accelerator_candidate_fn(candidate_fn);
+	if(!t1replay_op_accelerator_candidate_build(
+		&pending.header, candidate_fn
+	)) {
 #if T1REPLAY_FUUIN_SCORE_PROOF
 		if(proof_staged) {
 			t1replay_op_score_proof_fn(destination_fn, slot);
@@ -1877,13 +1850,10 @@ static bool t1replay_op_pending_commit(uint8_t slot)
 #endif
 		return false;
 	}
-#endif
 	t1replay_op_pending_fn(pending_fn);
 	t1replay_op_slot_fn(destination_fn, slot);
-	if(rename(pending_fn, destination_fn) != 0) {
-#if T1REPLAY_CHECKPOINT_EMIT || T1REPLAY_CHECKPOINT_RESTORE
-		t1op_ckpt_pending_rollback(slot);
-#endif
+	if(rename(candidate_fn, destination_fn) != 0) {
+		remove(candidate_fn);
 #if T1REPLAY_FUUIN_SCORE_PROOF
 		if(proof_staged) {
 			t1replay_op_score_proof_fn(destination_fn, slot);
@@ -1893,6 +1863,10 @@ static bool t1replay_op_pending_commit(uint8_t slot)
 		return false;
 	}
 	t1replay_op_dos_flush();
+	remove(pending_fn);
+#if T1REPLAY_CHECKPOINT_EMIT || T1REPLAY_CHECKPOINT_RESTORE
+	t1op_ckpt_pending_discard();
+#endif
 #if T1REPLAY_FUUIN_SCORE_PROOF
 	if(proof_staged) {
 		t1replay_op_pending_score_proof_discard();
@@ -3788,6 +3762,133 @@ static bool t1replay_op_checkpoint_prefix_identity(
 #endif
 }
 
+static bool t1replay_op_embedded_checkpoint_probe(
+	uint8_t slot, const t1replay_header_t *replay_header, uint8_t stage_id,
+	uint8_t *process_seq, uint8_t *source_process
+)
+{
+	char fn[11];
+	char mode[3];
+	uint8_t bytes[128];
+	t1replay_accelerator_header_t header;
+	t1replay_accelerator_entry_t entry;
+	t1replay_checkpoint_pacing_t pacing;
+	uint32_t tail_offset = (
+		replay_header->input_offset + replay_header->input_size
+	);
+	uint32_t checksum = T1REPLAY_FNV1A_BASIS;
+	uint32_t directory_checksum = T1REPLAY_FNV1A_BASIS;
+	uint32_t expected_payload_offset;
+	uint32_t offset;
+	uint32_t left;
+	long file_size;
+	unsigned want;
+	unsigned i;
+	uint16_t entry_index;
+	uint8_t previous_stage = 0xFF;
+	FILE *fp;
+	bool found = false;
+
+	t1replay_op_slot_fn(fn, slot);
+	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
+	fp = fopen(fn, mode);
+	if(!fp || (fseek(fp, static_cast<long>(tail_offset), SEEK_SET) != 0) ||
+		(fread(&header, 1, sizeof(header), fp) != sizeof(header))) {
+		if(fp) {
+			fclose(fp);
+		}
+		return false;
+	}
+	if((header.magic[0] != 'T') || (header.magic[1] != '1') ||
+		(header.magic[2] != 'A') || (header.magic[3] != 'C') ||
+		(header.magic[4] != 'C') || (header.magic[5] != '1') ||
+		(header.magic[6] != '\0') || (header.magic[7] != '\0') ||
+		(header.version != T1REPLAY_ACCELERATOR_VERSION) ||
+		(header.header_size != T1REPLAY_ACCELERATOR_HEADER_SIZE) ||
+		(header.entry_size != T1REPLAY_ACCELERATOR_ENTRY_SIZE) ||
+		(header.entry_count != replay_header->summary.split_count) ||
+		(header.replay_header_checksum != replay_header->header_checksum) ||
+		(fseek(fp, 0L, SEEK_END) != 0) ||
+		((file_size = ftell(fp)) != static_cast<long>(
+			tail_offset + header.total_size
+		)) || (fseek(fp, static_cast<long>(tail_offset), SEEK_SET) != 0)) {
+		fclose(fp);
+		return false;
+	}
+	offset = 0;
+	left = header.total_size;
+	while(left != 0) {
+		want = static_cast<unsigned>(
+			(left > sizeof(bytes)) ? sizeof(bytes) : left
+		);
+		if(fread(bytes, 1, want, fp) != want) {
+			fclose(fp);
+			return false;
+		}
+		for(i = 0; i < want; i++) {
+			if(((offset + i) >= 28) && ((offset + i) < 32)) {
+				bytes[i] = 0;
+			}
+		}
+		checksum = t1replay_op_fnv1a(checksum, bytes, want);
+		offset += want;
+		left -= want;
+	}
+	if((checksum != header.accelerator_checksum) ||
+		(fseek(fp, static_cast<long>(
+			tail_offset + header.header_size
+		), SEEK_SET) != 0)) {
+		fclose(fp);
+		return false;
+	}
+	memset(&pacing, 0, sizeof(pacing));
+	expected_payload_offset = header.header_size +
+		(static_cast<uint32_t>(header.entry_count) * header.entry_size);
+	for(entry_index = 0; entry_index < header.entry_count; entry_index++) {
+		if((fread(&entry, 1, sizeof(entry), fp) != sizeof(entry)) ||
+			(entry.stage_id >= STAGE_COUNT) ||
+			(entry.stage_id !=
+			 replay_header->summary.splits[entry_index].stage_id) ||
+			((previous_stage != 0xFF) &&
+			 (entry.stage_id <= previous_stage)) ||
+			(entry.codec > T1REPLAY_ACCELERATOR_CODEC_ZERO_LITERAL) ||
+			(entry.decoded_size != T1REPLAY_CHECKPOINT_SIZE) ||
+			(entry.payload_offset != expected_payload_offset) ||
+			(entry.input_anchor !=
+			 (entry.packet_anchor * T1REPLAY_PACKET_SIZE)) ||
+			(entry.packet_anchor > replay_header->packet_count) ||
+			(entry.sample_anchor > replay_header->sample_count)) {
+			fclose(fp);
+			return false;
+		}
+		directory_checksum = t1replay_op_fnv1a(
+			directory_checksum, &entry, sizeof(entry)
+		);
+		expected_payload_offset += entry.stored_size;
+		if(entry.stage_id == stage_id) {
+			pacing.replay_sample_anchor = entry.sample_anchor;
+			pacing.replay_packet_anchor = entry.packet_anchor;
+			pacing.replay_input_anchor = entry.input_anchor;
+			pacing.replay_prefix_checksum = entry.prefix_checksum;
+			pacing.process_seq = entry.process_seq;
+			*source_process = entry.source_process;
+			found = true;
+		}
+		previous_stage = entry.stage_id;
+	}
+	if((directory_checksum != header.directory_checksum) ||
+		(expected_payload_offset != header.total_size) || !found ||
+		!t1replay_op_checkpoint_prefix_identity(
+			slot, replay_header, &pacing, source_process
+		)) {
+		fclose(fp);
+		return false;
+	}
+	*process_seq = pacing.process_seq;
+	fclose(fp);
+	return true;
+}
+
 static bool t1replay_op_checkpoint_probe(
 	uint8_t slot, const t1replay_header_t *replay_header, uint8_t stage_id,
 	uint8_t *process_seq, uint8_t *source_process
@@ -3803,6 +3904,14 @@ static bool t1replay_op_checkpoint_probe(
 	t1replay_checkpoint_pacing_t pacing;
 	bool valid;
 
+	if(
+		(replay_header->version == T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
+		t1replay_op_magic_matches(replay_header->magic, '7')
+	) {
+		return t1replay_op_embedded_checkpoint_probe(
+			slot, replay_header, stage_id, process_seq, source_process
+		);
+	}
 	if((stage_id >= STAGE_COUNT) ||
 		!t1replay_op_checkpoint_fn(fn, slot, stage_id)) {
 		return false;
@@ -3852,6 +3961,411 @@ static bool t1replay_op_checkpoint_probe(
 	return true;
 #else
 	(slot); (replay_header); (stage_id); (process_seq); (source_process);
+	return false;
+#endif
+}
+
+static void t1replay_op_accelerator_candidate_fn(char *fn)
+{
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'A'; fn[3] = 'C'; fn[4] = 'C';
+	fn[5] = '.'; fn[6] = 'T'; fn[7] = 'M'; fn[8] = 'P'; fn[9] = '\0';
+}
+
+static bool t1replay_op_accelerator_emit_byte(
+	FILE *out, uint8_t value, uint32_t *size, uint32_t *checksum
+)
+{
+	if(out && (fputc(value, out) == EOF)) {
+		return false;
+	}
+	*checksum = t1replay_op_fnv1a(*checksum, &value, 1);
+	(*size)++;
+	return true;
+}
+
+static bool t1replay_op_accelerator_zero_literal(
+	FILE *source, FILE *out, uint32_t *stored_size, uint32_t *stored_checksum
+)
+{
+	uint8_t literals[128];
+	unsigned literal_count = 0;
+	unsigned zero_count;
+	unsigned i;
+	long consumed = 0;
+	int value;
+	int next;
+
+	*stored_size = 0;
+	*stored_checksum = T1REPLAY_FNV1A_BASIS;
+	if(fseek(source, 0L, SEEK_SET) != 0) {
+		return false;
+	}
+	while(consumed < T1REPLAY_CHECKPOINT_SIZE) {
+		value = fgetc(source);
+		if(value == EOF) {
+			return false;
+		}
+		consumed++;
+		if(value != 0) {
+			literals[literal_count++] = static_cast<uint8_t>(value);
+			if(literal_count < sizeof(literals)) {
+				continue;
+			}
+		} else {
+			zero_count = 1;
+			while(
+				(zero_count < 128) &&
+				(consumed < T1REPLAY_CHECKPOINT_SIZE)
+			) {
+				next = fgetc(source);
+				if(next == EOF) {
+					return false;
+				}
+				if(next != 0) {
+					ungetc(next, source);
+					break;
+				}
+				zero_count++;
+				consumed++;
+			}
+			if(zero_count < 2) {
+				literals[literal_count++] = 0;
+				if(literal_count < sizeof(literals)) {
+					continue;
+				}
+			} else {
+				if(literal_count != 0) {
+					if(!t1replay_op_accelerator_emit_byte(
+						out, static_cast<uint8_t>(literal_count - 1),
+						stored_size, stored_checksum
+					)) {
+						return false;
+					}
+					for(i = 0; i < literal_count; i++) {
+						if(!t1replay_op_accelerator_emit_byte(
+							out, literals[i], stored_size, stored_checksum
+						)) {
+							return false;
+						}
+					}
+					literal_count = 0;
+				}
+				if(!t1replay_op_accelerator_emit_byte(
+					out, static_cast<uint8_t>(0x80 | (zero_count - 1)),
+					stored_size, stored_checksum
+				)) {
+					return false;
+				}
+				continue;
+			}
+		}
+		if(literal_count == sizeof(literals)) {
+			if(!t1replay_op_accelerator_emit_byte(
+				out, static_cast<uint8_t>(literal_count - 1),
+				stored_size, stored_checksum
+			)) {
+				return false;
+			}
+			for(i = 0; i < literal_count; i++) {
+				if(!t1replay_op_accelerator_emit_byte(
+					out, literals[i], stored_size, stored_checksum
+				)) {
+					return false;
+				}
+			}
+			literal_count = 0;
+		}
+	}
+	if(literal_count != 0) {
+		if(!t1replay_op_accelerator_emit_byte(
+			out, static_cast<uint8_t>(literal_count - 1),
+			stored_size, stored_checksum
+		)) {
+			return false;
+		}
+		for(i = 0; i < literal_count; i++) {
+			if(!t1replay_op_accelerator_emit_byte(
+				out, literals[i], stored_size, stored_checksum
+			)) {
+				return false;
+			}
+		}
+	}
+	return (consumed == T1REPLAY_CHECKPOINT_SIZE);
+}
+
+static bool t1replay_op_accelerator_raw(
+	FILE *source, FILE *out, uint32_t *stored_size, uint32_t *stored_checksum
+)
+{
+	uint8_t bytes[128];
+	uint32_t left = T1REPLAY_CHECKPOINT_SIZE;
+	unsigned want;
+
+	*stored_size = 0;
+	*stored_checksum = T1REPLAY_FNV1A_BASIS;
+	if(fseek(source, 0L, SEEK_SET) != 0) {
+		return false;
+	}
+	while(left != 0) {
+		want = static_cast<unsigned>(
+			(left > sizeof(bytes)) ? sizeof(bytes) : left
+		);
+		if((fread(bytes, 1, want, source) != want) ||
+			(out && (fwrite(bytes, 1, want, out) != want))) {
+			return false;
+		}
+		*stored_checksum = t1replay_op_fnv1a(
+			*stored_checksum, bytes, want
+		);
+		*stored_size += want;
+		left -= want;
+	}
+	return true;
+}
+
+static bool t1replay_op_accelerator_candidate_build(
+	const t1replay_header_t *pending_header, char *candidate_fn
+)
+{
+#if T1REPLAY_CHECKPOINT_RESTORE
+	t1replay_accelerator_header_t accelerator_header;
+	t1replay_accelerator_entry_t entries[STAGE_COUNT];
+	t1replay_checkpoint_pacing_t pacing;
+	t1replay_header_t final_header = *pending_header;
+	char checkpoint_fn[12];
+	char pending_fn[10];
+	char mode_read[3];
+	char mode_write[4];
+	uint8_t bytes[128];
+	uint8_t process_seq;
+	uint8_t source_process;
+	uint8_t stage_id;
+	uint16_t entry_count = 0;
+	uint32_t payload_offset;
+	uint32_t stored_size;
+	uint32_t stored_checksum;
+	uint32_t raw_size;
+	uint32_t raw_checksum;
+	uint32_t accelerator_checksum;
+	uint32_t input_left;
+	long file_size;
+	unsigned want;
+	FILE *checkpoint = 0;
+	FILE *source = 0;
+	FILE *candidate = 0;
+	bool ok = false;
+
+	mode_read[0] = 'r'; mode_read[1] = 'b'; mode_read[2] = '\0';
+	mode_write[0] = 'w'; mode_write[1] = '+';
+	mode_write[2] = 'b'; mode_write[3] = '\0';
+	memset(entries, 0, sizeof(entries));
+	payload_offset = T1REPLAY_ACCELERATOR_HEADER_SIZE;
+	for(stage_id = 0; stage_id < STAGE_COUNT; stage_id++) {
+		if(!t1replay_op_checkpoint_fn(
+			checkpoint_fn, T1REPLAY_SLOT_PENDING, stage_id
+		) || !t1replay_op_file_exists(checkpoint_fn)) {
+			continue;
+		}
+		if(!t1replay_op_checkpoint_probe(
+			T1REPLAY_SLOT_PENDING, pending_header, stage_id,
+			&process_seq, &source_process
+		)) {
+			return false;
+		}
+		checkpoint = fopen(checkpoint_fn, mode_read);
+		if(!checkpoint ||
+			(fseek(checkpoint, static_cast<long>(
+				offsetof(t1replay_checkpoint_t, pacing)
+			), SEEK_SET) != 0) ||
+			(fread(&pacing, 1, sizeof(pacing), checkpoint) != sizeof(pacing)) ||
+			!t1replay_op_accelerator_zero_literal(
+				checkpoint, 0, &stored_size, &stored_checksum
+			) || !t1replay_op_accelerator_raw(
+				checkpoint, 0, &raw_size, &raw_checksum
+			)) {
+			if(checkpoint) {
+				fclose(checkpoint);
+			}
+			return false;
+		}
+		fclose(checkpoint);
+		checkpoint = 0;
+		entries[entry_count].stage_id = stage_id;
+		entries[entry_count].process_seq = process_seq;
+		entries[entry_count].source_process = source_process;
+		entries[entry_count].codec =
+			(stored_size < raw_size) ?
+				T1REPLAY_ACCELERATOR_CODEC_ZERO_LITERAL :
+				T1REPLAY_ACCELERATOR_CODEC_RAW;
+		entries[entry_count].stored_size = static_cast<uint16_t>(
+			(stored_size < raw_size) ? stored_size : raw_size
+		);
+		entries[entry_count].decoded_size = T1REPLAY_CHECKPOINT_SIZE;
+		entries[entry_count].decoded_checksum = raw_checksum;
+		entries[entry_count].sample_anchor = pacing.replay_sample_anchor;
+		entries[entry_count].packet_anchor = pacing.replay_packet_anchor;
+		entries[entry_count].input_anchor = pacing.replay_input_anchor;
+		entries[entry_count].prefix_checksum = pacing.replay_prefix_checksum;
+		entries[entry_count].stored_checksum =
+			(stored_size < raw_size) ? stored_checksum : raw_checksum;
+		entry_count++;
+	}
+	if(entry_count != pending_header->summary.split_count) {
+		return false;
+	}
+	for(stage_id = 0; stage_id < entry_count; stage_id++) {
+		if(entries[stage_id].stage_id !=
+			pending_header->summary.splits[stage_id].stage_id) {
+			return false;
+		}
+	}
+	payload_offset += (
+		static_cast<uint32_t>(entry_count) * T1REPLAY_ACCELERATOR_ENTRY_SIZE
+	);
+	for(stage_id = 0; stage_id < entry_count; stage_id++) {
+		entries[stage_id].payload_offset = payload_offset;
+		payload_offset += entries[stage_id].stored_size;
+	}
+
+	final_header.magic[5] = '7';
+	final_header.version = T1REPLAY_VERSION_EMBEDDED_ACCELERATOR;
+	t1replay_op_header_checksum_set(&final_header);
+	memset(&accelerator_header, 0, sizeof(accelerator_header));
+	accelerator_header.magic[0] = 'T'; accelerator_header.magic[1] = '1';
+	accelerator_header.magic[2] = 'A'; accelerator_header.magic[3] = 'C';
+	accelerator_header.magic[4] = 'C'; accelerator_header.magic[5] = '1';
+	accelerator_header.version = T1REPLAY_ACCELERATOR_VERSION;
+	accelerator_header.header_size = T1REPLAY_ACCELERATOR_HEADER_SIZE;
+	accelerator_header.entry_size = T1REPLAY_ACCELERATOR_ENTRY_SIZE;
+	accelerator_header.entry_count = entry_count;
+	accelerator_header.total_size = payload_offset;
+	accelerator_header.replay_header_checksum = final_header.header_checksum;
+	accelerator_header.directory_checksum = t1replay_op_fnv1a(
+		T1REPLAY_FNV1A_BASIS, entries,
+		(static_cast<unsigned>(entry_count) * T1REPLAY_ACCELERATOR_ENTRY_SIZE)
+	);
+	t1replay_op_pending_fn(pending_fn);
+	remove(candidate_fn);
+	source = fopen(pending_fn, mode_read);
+	candidate = fopen(candidate_fn, mode_write);
+	if(!source || !candidate ||
+		(fwrite(&final_header, 1, sizeof(final_header), candidate) !=
+		 sizeof(final_header)) ||
+		(fseek(source, static_cast<long>(pending_header->input_offset), SEEK_SET) != 0)) {
+		goto done;
+	}
+	input_left = pending_header->input_size;
+	while(input_left != 0) {
+		want = static_cast<unsigned>(
+			(input_left > sizeof(bytes)) ? sizeof(bytes) : input_left
+		);
+		if((fread(bytes, 1, want, source) != want) ||
+			(fwrite(bytes, 1, want, candidate) != want)) {
+			goto done;
+		}
+		input_left -= want;
+	}
+	if((fwrite(
+		&accelerator_header, 1, sizeof(accelerator_header), candidate
+	) != sizeof(accelerator_header)) ||
+		(fwrite(
+			entries, 1,
+			(static_cast<unsigned>(entry_count) * T1REPLAY_ACCELERATOR_ENTRY_SIZE),
+			candidate
+		) != (static_cast<unsigned>(entry_count) *
+			  T1REPLAY_ACCELERATOR_ENTRY_SIZE))) {
+		goto done;
+	}
+	for(stage_id = 0; stage_id < entry_count; stage_id++) {
+		t1replay_op_checkpoint_fn(
+			checkpoint_fn, T1REPLAY_SLOT_PENDING, entries[stage_id].stage_id
+		);
+		checkpoint = fopen(checkpoint_fn, mode_read);
+		if(!checkpoint) {
+			goto done;
+		}
+		if(entries[stage_id].codec ==
+			T1REPLAY_ACCELERATOR_CODEC_ZERO_LITERAL) {
+			ok = t1replay_op_accelerator_zero_literal(
+				checkpoint, candidate, &stored_size, &stored_checksum
+			);
+		} else {
+			ok = t1replay_op_accelerator_raw(
+				checkpoint, candidate, &stored_size, &stored_checksum
+			);
+		}
+		fclose(checkpoint);
+		checkpoint = 0;
+		if(!ok || (stored_size != entries[stage_id].stored_size) ||
+			(stored_checksum != entries[stage_id].stored_checksum)) {
+			ok = false;
+			goto done;
+		}
+	}
+	if(fflush(candidate) != 0) {
+		ok = false;
+		goto done;
+	}
+	if(fseek(candidate, static_cast<long>(
+		pending_header->input_offset + pending_header->input_size
+	), SEEK_SET) != 0) {
+		ok = false;
+		goto done;
+	}
+	accelerator_checksum = T1REPLAY_FNV1A_BASIS;
+	input_left = accelerator_header.total_size;
+	while(input_left != 0) {
+		want = static_cast<unsigned>(
+			(input_left > sizeof(bytes)) ? sizeof(bytes) : input_left
+		);
+		if(fread(bytes, 1, want, candidate) != want) {
+			ok = false;
+			goto done;
+		}
+		if(input_left == accelerator_header.total_size) {
+			bytes[28] = 0; bytes[29] = 0; bytes[30] = 0; bytes[31] = 0;
+		}
+		accelerator_checksum = t1replay_op_fnv1a(
+			accelerator_checksum, bytes, want
+		);
+		input_left -= want;
+	}
+	accelerator_header.accelerator_checksum = accelerator_checksum;
+	if((fseek(candidate, static_cast<long>(
+		pending_header->input_offset + pending_header->input_size
+	), SEEK_SET) != 0) ||
+		(fwrite(
+			&accelerator_header, 1, sizeof(accelerator_header), candidate
+		) != sizeof(accelerator_header)) || (fflush(candidate) != 0) ||
+		(fseek(candidate, 0L, SEEK_END) != 0) ||
+		((file_size = ftell(candidate)) != static_cast<long>(
+			pending_header->input_offset + pending_header->input_size +
+			accelerator_header.total_size
+		))) {
+		ok = false;
+		goto done;
+	}
+	ok = true;
+
+done:
+	if(checkpoint) {
+		fclose(checkpoint);
+	}
+	if(source) {
+		fclose(source);
+	}
+	if(candidate && (fclose(candidate) != 0)) {
+		ok = false;
+	}
+	if(!ok) {
+		remove(candidate_fn);
+	} else {
+		t1replay_op_dos_flush();
+	}
+	return ok;
+#else
+	(pending_header); (candidate_fn);
 	return false;
 #endif
 }

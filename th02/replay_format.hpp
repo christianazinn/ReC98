@@ -14,6 +14,7 @@
 #define T2REPLAY_VERSION_LEGACY 1
 #define T2REPLAY_VERSION_PREVIOUS 2
 #define T2REPLAY_VERSION 3
+#define T2REPLAY_VERSION_EMBEDDED_ACCELERATOR 4
 #define T2REPLAY_HEADER_SIZE_LEGACY 128
 #define T2REPLAY_HEADER_SIZE 136
 #define T2REPLAY_PACKET_SIZE 4
@@ -34,6 +35,10 @@
 // eventual numbered slot after a finalized terminal capture exists.
 #define T2REPLAY_TEMP_SLOT T2REPLAY_SLOT_COUNT
 #define T2REPLAY_INPUT_SIZE_MAX 0x00400000UL
+
+#define T2REPLAY_ACCELERATOR_VERSION 1
+#define T2REPLAY_ACCELERATOR_HEADER_SIZE 32
+#define T2REPLAY_ACCELERATOR_ENTRY_SIZE 24
 
 // Private semantic-checkpoint vocabulary for later exact TH02 seeks. This
 // remains separate from public T2RPY1, T2RPY2, and T2RPY3 payloads. Groups append
@@ -478,6 +483,29 @@ struct t2replay_header_t {
 	uint32_t slow_frames;
 };
 
+struct t2replay_accelerator_header_t {
+	char magic[8]; // "T2ACC1\\0\\0"
+	uint16_t version;
+	uint16_t header_size;
+	uint16_t entry_size;
+	uint16_t entry_count;
+	uint32_t total_size;
+	uint32_t replay_header_checksum;
+	uint32_t directory_checksum;
+	uint32_t accelerator_checksum;
+};
+
+struct t2replay_accelerator_entry_t {
+	uint8_t stage_id;
+	uint8_t schema;
+	uint16_t reserved;
+	uint32_t sample_anchor;
+	uint32_t packet_anchor;
+	uint32_t prefix_checksum;
+	uint32_t start_offset;
+	uint32_t start_checksum;
+};
+
 struct t2replay_packet_t {
 	uint8_t tag;
 	uint8_t input_low;
@@ -646,6 +674,14 @@ typedef char t2replay_start_size_check[
 ];
 typedef char t2replay_header_size_check[
 	(sizeof(t2replay_header_t) == T2REPLAY_HEADER_SIZE) ? 1 : -1
+];
+typedef char t2replay_accelerator_header_size_check[
+	(sizeof(t2replay_accelerator_header_t) ==
+	 T2REPLAY_ACCELERATOR_HEADER_SIZE) ? 1 : -1
+];
+typedef char t2replay_accelerator_entry_size_check[
+	(sizeof(t2replay_accelerator_entry_t) ==
+	 T2REPLAY_ACCELERATOR_ENTRY_SIZE) ? 1 : -1
 ];
 typedef char t2replay_packet_size_check[
 	(sizeof(t2replay_packet_t) == T2REPLAY_PACKET_SIZE) ? 1 : -1
