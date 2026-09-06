@@ -29,6 +29,7 @@
 #include "th02/hardware/pages.hpp"
 #include "th02/math/randring.hpp"
 #include "th02/snd/snd.h"
+#include "th02/snd/mmd_seek.hpp"
 #include "th02/main/frames.hpp"
 #include "th02/main/main.hpp"
 #include "th02/main/memory_budget.hpp"
@@ -7709,16 +7710,8 @@ static void near t2replay_practice_music_seek(void)
 {
 	uint16_t measure;
 
-	if(!snd_bgm_active() || !snd_bgm_is_fm()) {
-		return;
-	}
 	measure = t2replay_practice_music_measure(t2replay_practice_target);
-	if(measure == 0) {
-		return;
-	}
-	_DX = measure;
-	_AH = PMD_SEEK_MEASURE;
-	geninterrupt(PMD);
+	snd_bgm_seek_measure(measure);
 }
 
 void replay_stage_start(void)
@@ -8140,6 +8133,10 @@ bool replay_playback_exit_requested(void)
 // Keep this replay-owned segment's growth paragraph-aligned so every
 // following stock and patch segment retains its audited phase.
 #pragma codestring "\x90\x90\x90"
+// MIDI seeking uses the native MENU_TEXT reserve for its implementation.
+// Preserve this segment's accepted extent after reducing the call site.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90"
 
 #pragma codeseg T2RCKVAL_TEXT
 // Read-only bridge for the later common-apply parcel. Keeping it in its own

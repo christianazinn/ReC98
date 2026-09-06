@@ -36,6 +36,9 @@
 #include "th04/replay_targets.hpp"
 #include "th04/score.h"
 #include "th04/snd/snd.h"
+#define MMD_22FG_SEEK_IMPLEMENTATION
+#include "th02/snd/mmd_seek.hpp"
+#undef MMD_22FG_SEEK_IMPLEMENTATION
 #include "th03/core/initexit.h"
 #if (GAME == 5)
 	#include "th05/hardware/input.h"
@@ -2432,9 +2435,6 @@ static void replay_practice_music_seek(
 	uint16_t frame;
 	uint16_t measure;
 
-	if(!snd_bgm_active() || !snd_bgm_is_fm()) {
-		return;
-	}
 	if(start->kind == RSK_CHAPTER) {
 		frame = replay_practice_chapter_frame(start->stage, start->section);
 	} else if(start->kind == RSK_MIDBOSS) {
@@ -2443,12 +2443,7 @@ static void replay_practice_music_seek(
 		return;
 	}
 	measure = replay_practice_music_measure_for_frame(start->stage, frame);
-	if(measure == 0) {
-		return;
-	}
-	_DX = measure;
-	_AH = PMD_SEEK_MEASURE;
-	geninterrupt(PMD);
+	snd_bgm_seek_measure(measure);
 }
 
 bool replay_practice_preroll_boundary(void)
@@ -3922,6 +3917,6 @@ bool replay_playback_active(void)
 
 // The recording preference and V7 wire-header handling remain in this
 // replay-owned tail. Preserve the following stock CRT paragraph phase.
-	#pragma codestring "\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
