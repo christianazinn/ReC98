@@ -7656,6 +7656,27 @@ bool replay_practice_stage_presentation_skip(void)
 	return (t2replay_practice_target != T2RPT_STAGE_START);
 }
 
+void replay_practice_stage_fade_wait(void)
+{
+	if(
+		!t2practice_diag_no_sound() &&
+		!replay_practice_stage_presentation_skip()
+	) {
+		snd_delay_until_volume(255);
+	}
+}
+
+void replay_practice_stage_vsync_wait(void)
+{
+	if(
+		!t2practice_diag_no_sound() &&
+		!replay_practice_stage_presentation_skip()
+	) {
+		while(vsync_Count1 < 100) {
+		}
+	}
+}
+
 static uint16_t near t2replay_practice_music_measure(uint8_t target)
 {
 	if(target == T2RPT_STAGE1_CHAPTER2) { return 19; }

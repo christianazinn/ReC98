@@ -454,9 +454,7 @@ void near stage_init(void)
 
 	tile_area_init_and_put_both();
 	if(!resident->demo_num) {
-		if(!t2practice_diag_no_sound()) {
-			snd_delay_until_volume(255);
-		}
+		replay_practice_stage_fade_wait();
 		stage_fn_ext_set(fn, aM);
 	}
 	items_init_and_reset();
@@ -464,10 +462,7 @@ void near stage_init(void)
 #ifdef T2PD
 	t2practice_diag_main_progress(T2PDMP_STAGE_TILES_READY, resident->stage);
 #endif
-	if(!t2practice_diag_no_sound()) {
-		while(vsync_Count1 < 100) {
-		}
-	}
+	replay_practice_stage_vsync_wait();
 #ifdef T2PD
 	t2practice_diag_main_progress(T2PDMP_STAGE_VSYNC_READY, resident->stage);
 #endif
@@ -534,3 +529,6 @@ void near continue_resume(void)
 	palette_100();
 	nopcall_same_group(overlay_stage_enter_animate);
 }
+
+// Keep MENU_TEXT and all following stock segments on their established phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90"

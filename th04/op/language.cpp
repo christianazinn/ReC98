@@ -613,7 +613,7 @@ static void language_config_name_set(void)
 	language_config_fn[10] = '\0';
 }
 
-static void language_text_set(void)
+static void language_audio_filenames_set(void)
 {
 	language_menu_bgm_fn[0] = 'o';
 	language_menu_bgm_fn[1] = 'p';
@@ -650,6 +650,7 @@ static void language_config_load(void)
 	language_current = LANGUAGE_JAPANESE;
 	replay_recording_current = true;
 	language_config_name_set();
+	language_audio_filenames_set();
 	fh = replay_op_dos_open(language_config_fn);
 	if(fh < 0) {
 		return;
@@ -937,13 +938,6 @@ static void language_option_put(language_option_choice_t sel, vc2 color)
 
 static void language_option_audio_restart(bool also_reload_se)
 {
-	snd_kaja_func(KAJA_SONG_STOP, 0);
-	if(resident->bgm_mode == SND_BGM_OFF) {
-		// Music Off only gates BGM after stopping the current song. Keep PMD and
-		// its loaded effect bank resident for the selected S.E. mode.
-		snd_bgm_mode = SND_BGM_OFF;
-		return;
-	}
 #if (GAME == 5)
 	if(also_reload_se) {
 		snd_determine_modes(resident->bgm_mode, resident->se_mode);
@@ -1010,6 +1004,9 @@ static void language_option_change(bool increment)
 		}
 		break;
 	case LOC_BGM:
+		// Stop the currently active driver before changing the requested mode.
+		// Once Off is selected, snd_kaja_func() intentionally becomes a no-op.
+		snd_kaja_func(KAJA_SONG_STOP, 0);
 		if(increment) {
 			if(resident->bgm_mode == SND_BGM_FM86) {
 				resident->bgm_mode = SND_BGM_OFF;
@@ -1129,6 +1126,7 @@ void far language_option_update_and_render(void)
 	}
 	if((key_det & INPUT_OK) || (key_det & INPUT_SHOT)) {
 		if(language_option_sel == LOC_RESET) {
+			snd_kaja_func(KAJA_SONG_STOP, 0);
 			resident->rank = RANK_NORMAL;
 			resident->cfg_lives = CFG_LIVES_DEFAULT;
 			resident->cfg_bombs = CFG_BOMBS_DEFAULT;
@@ -1162,6 +1160,7 @@ void far language_option_update_and_render(void)
 }
 
 // Keep each game's following CRT segment on its stock paragraph phase.
+	#pragma codestring "\x90\x90\x90\x90\x90\x90"
 #if (GAME == 4)
 	#pragma codestring "\x90\x90"
 #endif
