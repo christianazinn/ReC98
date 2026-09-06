@@ -8,8 +8,8 @@ void language_main_titles_apply(void);
 #if (GAME == 5)
 	void language_main_hud_gaiji_apply(void);
 #endif
-const char *language_main_pause_label(uint8_t option);
-const char *language_main_pause_title(void);
+const char far *language_main_pause_label(uint8_t option);
+const char far *language_main_pause_title(void);
 
 // Same signature and ABI as text_putsa(). Redirecting the original calls to
 // this seam therefore preserves their instruction widths and segment layout.

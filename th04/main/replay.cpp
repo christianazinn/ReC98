@@ -6,7 +6,6 @@
 
 #include "platform.h"
 #include "x86real.h"
-#include <string.h>
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
@@ -3316,19 +3315,33 @@ static bool replay_pause_save_refresh(void)
 	return (was_available && !replay_pause_save_available());
 }
 
+static void replay_pause_english_put(
+	tram_x_t center, tram_y_t y, const char far *source, unsigned color
+)
+{
+	char label[20];
+	unsigned length = 0;
+
+	while((length < (sizeof(label) - 1)) && (source[length] != '\0')) {
+		label[length] = source[length];
+		length++;
+	}
+	label[length] = '\0';
+	text_putsa(
+		static_cast<tram_x_t>(center - (length / 2)), y, label, color
+	);
+}
+
 static void replay_pause_label_put(
 	uint8_t option, tram_y_t y, unsigned color
 )
 {
-	const char *english_label = language_main_pause_label(option);
+	const char far *english_label = language_main_pause_label(option);
 	char label[15];
 	char *p = label;
 
 	if(english_label) {
-		text_putsa(
-			static_cast<tram_x_t>(28 - (strlen(english_label) / 2)),
-			y, english_label, color
-		);
+		replay_pause_english_put(28, y, english_label, color);
 		return;
 	}
 
@@ -3408,7 +3421,9 @@ extern "C" int far replay_pause_menu(void)
 	(void)replay_pause_save_refresh();
 	save_available = replay_pause_save_available();
 	if(language_main_english_selected()) {
-		text_putsa(25, 10, language_main_pause_title(), TX_YELLOW);
+		replay_pause_english_put(
+			28, 10, language_main_pause_title(), TX_YELLOW
+		);
 	} else {
 		gaiji_putsa(26, 10, gsCHUUDAN, TX_YELLOW);
 	}
@@ -3918,5 +3933,9 @@ bool replay_playback_active(void)
 // The recording preference and V7 wire-header handling remain in this
 // replay-owned tail. Preserve the following stock CRT paragraph phase.
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+
+// v0.1.3-rc1 copies English Pause labels into local storage before rendering.
+// Keep the following stock CRT segment on its audited paragraph phase.
+	#pragma codestring "\x90\x90"
 
 #pragma codeseg

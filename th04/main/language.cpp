@@ -559,7 +559,7 @@ static const shiftjis_t far *language_main_th04_title(unsigned index)
 
 #endif
 
-const char *language_main_pause_label(uint8_t option)
+const char far *language_main_pause_label(uint8_t option)
 {
 	if(!language_main_english_selected()) {
 		return 0;
@@ -572,7 +572,7 @@ const char *language_main_pause_label(uint8_t option)
 	}
 }
 
-const char *language_main_pause_title(void)
+const char far *language_main_pause_title(void)
 {
 	return language_main_english_selected()
 		? language_main_text(LMT_PAUSED) : 0;

@@ -4301,6 +4301,35 @@ static char *replay_save_modal_choice_append(char *p, bool yes)
 	return p;
 }
 
+static char *replay_save_modal_english_question_append(
+	char *p, replay_save_modal_t modal
+)
+{
+	#define P(c) *p++ = c
+	if(modal == RSM_SAVE) {
+		P('S'); P('a'); P('v'); P('e');
+	} else if(modal == RSM_DISCARD) {
+		P('D'); P('i'); P('s'); P('c'); P('a'); P('r'); P('d');
+	} else {
+		P('O'); P('v'); P('e'); P('r'); P('w'); P('r'); P('i'); P('t'); P('e');
+	}
+	P(' '); P('R'); P('e'); P('p'); P('l'); P('a'); P('y'); P('?');
+	#undef P
+	return p;
+}
+
+static char *replay_save_modal_english_choice_append(char *p, bool yes)
+{
+	#define P(c) *p++ = c
+	if(yes) {
+		P('Y'); P('e'); P('s');
+	} else {
+		P('N'); P('o');
+	}
+	#undef P
+	return p;
+}
+
 static void replay_save_sjis_put_centered(vram_y_t top, vc2 color, char *p)
 {
 	*p = '\0';
@@ -4320,19 +4349,29 @@ static void replay_save_modal_render(
 
 	graph_accesspage(page_drawn);
 	pi_put_8(0, 0, 0);
-	p = replay_op_line;
-	p = replay_save_modal_question_append(p, modal);
-	replay_save_sjis_put_centered(152, V_WHITE, p);
-	p = replay_op_line;
-	p = replay_save_modal_choice_append(p, true);
-	replay_save_sjis_put_centered(
-		200, (selected_yes ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
-	);
-	p = replay_op_line;
-	p = replay_save_modal_choice_append(p, false);
-	replay_save_sjis_put_centered(
-		232, (selected_yes ? V_WHITE : REPLAY_OP_COL_ACTIVE), p
-	);
+	if(language_op_english_selected()) {
+		p = replay_save_modal_english_question_append(replay_op_line, modal);
+		replay_op_line_put_centered(152, V_WHITE, p);
+		p = replay_save_modal_english_choice_append(replay_op_line, true);
+		replay_op_line_put_centered(
+			200, (selected_yes ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
+		);
+		p = replay_save_modal_english_choice_append(replay_op_line, false);
+		replay_op_line_put_centered(
+			232, (selected_yes ? V_WHITE : REPLAY_OP_COL_ACTIVE), p
+		);
+	} else {
+		p = replay_save_modal_question_append(replay_op_line, modal);
+		replay_save_sjis_put_centered(152, V_WHITE, p);
+		p = replay_save_modal_choice_append(replay_op_line, true);
+		replay_save_sjis_put_centered(
+			200, (selected_yes ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
+		);
+		p = replay_save_modal_choice_append(replay_op_line, false);
+		replay_save_sjis_put_centered(
+			232, (selected_yes ? V_WHITE : REPLAY_OP_COL_ACTIVE), p
+		);
+	}
 	graph_showpage(page_drawn);
 	replay_op_page_shown = page_drawn;
 }
@@ -4930,7 +4969,7 @@ static void replay_main_credit_put(void)
 	TITLE_CREDIT_QUAD(1, 0x50207961UL); // "ay P"
 	TITLE_CREDIT_QUAD(2, 0x68637461UL); // "atch"
 	TITLE_CREDIT_QUAD(3, 0x2E307620UL); // " v0."
-	TITLE_CREDIT_QUAD(4, 0x20322E31UL); // "1.2 "
+	TITLE_CREDIT_QUAD(4, 0x20332E31UL); // "1.3 "
 	TITLE_CREDIT_QUAD(5, 0x43207962UL); // "by C"
 	TITLE_CREDIT_QUAD(6, 0x73697268UL); // "hris"
 	TITLE_CREDIT_QUAD(7, 0x6E616974UL); // "tian"
@@ -5596,5 +5635,9 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 // The recording preference and V7 wire-header handling remain in this
 // replay-owned tail. Its former padding is consumed by the Music-Off restart
 // repair while the structural gate below retains the stock CRT phase.
+
+// v0.1.3-rc1 adds proportional English replay-save modals. Keep the following
+// stock CRT segment on its audited paragraph phase.
+	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
