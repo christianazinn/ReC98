@@ -2984,7 +2984,7 @@ static bool t2op_replay_surface_prepare(enum t2op_replay_surface_t surface)
 	// font before decoding the much larger transient PI. Loading it afterward
 	// can fail on a fragmented OP heap even though both allocations fit when
 	// acquired in this order.
-	if((surface != T2ORS_NAME) && !replay_op_font_load()) {
+	if(!replay_op_font_load()) {
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 		replay_practice_diag_boot(55);
 #endif
@@ -5139,27 +5139,75 @@ enum t2op_save_confirm_t {
 	T2OSC_DISCARD,
 };
 
+static char *t2op_discard_japanese_question_append(char *p)
+{
+	#define P(c) *p++ = static_cast<char>(c)
+	P(0x95); P(0xDB); P(0x91); P(0xB6); P(0x82); P(0xF0); P(0x82); P(0xE2);
+	P(0x82); P(0xDF); P(0x82); P(0xDC); P(0x82); P(0xB7); P(0x82); P(0xA9);
+	P(0x81); P(0x48);
+	#undef P
+	return p;
+}
+
+static char *t2op_japanese_choice_append(char *p, bool yes)
+{
+	#define P(c) *p++ = static_cast<char>(c)
+	if(yes) {
+		P(0x82); P(0xCD); P(0x82); P(0xA2);
+	} else {
+		P(0x82); P(0xA2); P(0x82); P(0xA2); P(0x82); P(0xA6);
+	}
+	#undef P
+	return p;
+}
+
+static void t2op_sjis_center_at(vram_y_t top, int color, char *end)
+{
+	*end = '\0';
+	graph_putsa_fx(
+		static_cast<screen_x_t>(
+			(RES_X - ((end - t2op_line) * GLYPH_HALF_W)) / 2
+		),
+		top, (color | FX_WEIGHT_NORMAL),
+		reinterpret_cast<const shiftjis_t *>(t2op_line)
+	);
+}
+
 static void t2op_save_confirm_render(t2op_save_confirm_t modal, bool yes)
 {
 	char *p;
 	uint8_t page_drawn = t2op_surface_draw_begin();
-
-	p = t2op_word_append(
-		t2op_line,
-		(modal == T2OSC_SAVE) ? T2OW_SAVE_REPLAY : T2OW_DISCARD_REPLAY
+	bool japanese_discard = (
+		(modal == T2OSC_DISCARD) &&
+		(t2_language_get() == T2LANG_JAPANESE)
 	);
-	p = t2op_char(p, '?');
-	t2op_text_put(31, 9, TX_YELLOW, p);
-	p = t2op_line;
-	p = t2op_char(p, yes ? '>' : ' ');
-	p = t2op_char(p, ' ');
-	p = t2op_word_append(p, T2OW_YES);
-	t2op_text_put(34, 11, yes ? TX_WHITE : TX_YELLOW, p);
-	p = t2op_line;
-	p = t2op_char(p, yes ? ' ' : '>');
-	p = t2op_char(p, ' ');
-	p = t2op_word_append(p, T2OW_NO);
-	t2op_text_put(34, 12, yes ? TX_YELLOW : TX_WHITE, p);
+	tram_atrb2 selected = (
+		(modal == T2OSC_DISCARD) ? TX_BLUE : TX_WHITE
+	);
+
+	if(japanese_discard) {
+		p = t2op_discard_japanese_question_append(t2op_line);
+		t2op_sjis_center_at(152, V_WHITE, p);
+		p = t2op_japanese_choice_append(t2op_line, true);
+		t2op_sjis_center_at(
+			200, t2op_text_color(yes ? selected : TX_YELLOW), p
+		);
+		p = t2op_japanese_choice_append(t2op_line, false);
+		t2op_sjis_center_at(
+			232, t2op_text_color(yes ? TX_YELLOW : selected), p
+		);
+	} else {
+		p = t2op_word_append(
+			t2op_line,
+			(modal == T2OSC_SAVE) ? T2OW_SAVE_REPLAY : T2OW_DISCARD_REPLAY
+		);
+		p = t2op_char(p, '?');
+		t2op_word_center_at(152, TX_YELLOW, p);
+		p = t2op_word_append(t2op_line, T2OW_YES);
+		t2op_word_center_at(200, yes ? selected : TX_YELLOW, p);
+		p = t2op_word_append(t2op_line, T2OW_NO);
+		t2op_word_center_at(232, yes ? TX_YELLOW : selected, p);
+	}
 	t2op_surface_draw_end(page_drawn);
 }
 
