@@ -163,12 +163,14 @@ stage:
 #ifdef T2PD
 	t2practice_diag_main_progress(T2PDMP_REPLAY_STAGE_START, stage_id);
 #endif
-	nopcall_same_group(overlay_stage_enter_animate);
+	if(!replay_practice_stage_presentation_skip()) {
+		nopcall_same_group(overlay_stage_enter_animate);
+	}
 #ifdef T2PD
 	t2practice_diag_main_progress(T2PDMP_STAGE_OVERLAY, stage_id);
 #endif
 
-	if(!resident->demo_num) {
+	if(!resident->demo_num && !replay_practice_stage_presentation_skip()) {
 		if(stage_id == 5) {
 			gaiji_putsa(16, 12, gEXTRA_STAGE, TX_YELLOW);
 		} else {

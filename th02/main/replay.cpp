@@ -12,6 +12,7 @@
 #pragma option -zCT2REPLAY_TEXT -G-
 
 #include "platform.h"
+#include "x86real.h"
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
@@ -4218,18 +4219,24 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 		practice_target_valid = true;
 	} else if(
 		(practice_target == T2RPT_STAGE1_CHAPTER2) ||
+		((practice_target >= T2RPT_STAGE1_CHAPTER3) &&
+		 (practice_target <= T2RPT_STAGE1_PRE_BOSS)) ||
 		((practice_target >= T2RPT_STAGE1_MIDBOSS) &&
 		 (practice_target <= T2RPT_STAGE1_BOSS_PHASE3))
 	) {
 		practice_target_valid = (start->stage == 0);
 	} else if(
 		(practice_target == T2RPT_STAGE2_CHAPTER2) ||
+		((practice_target >= T2RPT_STAGE2_CHAPTER3) &&
+		 (practice_target <= T2RPT_STAGE2_PRE_BOSS)) ||
 		((practice_target >= T2RPT_STAGE2_MIDBOSS) &&
 		 (practice_target <= T2RPT_STAGE2_BOSS_PHASE3))
 	) {
 		practice_target_valid = (start->stage == 1);
 	} else if(
 		(practice_target == T2RPT_STAGE3_CHAPTER2) ||
+		((practice_target >= T2RPT_STAGE3_CHAPTER3) &&
+		 (practice_target <= T2RPT_STAGE3_PRE_BOSS)) ||
 		(practice_target == T2RPT_STAGE3_MIDBOSS) ||
 		(practice_target == T2RPT_STAGE3_BOSS_START) ||
 		(practice_target == T2RPT_STAGE3_INNER_PAIR) ||
@@ -4240,6 +4247,8 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 	} else if(
 		(practice_target == T2RPT_STAGE4_CHAPTER2) ||
 		(practice_target == T2RPT_STAGE4_CHAPTER3) ||
+		((practice_target >= T2RPT_STAGE4_CHAPTER4) &&
+		 (practice_target <= T2RPT_STAGE4_PRE_BOSS)) ||
 		((practice_target >= T2RPT_STAGE4_MIDBOSS_FIRST) &&
 		 (practice_target <= T2RPT_STAGE4_BOSS_START)) ||
 		(practice_target == T2RPT_STAGE4_BOSS_PHASE1) ||
@@ -4250,6 +4259,7 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 	) {
 		practice_target_valid = (start->stage == 3);
 	} else if(
+		(practice_target == T2RPT_STAGE5_PRE_BOSS) ||
 		(practice_target == T2RPT_STAGE5_BOSS_START) ||
 		(practice_target == T2RPT_STAGE5_BOSS_PHASE1) ||
 		(practice_target == T2RPT_STAGE5_BOSS_PHASE3) ||
@@ -4264,6 +4274,8 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 		);
 	} else if(
 		(practice_target == T2RPT_EXTRA_CHAPTER2) ||
+		((practice_target >= T2RPT_EXTRA_CHAPTER3) &&
+		 (practice_target <= T2RPT_EXTRA_PRE_BOSS)) ||
 		(practice_target == T2RPT_EXTRA_MIDBOSS) ||
 		(practice_target == T2RPT_EXTRA_BOSS_START) ||
 		(practice_target == T2RPT_EXTRA_BOSS_PHASE1) ||
@@ -7372,7 +7384,16 @@ static bool16 near t2practice_target_apply_explicit(uint8_t target)
 	}
 	if(target == T2RPT_STAGE1_CHAPTER2) {
 		if(stage_id != 0) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
-		target_scroll_step = 186;
+		target_scroll_step = 58;
+	} else if(target == T2RPT_STAGE1_CHAPTER3) {
+		if(stage_id != 0) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 112;
+	} else if(target == T2RPT_STAGE1_CHAPTER4) {
+		if(stage_id != 0) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 198;
+	} else if(target == T2RPT_STAGE1_PRE_BOSS) {
+		if(stage_id != 0) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 250;
 	} else if(target == T2RPT_STAGE1_MIDBOSS) {
 		if(stage_id != 0) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
 		target_scroll_step = 116;
@@ -7388,7 +7409,22 @@ static bool16 near t2practice_target_apply_explicit(uint8_t target)
 		   !t2replay_stage1_rika_activate_clean(rika_target)) { return false; }
 	} else if(target == T2RPT_STAGE2_CHAPTER2) {
 		if(stage_id != 1) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
-		target_scroll_step = 135;
+		target_scroll_step = 32;
+	} else if(target == T2RPT_STAGE2_CHAPTER3) {
+		if(stage_id != 1) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 54;
+	} else if(target == T2RPT_STAGE2_CHAPTER4) {
+		if(stage_id != 1) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 100;
+	} else if(target == T2RPT_STAGE2_CHAPTER5) {
+		if(stage_id != 1) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 176;
+	} else if(target == T2RPT_STAGE2_CHAPTER6) {
+		if(stage_id != 1) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 224;
+	} else if(target == T2RPT_STAGE2_PRE_BOSS) {
+		if(stage_id != 1) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 272;
 	} else if(target == T2RPT_STAGE2_MIDBOSS) {
 		if(stage_id != 1) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
 		target_scroll_step = 80;
@@ -7405,7 +7441,18 @@ static bool16 near t2practice_target_apply_explicit(uint8_t target)
 	} else if(target == T2RPT_STAGE3_CHAPTER2) {
 		if(stage_id != 2) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
 		th02_s3_field_clean_init();
-		target_scroll_step = 151;
+		target_scroll_step = 53;
+	} else if(
+		(target >= T2RPT_STAGE3_CHAPTER3) &&
+		(target <= T2RPT_STAGE3_PRE_BOSS)
+	) {
+		if(stage_id != 2) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		th02_s3_field_clean_init();
+		if(target == T2RPT_STAGE3_CHAPTER3) { target_scroll_step = 104; }
+		else if(target == T2RPT_STAGE3_CHAPTER4) { target_scroll_step = 150; }
+		else if(target == T2RPT_STAGE3_CHAPTER5) { target_scroll_step = 182; }
+		else if(target == T2RPT_STAGE3_CHAPTER6) { target_scroll_step = 240; }
+		else { target_scroll_step = 265; }
 	} else if(target == T2RPT_STAGE3_MIDBOSS) {
 		if(stage_id != 2) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
 		th02_s3_field_clean_init();
@@ -7430,10 +7477,20 @@ static bool16 near t2practice_target_apply_explicit(uint8_t target)
 		}
 	} else if(target == T2RPT_STAGE4_CHAPTER2) {
 		if(stage_id != 3) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
-		target_scroll_step = 1327;
+		target_scroll_step = 288;
 	} else if(target == T2RPT_STAGE4_CHAPTER3) {
 		if(stage_id != 3) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
-		target_scroll_step = 2008;
+		target_scroll_step = 448;
+	} else if(
+		(target >= T2RPT_STAGE4_CHAPTER4) &&
+		(target <= T2RPT_STAGE4_PRE_BOSS)
+	) {
+		if(stage_id != 3) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		if(target == T2RPT_STAGE4_CHAPTER4) { target_scroll_step = 576; }
+		else if(target == T2RPT_STAGE4_CHAPTER5) { target_scroll_step = 764; }
+		else if(target == T2RPT_STAGE4_CHAPTER6) { target_scroll_step = 1024; }
+		else if(target == T2RPT_STAGE4_CHAPTER7) { target_scroll_step = 1824; }
+		else { target_scroll_step = 2144; }
 	} else if(target == T2RPT_STAGE4_MIDBOSS_FIRST) {
 		if((stage_id != 3) ||
 		   !t2replay_stage4_midboss_activate_clean(T2S4_MIDBOSS_FIRST, 944)) {
@@ -7480,6 +7537,9 @@ static bool16 near t2practice_target_apply_explicit(uint8_t target)
 			if(stage_id != 3) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); }
 			return false;
 		}
+	} else if(target == T2RPT_STAGE5_PRE_BOSS) {
+		if(stage_id != 4) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		target_scroll_step = 128;
 	} else if(target == T2RPT_STAGE5_BOSS_START) {
 		if((stage_id != 4) || !t2replay_stage5_mima_activate_clean()) { return false; }
 	} else if(target == T2RPT_STAGE5_BOSS_PHASE1) {
@@ -7494,7 +7554,22 @@ static bool16 near t2practice_target_apply_explicit(uint8_t target)
 		if((stage_id != 4) || !t2replay_stage5_mima_phase9_activate_clean()) { return false; }
 	} else if(target == T2RPT_EXTRA_CHAPTER2) {
 		if(stage_id != 5) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
-		target_scroll_step = 239;
+		target_scroll_step = 96;
+	} else if(
+		(target >= T2RPT_EXTRA_CHAPTER3) &&
+		(target <= T2RPT_EXTRA_PRE_BOSS)
+	) {
+		if(stage_id != 5) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
+		if(target == T2RPT_EXTRA_CHAPTER3) { target_scroll_step = 112; }
+		else if(target == T2RPT_EXTRA_CHAPTER4) { target_scroll_step = 176; }
+		else if(target == T2RPT_EXTRA_CHAPTER5) { target_scroll_step = 240; }
+		else if(target == T2RPT_EXTRA_CHAPTER6) { target_scroll_step = 280; }
+		else if(target == T2RPT_EXTRA_CHAPTER7) { target_scroll_step = 344; }
+		else if(target == T2RPT_EXTRA_CHAPTER8) { target_scroll_step = 400; }
+		else if(target == T2RPT_EXTRA_CHAPTER9) { target_scroll_step = 448; }
+		else if(target == T2RPT_EXTRA_CHAPTER10) { target_scroll_step = 560; }
+		else if(target == T2RPT_EXTRA_CHAPTER11) { target_scroll_step = 592; }
+		else { target_scroll_step = 624; }
 	} else if(target == T2RPT_EXTRA_MIDBOSS) {
 		if(stage_id != 5) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); return false; }
 		target_scroll_step = 200;
@@ -7517,8 +7592,8 @@ static bool16 near t2practice_target_apply_explicit(uint8_t target)
 
 	if(target_scroll_step >= 0) {
 		if(!practice_chapter_field_build(target_scroll_step)) { return false; }
-		if((target == T2RPT_STAGE4_CHAPTER2) ||
-		   (target == T2RPT_STAGE4_CHAPTER3)) {
+		if((target >= T2RPT_STAGE4_CHAPTER6) &&
+		   (target <= T2RPT_STAGE4_PRE_BOSS)) {
 			midboss_scroll_step = 1632;
 		}
 	}
@@ -7574,10 +7649,83 @@ bool16 replay_practice_target_apply(void)
 }
 #endif
 
+bool replay_practice_stage_presentation_skip(void)
+{
+	return (t2replay_practice_target != T2RPT_STAGE_START);
+}
+
+static uint16_t near t2replay_practice_music_measure(uint8_t target)
+{
+	if(target == T2RPT_STAGE1_CHAPTER2) { return 19; }
+	if(target == T2RPT_STAGE1_CHAPTER3) { return 37; }
+	if(target == T2RPT_STAGE1_MIDBOSS) { return 38; }
+	if(target == T2RPT_STAGE1_CHAPTER4) { return 66; }
+	if(target == T2RPT_STAGE1_PRE_BOSS) { return 83; }
+
+	if(target == T2RPT_STAGE2_CHAPTER2) { return 10; }
+	if(target == T2RPT_STAGE2_CHAPTER3) { return 18; }
+	if(target == T2RPT_STAGE2_MIDBOSS) { return 26; }
+	if(target == T2RPT_STAGE2_CHAPTER4) { return 33; }
+	if(target == T2RPT_STAGE2_CHAPTER5) { return 58; }
+	if(target == T2RPT_STAGE2_CHAPTER6) { return 74; }
+	if(target == T2RPT_STAGE2_PRE_BOSS) { return 90; }
+
+	if(target == T2RPT_STAGE3_CHAPTER2) { return 17; }
+	if(target == T2RPT_STAGE3_MIDBOSS) { return 34; }
+	if(target == T2RPT_STAGE3_CHAPTER3) { return 34; }
+	if(target == T2RPT_STAGE3_CHAPTER4) { return 50; }
+	if(target == T2RPT_STAGE3_CHAPTER5) { return 60; }
+	if(target == T2RPT_STAGE3_CHAPTER6) { return 80; }
+	if(target == T2RPT_STAGE3_PRE_BOSS) { return 88; }
+
+	if(target == T2RPT_STAGE4_CHAPTER2) { return 12; }
+	if(target == T2RPT_STAGE4_CHAPTER3) { return 18; }
+	if(target == T2RPT_STAGE4_CHAPTER4) { return 24; }
+	if(target == T2RPT_STAGE4_CHAPTER5) { return 31; }
+	if(target == T2RPT_STAGE4_MIDBOSS_FIRST) { return 39; }
+	if(target == T2RPT_STAGE4_CHAPTER6) { return 42; }
+	if(target == T2RPT_STAGE4_MIDBOSS_SECOND) { return 68; }
+	if(target == T2RPT_STAGE4_CHAPTER7) { return 76; }
+	if(target == T2RPT_STAGE4_PRE_BOSS) { return 89; }
+
+	if(target == T2RPT_STAGE5_PRE_BOSS) { return 10; }
+
+	if(target == T2RPT_EXTRA_CHAPTER2) { return 16; }
+	if(target == T2RPT_EXTRA_CHAPTER3) { return 18; }
+	if(target == T2RPT_EXTRA_CHAPTER4) { return 29; }
+	if(target == T2RPT_EXTRA_MIDBOSS) { return 33; }
+	if(target == T2RPT_EXTRA_CHAPTER5) { return 40; }
+	if(target == T2RPT_EXTRA_CHAPTER6) { return 46; }
+	if(target == T2RPT_EXTRA_CHAPTER7) { return 57; }
+	if(target == T2RPT_EXTRA_CHAPTER8) { return 66; }
+	if(target == T2RPT_EXTRA_CHAPTER9) { return 74; }
+	if(target == T2RPT_EXTRA_CHAPTER10) { return 93; }
+	if(target == T2RPT_EXTRA_CHAPTER11) { return 98; }
+	if(target == T2RPT_EXTRA_PRE_BOSS) { return 104; }
+	return 0;
+}
+
+static void near t2replay_practice_music_seek(void)
+{
+	uint16_t measure;
+
+	if(!snd_bgm_active() || !snd_bgm_is_fm()) {
+		return;
+	}
+	measure = t2replay_practice_music_measure(t2replay_practice_target);
+	if(measure == 0) {
+		return;
+	}
+	_DX = measure;
+	_AH = PMD_SEEK_MEASURE;
+	geninterrupt(PMD);
+}
+
 void replay_stage_start(void)
 {
 	t2replay_fast_forward_boundary_reset();
 	replay_rank_lock_apply();
+	t2replay_practice_music_seek();
 #ifdef T2SGA
 	t2debug_coords_reset();
 #endif

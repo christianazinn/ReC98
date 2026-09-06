@@ -17,6 +17,10 @@ void replay_stage_start(void);
 // malformed or unavailable target.
 bool16 replay_practice_target_apply(void);
 
+// Non-start Practice targets enter on an already constructed playfield. The
+// native stage curtain and title would describe an opening the player skipped.
+bool replay_practice_stage_presentation_skip(void);
+
 // Owns TH02's two physical-page scroll-line values. The source loop starts
 // both from its original packed initializer and continues to address them by
 // the physical back-page index.
