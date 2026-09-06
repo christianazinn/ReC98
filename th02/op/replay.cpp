@@ -182,6 +182,7 @@ enum t2op_word_t {
 	T2OW_MIDI,
 	T2OW_BROWSER,
 	T2OW_SAVE_REPLAY,
+	T2OW_DISCARD_REPLAY,
 	T2OW_OVERWRITE_REPLAY,
 	T2OW_YES,
 	T2OW_NO,
@@ -1692,7 +1693,11 @@ static bool t2op_stage_seek_valid(uint8_t slot)
 	int fd;
 	bool valid = false;
 
-	t2op_slot_set(slot);
+	if(slot == T2REPLAY_TEMP_SLOT) {
+		t2op_temp_set();
+	} else {
+		t2op_slot_set(slot);
+	}
 	if(
 		((t2op_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
 		 (t2op_header.magic[5] == '4')) ||
@@ -2393,6 +2398,7 @@ static char *t2op_word_append(char *p, t2op_word_t word)
 	case T2OW_MIDI: P('M'); P('I'); P('D'); P('I'); break;
 	case T2OW_BROWSER: P('R'); P('e'); P('p'); P('l'); P('a'); P('y'); P(' '); P('B'); P('r'); P('o'); P('w'); P('s'); P('e'); P('r'); break;
 	case T2OW_SAVE_REPLAY: P('S'); P('a'); P('v'); P('e'); P(' '); P('R'); P('e'); P('p'); P('l'); P('a'); P('y'); break;
+	case T2OW_DISCARD_REPLAY: P('D'); P('i'); P('s'); P('c'); P('a'); P('r'); P('d'); P(' '); P('R'); P('e'); P('p'); P('l'); P('a'); P('y'); break;
 	case T2OW_OVERWRITE_REPLAY: P('O'); P('v'); P('e'); P('r'); P('w'); P('r'); P('i'); P('t'); P('e'); P(' '); P('R'); P('e'); P('p'); P('l'); P('a'); P('y'); P('?'); break;
 	case T2OW_YES: P('Y'); P('e'); P('s'); break;
 	case T2OW_NO: P('N'); P('o'); break;
@@ -3338,6 +3344,8 @@ static void t2op_name_menu_render(
 	t2op_name_keyboard_put(selected_col, selected_row);
 }
 
+static bool t2op_discard_confirm(void);
+
 static bool t2op_name_menu(uint8_t far *name)
 {
 	uint8_t col = 0;
@@ -3386,7 +3394,10 @@ static bool t2op_name_menu(uint8_t far *name)
 				t2op_name_menu_render(name, col, row);
 			}
 			if(key_det & INPUT_CANCEL) {
-				return false;
+				if(t2op_discard_confirm()) {
+					return false;
+				}
+				t2op_name_menu_render(name, col, row);
 			}
 			if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
 				cell = static_cast<uint8_t>(
@@ -4874,7 +4885,9 @@ static void t2op_browser_render(void)
 	p = t2op_word_append(
 		p, (t2_replay_recording_enabled() ? T2OW_ON : T2OW_OFF)
 	);
-	t2op_word_put_at(T2OP_BROWSER_SLOT_LEFT, 356, TX_WHITE, p);
+	// Palette entry 7 is the yellow selection color on this surface. TX_YELLOW
+	// maps the proportional renderer to the untouched white entry 15.
+	t2op_word_put_at(T2OP_BROWSER_SLOT_LEFT, 356, TX_YELLOW, p);
 	t2op_surface_draw_end(page_drawn);
 }
 
@@ -5121,33 +5134,41 @@ static void t2op_pending_discard(void)
 	t2op_file_delete(t2op_seek_fn);
 }
 
-static void t2op_save_confirm_render(bool save)
+enum t2op_save_confirm_t {
+	T2OSC_SAVE,
+	T2OSC_DISCARD,
+};
+
+static void t2op_save_confirm_render(t2op_save_confirm_t modal, bool yes)
 {
 	char *p;
 	uint8_t page_drawn = t2op_surface_draw_begin();
 
-	p = t2op_word_append(t2op_line, T2OW_SAVE_REPLAY);
+	p = t2op_word_append(
+		t2op_line,
+		(modal == T2OSC_SAVE) ? T2OW_SAVE_REPLAY : T2OW_DISCARD_REPLAY
+	);
 	p = t2op_char(p, '?');
 	t2op_text_put(31, 9, TX_YELLOW, p);
 	p = t2op_line;
-	p = t2op_char(p, save ? '>' : ' ');
+	p = t2op_char(p, yes ? '>' : ' ');
 	p = t2op_char(p, ' ');
 	p = t2op_word_append(p, T2OW_YES);
-	t2op_text_put(34, 11, save ? TX_WHITE : TX_YELLOW, p);
+	t2op_text_put(34, 11, yes ? TX_WHITE : TX_YELLOW, p);
 	p = t2op_line;
-	p = t2op_char(p, save ? ' ' : '>');
+	p = t2op_char(p, yes ? ' ' : '>');
 	p = t2op_char(p, ' ');
 	p = t2op_word_append(p, T2OW_NO);
-	t2op_text_put(34, 12, save ? TX_YELLOW : TX_WHITE, p);
+	t2op_text_put(34, 12, yes ? TX_YELLOW : TX_WHITE, p);
 	t2op_surface_draw_end(page_drawn);
 }
 
-static bool t2op_save_confirm(void)
+static bool t2op_save_confirm(t2op_save_confirm_t modal, bool default_yes)
 {
 	bool input_allowed = false;
-	bool save = true;
+	bool yes = default_yes;
 
-	t2op_save_confirm_render(save);
+	t2op_save_confirm_render(modal, yes);
 	while(1) {
 		input_reset_sense();
 		if(key_det == INPUT_NONE) {
@@ -5158,14 +5179,14 @@ static bool t2op_save_confirm(void)
 				(key_det & INPUT_UP) || (key_det & INPUT_DOWN) ||
 				(key_det & INPUT_LEFT) || (key_det & INPUT_RIGHT)
 			) {
-				save = !save;
-				t2op_save_confirm_render(save);
+				yes = !yes;
+				t2op_save_confirm_render(modal, yes);
 			} else if(key_det & INPUT_CANCEL) {
 				key_det = INPUT_NONE;
 				return false;
 			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
 				key_det = INPUT_NONE;
-				return save;
+				return yes;
 			}
 			if(key_det != INPUT_NONE) {
 				input_allowed = false;
@@ -5173,6 +5194,11 @@ static bool t2op_save_confirm(void)
 		}
 		frame_delay(1);
 	}
+}
+
+static bool t2op_discard_confirm(void)
+{
+	return t2op_save_confirm(T2OSC_DISCARD, false);
 }
 
 static void t2op_overwrite_render(uint8_t slot, bool overwrite)
@@ -5444,6 +5470,11 @@ static void t2op_browser(bool save_pending, const uint8_t far *pending_name)
 				t2op_browser_render();
 			} else if(key_det & INPUT_CANCEL) {
 				if(save_pending) {
+					if(!t2op_discard_confirm()) {
+						t2op_browser_render();
+						input_allowed = false;
+						continue;
+					}
 					t2op_pending_discard();
 				}
 				break;
@@ -5493,7 +5524,7 @@ static bool t2op_pending_save(void)
 	}
 	if(
 		(t2op_pending_source == T2REPLAY_SAVE_REQUEST_CLEAR) &&
-		!t2op_save_confirm()
+		!t2op_save_confirm(T2OSC_SAVE, true)
 	) {
 		t2op_pending_discard();
 		t2op_preintro_release();

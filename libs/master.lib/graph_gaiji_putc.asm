@@ -59,7 +59,12 @@ func GRAPH_GAIJI_PUTC	; graph_gaiji_putc() {
 	; master.lib bug: This calculation should not add the carry flag – if it's
 	; set, the resulting JIS code point will correspond to ([@@ank] + 1). ADD
 	; is the correct instruction here.
-if GAME ge 4
+	; TH02's Replay Save screen also requires the corrected calculation. Leaving
+	; the stock ADC here makes every displayed glyph depend on the caller's carry
+	; flag, which shifts names and metadata by one code point.
+if GAME eq 2
+	add	BP,5680h	;from gjwrite.asm
+elseif GAME ge 4
 	add	BP,5680h	;from gjwrite.asm
 else
 	adc	BP,5680h	;from gjwrite.asm
