@@ -4796,7 +4796,9 @@ static bool t1replay_op_replay_render(void)
 	} else {
 		*p++ = 'O'; *p++ = 'f'; *p++ = 'f';
 	}
-	t1replay_op_text_put(32, 356, T1REPLAY_OP_COL_LABEL, p);
+	t1replay_op_text_put(
+		T1REPLAY_OP_BROWSER_SLOT_LEFT, 356, T1REPLAY_OP_COL_LABEL, p
+	);
 	return true;
 }
 

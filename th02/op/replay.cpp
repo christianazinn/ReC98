@@ -4874,7 +4874,7 @@ static void t2op_browser_render(void)
 	p = t2op_word_append(
 		p, (t2_replay_recording_enabled() ? T2OW_ON : T2OW_OFF)
 	);
-	t2op_word_put_at(32, 356, TX_WHITE, p);
+	t2op_word_put_at(T2OP_BROWSER_SLOT_LEFT, 356, TX_WHITE, p);
 	t2op_surface_draw_end(page_drawn);
 }
 

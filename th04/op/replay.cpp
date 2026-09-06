@@ -2430,7 +2430,7 @@ static void replay_browser_footer_put(uint8_t sel)
 	} else {
 		*p++ = 'f'; *p++ = 'f';
 	}
-	replay_op_line_put(32, 356, V_WHITE, p);
+	replay_op_line_put(REPLAY_BROWSER_SLOT_LEFT, 356, V_WHITE, p);
 
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_PAGE);
@@ -5578,11 +5578,11 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 #endif
 
 // The final Advanced-setting consolidation changes the generated target-menu
-// code size. Preserve the stock CRT paragraph phase in each game build.
+// code size. The Music-Off restart repair consumes part of this padding while
+// preserving the stock CRT paragraph phase in each game build.
 #if (GAME == 4)
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90"
 #else
-	#pragma codestring "\x90\x90\x90\x90"
 #endif
 
 // v0.1.2 adds the title unlock sequence. Preserve each game's stock CRT
@@ -5590,11 +5590,11 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90\x90"
 #else
-	#pragma codestring "\x90\x90\x90"
+	#pragma codestring "\x90\x90"
 #endif
 
 // The recording preference and V7 wire-header handling remain in this
-// replay-owned tail. Preserve the following stock CRT paragraph phase.
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+// replay-owned tail. Its former padding is consumed by the Music-Off restart
+// repair while the structural gate below retains the stock CRT phase.
 
 #pragma codeseg

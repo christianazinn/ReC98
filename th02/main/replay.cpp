@@ -119,7 +119,7 @@ static bool t2replay_playback_exit;
 static bool t2replay_save_prompted;
 static bool t2replay_stage_seen;
 static uint8_t t2replay_last_stage;
-static uint8_t t2replay_practice_target;
+uint8_t t2replay_practice_target;
 static uint8_t t2replay_fast_forward_phase;
 static uint8_t t2replay_fast_forward_slowdown;
 static bool t2replay_fast_forward_slowdown_active;

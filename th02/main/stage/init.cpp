@@ -33,6 +33,7 @@
 #include "th02/main/null.hpp"
 #include "th02/main/playfld.hpp"
 #include "th02/main/playperf.hpp"
+#include "th02/main/replay.hpp"
 #include "th02/main/score.hpp"
 #include "th02/main/scroll.hpp"
 #include "th02/main/slowdown.hpp"
@@ -278,10 +279,10 @@ void near stage_init(void)
 	graph_showpage(0);
 	hud_put();
 	overlay_wipe();
-	// ZUN bloat: Applied twice, for no effect.
-	pi_palette_apply(0);
-	pi_palette_apply(0);
-	pi_put_8(96, 144, 0);
+	if(!t2replay_practice_target) {
+		pi_palette_apply(0);
+		pi_put_8(96, 144, 0);
+	}
 #ifdef T2PD
 	t2practice_diag_main_progress(T2PDMP_STAGE_SCREEN_READY, resident->stage);
 #endif

@@ -938,6 +938,12 @@ static void language_option_put(language_option_choice_t sel, vc2 color)
 static void language_option_audio_restart(bool also_reload_se)
 {
 	snd_kaja_func(KAJA_SONG_STOP, 0);
+	if(resident->bgm_mode == SND_BGM_OFF) {
+		// Music Off only gates BGM after stopping the current song. Keep PMD and
+		// its loaded effect bank resident for the selected S.E. mode.
+		snd_bgm_mode = SND_BGM_OFF;
+		return;
+	}
 #if (GAME == 5)
 	if(also_reload_se) {
 		snd_determine_modes(resident->bgm_mode, resident->se_mode);
