@@ -2513,7 +2513,8 @@ static int t2op_text_color(tram_atrb2 attr)
 	} else if(attr == TX_WHITE) {
 		color = 7;
 	} else if(attr == TX_BLUE) {
-		color = 4;
+		// SLB1B.PI palette entry 8 is the dark blue used by TH04's modal.
+		color = 8;
 	}
 	return color;
 }
