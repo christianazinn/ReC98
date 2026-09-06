@@ -948,8 +948,10 @@ static void language_option_audio_restart(bool also_reload_se)
 #else
 	snd_determine_modes(resident->bgm_mode, resident->se_mode);
 #endif
-	language_asset_snd_load(language_menu_bgm_fn, SND_LOAD_SONG);
-	snd_kaja_func(KAJA_SONG_PLAY, 0);
+	if(snd_bgm_active()) {
+		language_asset_snd_load(language_menu_bgm_fn, SND_LOAD_SONG);
+		snd_kaja_func(KAJA_SONG_PLAY, 0);
+	}
 }
 
 static void language_option_change(bool increment)
@@ -1155,9 +1157,5 @@ void far language_option_update_and_render(void)
 
 // Keep each game's following CRT segment on its stock paragraph phase.
 #if (GAME == 4)
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#else
-	// The S.E.-Off archive guard grows TH05 by 11 bytes. Five more keep the
-	// following stock segment on the same paragraph phase.
-	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
+	#pragma codestring "\x90\x90"
 #endif

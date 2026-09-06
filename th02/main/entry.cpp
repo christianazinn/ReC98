@@ -170,17 +170,19 @@ stage:
 	t2practice_diag_main_progress(T2PDMP_STAGE_OVERLAY, stage_id);
 #endif
 
-	if(!resident->demo_num && !replay_practice_stage_presentation_skip()) {
-		if(stage_id == 5) {
-			gaiji_putsa(16, 12, gEXTRA_STAGE, TX_YELLOW);
-		} else {
-			gaiji_putsa(
-				(TITLE_RIGHT - stage1_gaiji_halflen), 12, gStage1, TX_YELLOW
+	if(!resident->demo_num) {
+		if(!replay_practice_stage_presentation_skip()) {
+			if(stage_id == 5) {
+				gaiji_putsa(16, 12, gEXTRA_STAGE, TX_YELLOW);
+			} else {
+				gaiji_putsa(
+					(TITLE_RIGHT - stage1_gaiji_halflen), 12, gStage1, TX_YELLOW
+				);
+			}
+			text_putsa(
+				(TITLE_RIGHT - stage_title_halflen), 13, stage_title, TX_WHITE
 			);
 		}
-		text_putsa(
-			(TITLE_RIGHT - stage_title_halflen), 13, stage_title, TX_WHITE
-		);
 	} else {
 		gaiji_putsa(18, 12, gDEMO_PLAY, (TX_YELLOW + TX_BLINK));
 	}

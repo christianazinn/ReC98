@@ -50,6 +50,7 @@
 #include "th02/main/actor_core.hpp"
 #include "th02/main/checkpoint_apply.hpp"
 #include "th02/main/hud/hud.hpp"
+#include "th02/main/hud/overlay.hpp"
 #include "th02/main/playperf.hpp"
 #include "th02/main/practice.hpp"
 #include "th02/practice_diag.hpp"
@@ -7718,6 +7719,8 @@ void replay_stage_start(void)
 {
 	t2replay_fast_forward_boundary_reset();
 	replay_rank_lock_apply();
+	// Resolve stage_init()'s opaque TRAM mask before a direct-start seek waits.
+	overlay_wipe();
 	t2replay_practice_music_seek();
 #ifdef T2SGA
 	t2debug_coords_reset();
@@ -8133,9 +8136,9 @@ bool replay_playback_exit_requested(void)
 // Keep this replay-owned segment's growth paragraph-aligned so every
 // following stock and patch segment retains its audited phase.
 #pragma codestring "\x90\x90\x90"
-// MIDI seeking uses the native MENU_TEXT reserve for its implementation.
-// Preserve this segment's accepted extent after reducing the call site.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+// MIDI seeking uses the native MENU_TEXT reserve for its implementation, and
+// the direct-start TRAM cleanup consumes five bytes here.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90"
 
 #pragma codeseg T2RCKVAL_TEXT
