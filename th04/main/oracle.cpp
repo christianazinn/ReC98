@@ -256,6 +256,39 @@ typedef char oracle_circle_layout_must_match_frozen[
 	? 1 : -1
 ];
 
+// Both unexported reads below are anchored on a frozen public symbol, never a
+// segment or a raw absolute address. th04_main.asm's BSS makes the first one
+// exact: `_dream_score dw ?` is immediately followed by `byte_2D00E db ?`,
+// and sub_1DA1B seeds and items_add() advances that byte. The second BSS run
+// is likewise explicit: `word_25100 dw ?` precedes the randring include by
+// twelve bytes, and the scroll code is its only writer/reader. Later source
+// names it `tile_ring_row_filled`; this frozen source does not export it.
+static const unsigned int ORACLE_ENEMY_DROP_RING_P_FROM_DREAM_SCORE = 2;
+static const unsigned int ORACLE_TILE_ROW_FILLED_BEFORE_RANDRING = 12;
+typedef char oracle_unexported_binding_layout_must_match_frozen[
+	(sizeof(dream_score) == ORACLE_ENEMY_DROP_RING_P_FROM_DREAM_SCORE) &&
+	(sizeof(randring) == ORACLE_RANDRING_SIZE) &&
+	(sizeof(int) == 2) &&
+	(ORACLE_TILE_ROW_FILLED_BEFORE_RANDRING == 12)
+	? 1 : -1
+];
+
+static uint8_t oracle_enemy_drop_ring_p_get(void)
+{
+	return *(
+		reinterpret_cast<const uint8_t near *>(&dream_score) +
+		ORACLE_ENEMY_DROP_RING_P_FROM_DREAM_SCORE
+	);
+}
+
+static int oracle_tile_ring_row_filled_get(void)
+{
+	return *(
+		reinterpret_cast<const int near *>(randring) -
+		(ORACLE_TILE_ROW_FILLED_BEFORE_RANDRING / sizeof(int))
+	);
+}
+
 #if (GAME == 5)
 	struct puppet_t;
 	typedef bool (pascal near *near oracle_puppet_func_t)(
@@ -1854,7 +1887,7 @@ static void oracle_hash_group_items(oracle_split_hash_t far *out)
 		oracle_hash_u16(static_cast<uint16_t>(item_splashes[i].radius_prev.v));
 	}
 	oracle_hash_u8(item_splash_last_id);
-	oracle_hash_u8(enemy_drop_ring_p);
+	oracle_hash_u8(oracle_enemy_drop_ring_p_get());
 	oracle_hash_u8(item_playperf_raise);
 	oracle_hash_u8(item_playperf_lower);
 	oracle_hash_u8(static_cast<uint8_t>(items_pull_to_player));
@@ -1981,7 +2014,7 @@ static void oracle_hash_group_field(oracle_split_hash_t far *out)
 		}
 	}
 	oracle_hash_u8(static_cast<uint8_t>(tile_row_in_section));
-	oracle_hash_u16(static_cast<uint16_t>(tile_ring_row_filled));
+	oracle_hash_u16(static_cast<uint16_t>(oracle_tile_ring_row_filled_get()));
 
 	// Do not serialize callback addresses. These installed facts remain useful
 	// for the shared field schema; TH05's Stage 2 controller tail follows them.
