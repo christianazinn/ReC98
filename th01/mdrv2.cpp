@@ -1,1 +1,8 @@
+#define mdrv2_bgm_load mdrv2_bgm_load_raw
+#define mdrv2_bgm_play mdrv2_bgm_play_raw
+#define mdrv2_bgm_stop mdrv2_bgm_stop_raw
+#define mdrv2_bgm_fade_out_nonblock mdrv2_bgm_fade_out_nonblock_raw
+#define mdrv2_bgm_fade_out_block mdrv2_bgm_fade_out_block_raw
+#define mdrv2_bgm_fade_in mdrv2_bgm_fade_in_raw
+#define mdrv2_se_play mdrv2_se_play_raw
 #include "th01/snd/mdrv2.cpp"

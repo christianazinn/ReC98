@@ -1,4 +1,5 @@
 #include "platform.h"
+#include "th01/snd/audio.hpp"
 
 // Returns `true` if the MDRV2 driver is resident.
 bool16 mdrv2_resident(void);

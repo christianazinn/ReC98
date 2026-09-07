@@ -67,6 +67,7 @@ bool16 t1boss_sariel_checkpoint_capture(
 bool16 t1boss_sariel_ckpt_apply_loaded(
 	const t1boss_sariel_checkpoint_t *checkpoint
 );
+bool16 t1boss_sariel_practice_construct(uint8_t target);
 
 #if T1SAR_DIRECT_TRACE
 // Private profile only. The constructor follows the native phase-0 entrance

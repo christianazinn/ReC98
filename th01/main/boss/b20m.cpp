@@ -96,7 +96,8 @@ enum sariel_colors_t {
 	COL_BIRD = 15, // Yes, just a single one, changed by the background image.
 };
 
-static union {
+extern "C" {
+union {
 	int frame;
 	int speed_multiplied_by_8;
 	int interval;
@@ -104,7 +105,8 @@ static union {
 	pixel_t velocity_x;
 	int pellet_count;
 	int unknown;
-} pattern_state;
+} t1bp_sar_pattern;
+}
 
 // File names
 // ----------
@@ -864,7 +866,7 @@ void near pattern_vortices(void)
 	if(boss_phase_frame < 50) {
 		return;
 	} else if(boss_phase_frame == 50) {
-		select_for_rank(pattern_state.frame, 140, 145, 150, 155);
+		select_for_rank(t1bp_sar_pattern.frame, 140, 145, 150, 155);
 	}
 	if(boss_phase_frame < 100) {
 		for(int i = 0; i < VORTEX_COUNT; i++) {
@@ -878,7 +880,7 @@ void near pattern_vortices(void)
 			prev.left[i] = cur.left[i];
 			prev.top[i] = cur.top[i];
 		}
-	} else if(boss_phase_frame < pattern_state.frame) {
+	} else if(boss_phase_frame < t1bp_sar_pattern.frame) {
 		for(int i = 0; i < VORTEX_COUNT; i++) {
 			cur.left[i] += (i == 0) ? 5 : -5;
 			cur.top[i] -= 2;
@@ -968,7 +970,7 @@ void near pattern_random_purple_lasers(void)
 		return;
 	}
 	if(boss_phase_frame == KEYFRAME_0) {
-		select_laser_speed_for_rank(pattern_state.speed_multiplied_by_8,
+		select_laser_speed_for_rank(t1bp_sar_pattern.speed_multiplied_by_8,
 			8.5f, 9.0f, 9.5f, 10.0f
 		);
 		for(int i = 0; i < LASER_COUNT; i++) {
@@ -998,7 +1000,7 @@ void near pattern_random_purple_lasers(void)
 				spawner_y[i],
 				playfield_rand_x(),
 				PLAYFIELD_BOTTOM,
-				pattern_state.speed_multiplied_by_8,
+				t1bp_sar_pattern.speed_multiplied_by_8,
 				COL_LASER,
 				25,
 				5
@@ -1037,7 +1039,7 @@ void near pattern_birds_on_ellipse_arc(void)
 		spawner_top.v = to_sp(WAND_EMIT_TOP);
 		spawner_velocity_x.v = TO_SP(4 - ((irand() % 2) * 8));
 		spawner_velocity_y.v = TO_SP(2 - ((irand() % 2) * 4));
-		select_for_rank(pattern_state.interval, 20, 15, 10, 8);
+		select_for_rank(t1bp_sar_pattern.interval, 20, 15, 10, 8);
 		mdrv2_se_play(8);
 	} else if(boss_phase_frame < 200) {
 		if(spawner_left.v < to_sp(SHIELD_CENTER_X)) {
@@ -1056,7 +1058,7 @@ void near pattern_birds_on_ellipse_arc(void)
 		}
 		spawner_left.v += spawner_velocity_x.v;
 		spawner_top.v += spawner_velocity_y.v;
-		if((boss_phase_frame % pattern_state.interval) == 0) {
+		if((boss_phase_frame % t1bp_sar_pattern.interval) == 0) {
 			if(overlap_xy_lrtb_le_ge(
 				spawner_left.v, spawner_top.v,
 				to_sp(0.0), to_sp(0.0f),
@@ -1410,10 +1412,10 @@ void near pattern_detonating_snowflake(void)
 
 	if(boss_phase_frame < 10) {
 		state.phase = P_RESET;
-		select_for_rank(pattern_state.start_frame, 160, 160, 160, 160);
+		select_for_rank(t1bp_sar_pattern.start_frame, 160, 160, 160, 160);
 	}
 
-	if((boss_phase_frame % pattern_state.start_frame) == 0) {
+	if((boss_phase_frame % t1bp_sar_pattern.start_frame) == 0) {
 		state.phase = P_WAND_RAISE;
 	}
 
@@ -1540,11 +1542,11 @@ void near pattern_2_rings_from_a2_orbs(void)
 void near pattern_aimed_sling_clusters(void)
 {
 	if(boss_phase_frame == 10) {
-		select_for_rank(pattern_state.interval, 4, 3, 2, 2);
+		select_for_rank(t1bp_sar_pattern.interval, 4, 3, 2, 2);
 	}
 	if(
 		((boss_phase_frame % 200) >= 150) &&
-		((boss_phase_frame % pattern_state.interval) == 0)
+		((boss_phase_frame % t1bp_sar_pattern.interval) == 0)
 	) {
 		screen_x_t left;
 		vram_y_t top;
@@ -1674,7 +1676,7 @@ void near pattern_four_aimed_lasers(void)
 	#define fire(laser_id, origin_left, origin_top, target_left) { \
 		shootout_lasers[laser_id].spawn( \
 			origin_left, origin_top, target_left, PLAYFIELD_BOTTOM, \
-			pattern_state.speed_multiplied_by_8, V_WHITE, 50, 8 \
+			t1bp_sar_pattern.speed_multiplied_by_8, V_WHITE, 50, 8 \
 		); \
 		mdrv2_se_play(6); \
 	}
@@ -1691,7 +1693,7 @@ void near pattern_four_aimed_lasers(void)
 		);
 
 		target_first = player_left;
-		select_laser_speed_for_rank(pattern_state.speed_multiplied_by_8,
+		select_laser_speed_for_rank(t1bp_sar_pattern.speed_multiplied_by_8,
 			7.5f, 8.0f, 8.5f, 9.0f
 		);
 
@@ -1787,7 +1789,7 @@ void near pattern_radial_stacks_and_lasers(void)
 	} else if(boss_phase_frame == 150) {
 		angle = 0x00;
 		angle_velocity = 0x01;
-		select_laser_speed_for_rank(pattern_state.speed_multiplied_by_8,
+		select_laser_speed_for_rank(t1bp_sar_pattern.speed_multiplied_by_8,
 			7.5f, 8.125f, 8.75f, 9.375f
 		);
 		mdrv2_se_play(6);
@@ -1813,7 +1815,7 @@ void near pattern_radial_stacks_and_lasers(void)
 			if((boss_phase_frame % 15) == 0) {
 				shootout_laser_safe((boss_phase_frame - 215) / 15).spawn(
 					CENTER_X, CENTER_Y, target_x, target_y,
-					pattern_state.speed_multiplied_by_8, V_WHITE, 20, 4
+					t1bp_sar_pattern.speed_multiplied_by_8, V_WHITE, 20, 4
 				);
 			} else {
 				Pellets.add_single(CENTER_X, CENTER_Y, angle, to_sp(6.25f));
@@ -1860,7 +1862,7 @@ void near pattern_symmetric_birds_from_bottom(void)
 		return;
 	}
 	if(boss_phase_frame == 50) {
-		select_for_rank(pattern_state.unknown, 6, 7, 8, 9);
+		select_for_rank(t1bp_sar_pattern.unknown, 6, 7, 8, 9);
 		rays.target_l_x = VELOCITY_X;
 		rays.target_y = (PLAYFIELD_BOTTOM - 1);
 		velocity.x = VELOCITY_X;
@@ -1980,7 +1982,7 @@ void near pattern_vertical_stacks_from_bottom_then_random_rain_from_top(void)
 		// Note that the value for Lunatic is less than the COLUMN_INTERVAL.
 		// This will move the spawners into another VRAM row before the pattern
 		// ends.
-		select_for_rank(pattern_state.interval, 16, 13, 10, 8);
+		select_for_rank(t1bp_sar_pattern.interval, 16, 13, 10, 8);
 
 		rays.target_l_x = 2;
 		rays.target_y = (PLAYFIELD_BOTTOM - 1);
@@ -2027,7 +2029,7 @@ void near pattern_vertical_stacks_from_bottom_then_random_rain_from_top(void)
 		rays.target_l_x = PLAYFIELD_LEFT;
 		rays.target_y = PLAYFIELD_TOP;
 	} else if(boss_phase_frame < KEYFRAME_4) {
-		if((boss_phase_frame % pattern_state.interval) == 0) {
+		if((boss_phase_frame % t1bp_sar_pattern.interval) == 0) {
 			for(int i = 0; i < 2; i++) {
 				rays.fire_random_to_bottom(angle, X_LEFT, to_sp(3.0f));
 				rays.fire_random_to_bottom(angle, X_RIGHT, to_sp(3.0f));
@@ -2157,7 +2159,7 @@ struct CurvedSpray {
 		subpattern_id = 0;
 
 		// Divisor = number of pellets effectively fired per direction.
-		select_for_rank(pattern_state.velocity_x,
+		select_for_rank(t1bp_sar_pattern.velocity_x,
 			(PLAYFIELD_W / 20),
 			(PLAYFIELD_W / 26.66),
 			(PLAYFIELD_W / 35.55),
@@ -2170,9 +2172,9 @@ struct CurvedSpray {
 		Pellets.add_single(SEAL_CENTER_X, SEAL_CENTER_Y, angle, speed);
 		speed -= 0.25f;
 		if(dir == X_RIGHT) {
-			target.x += pattern_state.velocity_x;
+			target.x += t1bp_sar_pattern.velocity_x;
 		} else {
-			target.x -= pattern_state.velocity_x;
+			target.x -= t1bp_sar_pattern.velocity_x;
 		}
 	}
 
@@ -2249,7 +2251,7 @@ void pascal near pattern_rain_from_seal_center(int &frame)
 		rays.target_y = (PLAYFIELD_BOTTOM - 1);
 		debris_cel_cur = C_DEBRIS;
 		debris_cel_prev = C_DEBRIS;
-		select_for_rank(pattern_state.pellet_count, 30, 35, 40, 45);
+		select_for_rank(t1bp_sar_pattern.pellet_count, 30, 35, 40, 45);
 	}
 
 	if(rays.target_y > SEAL_CENTER_Y) {
@@ -2270,9 +2272,9 @@ void pascal near pattern_rain_from_seal_center(int &frame)
 	mdrv2_se_play(3);
 	rays.unput_broken(VELOCITY_Y);
 
-	for(int i = 0; i < pattern_state.pellet_count; i++) {
+	for(int i = 0; i < t1bp_sar_pattern.pellet_count; i++) {
 		pellets_add_single_rain(
-			(PLAYFIELD_LEFT + ((PLAYFIELD_W / pattern_state.pellet_count) * i)),
+			(PLAYFIELD_LEFT + ((PLAYFIELD_W / t1bp_sar_pattern.pellet_count) * i)),
 			SEAL_CENTER_Y,
 			irand(),
 			1.0f
@@ -2488,8 +2490,8 @@ void pascal near pattern_swaying_leaves(int &frame, int spawn_interval_or_reset)
 	#undef leaf_on_screen
 }
 
-void sariel_main(void)
-{
+// Export existing storage for tail-only Practice; retain order and widths.
+extern "C" {
 	enum {
 		PHASE_FORM1_DEFEATED = 99,
 		PHASE_FORM2 = 100,
@@ -2498,11 +2500,11 @@ void sariel_main(void)
 		MAGNITUDE = 16,
 	};
 
-	static bool16 invincible;
-	static int invincibility_frame;
-	static pixel_t entrance_ring_radius_base;
-	static bool initial_hp_rendered;
-	static struct {
+	bool16 t1bp_sar_invincible;
+	int t1bp_sar_hit_frame;
+	pixel_t t1bp_sar_ring;
+	bool t1bp_sar_hp_done;
+	struct {
 		int pattern_cur;
 		union {
 			int patterns_done;
@@ -2519,7 +2521,7 @@ void sariel_main(void)
 
 		void frame_common(bool form2) {
 			boss_phase_frame++;
-			invincibility_frame++;
+			t1bp_sar_hit_frame++;
 			if(!form2) {
 				shield_render_both();
 				dress_render_both();
@@ -2545,19 +2547,23 @@ void sariel_main(void)
 			// even been sort of intended.
 			u1.patterns_done++;
 		}
-	} phase = { 0, 0, 0 };
+	} t1bp_sar_phase = { 0, 0, 0 };
+}
+
+void sariel_main(void)
+{
 
 	#define phase_form1_next_if_done(next_phase) { \
 		if(boss_hp <= 0) { \
 			boss_phase = PHASE_FORM1_DEFEATED; \
 		} \
 		if( \
-			(phase.u1.patterns_done >= phase.patterns_until_next) && \
-			!invincible \
+			(t1bp_sar_phase.u1.patterns_done >= t1bp_sar_phase.patterns_until_next) && \
+			!t1bp_sar_invincible \
 		) { \
-			phase.u1.patterns_done = 0; \
+			t1bp_sar_phase.u1.patterns_done = 0; \
 			boss_phase = next_phase; \
-			phase.pattern_cur = 0; \
+			t1bp_sar_phase.pattern_cur = 0; \
 			boss_phase_frame = 0; \
 		} \
 	}
@@ -2571,8 +2577,8 @@ void sariel_main(void)
 
 		void update_and_render(const vc_t (&flash_colors)[3]) {
 			boss_hit_update_and_render(
-				invincibility_frame,
-				invincible,
+				t1bp_sar_hit_frame,
+				t1bp_sar_invincible,
 				boss_hp,
 				flash_colors,
 				(sizeof(flash_colors) / sizeof(flash_colors[0])),
@@ -2593,8 +2599,8 @@ void sariel_main(void)
 
 	if(boss_phase == 0) {
 		boss_phase_frame = -1;
-		invincibility_frame = 0;
-		invincible = false;
+		t1bp_sar_hit_frame = 0;
+		t1bp_sar_invincible = false;
 		boss_palette_snap();
 		stage_palette_set(z_Palettes);
 		random_seed = frame_rand;
@@ -2606,14 +2612,14 @@ void sariel_main(void)
 
 			frame_half++;
 			if(entrance_rings_update_and_render(
-				entrance_ring_radius_base, i, tmp, frame_half, 16, 1
+				t1bp_sar_ring, i, tmp, frame_half, 16, 1
 			)) {
 				boss_phase = 1;
-				phase.pattern_cur = 0;
-				phase.u1.patterns_done = 0;
-				phase.patterns_until_next = ((irand() % 6) + 1);
+				t1bp_sar_phase.pattern_cur = 0;
+				t1bp_sar_phase.u1.patterns_done = 0;
+				t1bp_sar_phase.patterns_until_next = ((irand() % 6) + 1);
 				boss_phase_frame = 0;
-				initial_hp_rendered = 0;
+				t1bp_sar_hp_done = 0;
 				boss_palette_show(); // Unnecessary.
 				ent_shield.pos_cur_set(SHIELD_LEFT, SHIELD_TOP);
 				wand_lowered_snap();
@@ -2623,9 +2629,9 @@ void sariel_main(void)
 				t1sar_owner_set(
 					boss_phase, boss_phase_frame, boss_hp,
 					hud_hp_first_white, hud_hp_first_redwhite,
-					pattern_state.frame, invincibility_frame, invincible,
-					phase.pattern_cur, phase.u1.patterns_done,
-					phase.patterns_until_next, initial_hp_rendered,
+					t1bp_sar_pattern.frame, t1bp_sar_hit_frame, t1bp_sar_invincible,
+					t1bp_sar_phase.pattern_cur, t1bp_sar_phase.u1.patterns_done,
+					t1bp_sar_phase.patterns_until_next, t1bp_sar_hp_done,
 					ent_shield, anm_dress, anm_wand
 				);
 #endif
@@ -2638,20 +2644,20 @@ entrance_rings_still_active:
 			#undef frame_half
 		}
 	} else if(boss_phase == 1) {
-		hud_hp_increment_render(initial_hp_rendered, boss_hp, boss_phase_frame);
-		phase.frame_common(false);
+		hud_hp_increment_render(t1bp_sar_hp_done, boss_hp, boss_phase_frame);
+		t1bp_sar_phase.frame_common(false);
 		birds_unput_update_render();
 
-		if(phase.pattern_cur == 0) {
+		if(t1bp_sar_phase.pattern_cur == 0) {
 			pattern_random_purple_lasers();
-		} else if(phase.pattern_cur == 1) {
+		} else if(t1bp_sar_phase.pattern_cur == 1) {
 			pattern_vortices();
-		} else if(phase.pattern_cur == 2) {
+		} else if(t1bp_sar_phase.pattern_cur == 2) {
 			pattern_birds_on_ellipse_arc();
 		}
 
 		if(boss_phase_frame == 0) {
-			phase.pattern_next(0, 2);
+			t1bp_sar_phase.pattern_next(0, 2);
 		}
 		hit.update_and_render(flash_colors);
 		phase_form1_next_if_done(2);
@@ -2659,29 +2665,29 @@ entrance_rings_still_active:
 		t1sar_owner_set(
 			boss_phase, boss_phase_frame, boss_hp,
 			hud_hp_first_white, hud_hp_first_redwhite,
-			pattern_state.frame, invincibility_frame, invincible,
-			phase.pattern_cur, phase.u1.patterns_done,
-			phase.patterns_until_next, initial_hp_rendered,
+			t1bp_sar_pattern.frame, t1bp_sar_hit_frame, t1bp_sar_invincible,
+			t1bp_sar_phase.pattern_cur, t1bp_sar_phase.u1.patterns_done,
+			t1bp_sar_phase.patterns_until_next, t1bp_sar_hp_done,
 			ent_shield, anm_dress, anm_wand
 		);
 #endif
 	} else if(boss_phase == 2) {
-		phase.frame_bg_transition(1);
+		t1bp_sar_phase.frame_bg_transition(1);
 		if(boss_phase_frame == 0) {
-			phase.next(3);
+			t1bp_sar_phase.next(3);
 			// Assume that the palette didn't change between background ID 0
 			// and 1...
 			// boss_palette_snap();
-			phase.patterns_until_next = ((irand() % 5) + 1);
+			t1bp_sar_phase.patterns_until_next = ((irand() % 5) + 1);
 		}
 	} else if(boss_phase == 3) {
-		phase.frame_common(false);
+		t1bp_sar_phase.frame_common(false);
 		particles2x2_vertical_unput_update_render(false);
 
-		if(phase.pattern_cur == 0) {
+		if(t1bp_sar_phase.pattern_cur == 0) {
 			pattern_detonating_snowflake();
 			pattern_2_rings_from_a2_orbs();
-		} else if(phase.pattern_cur == 1) {
+		} else if(t1bp_sar_phase.pattern_cur == 1) {
 			pattern_aimed_sling_clusters();
 			pattern_2_rings_from_a2_orbs();
 		} else if(boss_phase_frame < 60) {
@@ -2689,80 +2695,80 @@ entrance_rings_still_active:
 		}
 
 		if(boss_phase_frame == 0) {
-			phase.pattern_next(0, 1);
+			t1bp_sar_phase.pattern_next(0, 1);
 		}
 		hit.update_and_render(flash_colors);
 		phase_form1_next_if_done(4);
 	} else if(boss_phase == 4) {
-		phase.frame_bg_transition(2);
+		t1bp_sar_phase.frame_bg_transition(2);
 		if(boss_phase_frame == 0) {
-			phase.next(5);
+			t1bp_sar_phase.next(5);
 			boss_palette_snap();
-			phase.patterns_until_next = ((irand() % 4) + 3);
+			t1bp_sar_phase.patterns_until_next = ((irand() % 4) + 3);
 		}
 	} else if(boss_phase == 5) {
-		phase.frame_common(false);
+		t1bp_sar_phase.frame_common(false);
 		particles2x2_wavy_unput_update_render();
 
-		if(phase.pattern_cur == 0) {
+		if(t1bp_sar_phase.pattern_cur == 0) {
 			pattern_four_aimed_lasers();
-		} else if(phase.pattern_cur == 1) {
+		} else if(t1bp_sar_phase.pattern_cur == 1) {
 			shake_for_50_frames();
-		} else if(phase.pattern_cur == 2) {
+		} else if(t1bp_sar_phase.pattern_cur == 2) {
 			pattern_four_aimed_lasers();
 			pattern_rain_from_top();
-		} else if(phase.pattern_cur == 3) {
+		} else if(t1bp_sar_phase.pattern_cur == 3) {
 			pattern_radial_stacks_and_lasers();
-		} else if(phase.pattern_cur == 4) {
+		} else if(t1bp_sar_phase.pattern_cur == 4) {
 			shake_for_50_frames();
-		} else if(phase.pattern_cur == 5) {
+		} else if(t1bp_sar_phase.pattern_cur == 5) {
 			pattern_four_aimed_lasers();
 			pattern_rain_from_top();
 		}
 
 		if(boss_phase_frame == 0) {
-			phase.pattern_next(10, 5); // ???
+			t1bp_sar_phase.pattern_next(10, 5); // ???
 		}
 		hit.update_and_render(flash_colors);
 		phase_form1_next_if_done(6);
 	} else if(boss_phase == 6) {
-		phase.frame_bg_transition(3);
+		t1bp_sar_phase.frame_bg_transition(3);
 		if(boss_phase_frame == 0) {
-			phase.next(7);
+			t1bp_sar_phase.next(7);
 			boss_palette_snap();
-			phase.patterns_until_next = ((irand() % 5) + 2);
+			t1bp_sar_phase.patterns_until_next = ((irand() % 5) + 2);
 		}
 	} else if(boss_phase == 7) {
-		phase.frame_common(false);
+		t1bp_sar_phase.frame_common(false);
 		particles2x2_vertical_unput_update_render(true);
 		birds_unput_update_render();
 
-		if(phase.pattern_cur == 0) {
+		if(t1bp_sar_phase.pattern_cur == 0) {
 			pattern_symmetric_birds_from_bottom();
-		} else if(phase.pattern_cur == 1) {
+		} else if(t1bp_sar_phase.pattern_cur == 1) {
 			pattern_four_semicircle_spreads();
-		} else if(phase.pattern_cur == 2) {
+		} else if(t1bp_sar_phase.pattern_cur == 2) {
 			pattern_vertical_stacks_from_bottom_then_random_rain_from_top();
 		}
 
 		if(boss_phase_frame == 0) {
-			phase.pattern_next(0, 2);
+			t1bp_sar_phase.pattern_next(0, 2);
 		}
 		hit.update_and_render(flash_colors);
 		phase_form1_next_if_done(8);
 	} else if(boss_phase == 8) {
-		phase.frame_bg_transition(0);
+		t1bp_sar_phase.frame_bg_transition(0);
 		if(boss_phase_frame == 0) {
-			phase.next(1);
+			t1bp_sar_phase.next(1);
 			boss_palette_snap();
-			phase.patterns_until_next = ((irand() % 6) + 1);
+			t1bp_sar_phase.patterns_until_next = ((irand() % 6) + 1);
 		}
 	} else if(boss_phase == PHASE_FORM1_DEFEATED) {
 		boss_phase_frame = 0;
 
 		// Not that this variable is ever read from, before it's set back to 0
 		// at the end of the transition animation.
-		invincibility_frame = 399;
+		t1bp_sar_hit_frame = 399;
 
 		Shots.unput_and_reset();
 		Pellets.unput_and_reset_nonclouds();
@@ -2779,7 +2785,7 @@ entrance_rings_still_active:
 		bomb_damaging = false;
 		player_reset();
 
-		invincible = false;
+		t1bp_sar_invincible = false;
 		random_seed = frame_rand;
 		mdrv2_bgm_fade_out_nonblock();
 
@@ -2830,9 +2836,9 @@ entrance_rings_still_active:
 				hud_rerender();
 				z_vsync_wait_and_scrollup(0);
 				boss_phase_frame = 0;
-				invincibility_frame = 0;
-				phase.pattern_cur = 0;
-				phase.u1.pulse_fade_direction = 0;
+				t1bp_sar_hit_frame = 0;
+				t1bp_sar_phase.pattern_cur = 0;
+				t1bp_sar_phase.u1.pulse_fade_direction = 0;
 				boss_phase = PHASE_FORM2;
 				player_invincibility_time = 0;
 				player_invincible = false;
@@ -2842,7 +2848,7 @@ entrance_rings_still_active:
 				boss_hp = 6;
 				hud_hp_first_white = 10;
 				hud_hp_first_redwhite = 3;
-				initial_hp_rendered = false;
+				t1bp_sar_hp_done = false;
 				pattern_swaying_leaves(boss_phase_frame, 999);
 				return;
 			} else {
@@ -2850,48 +2856,48 @@ entrance_rings_still_active:
 			}
 		}
 	} else if(boss_phase == PHASE_FORM2) {
-		hud_hp_increment_render(initial_hp_rendered, boss_hp, boss_phase_frame);
-		phase.frame_common(true);
+		hud_hp_increment_render(t1bp_sar_hp_done, boss_hp, boss_phase_frame);
+		t1bp_sar_phase.frame_common(true);
 		particles2x2_horizontal_unput_update_render(boss_phase_frame);
 
-		if(phase.pattern_cur == 0) {
+		if(t1bp_sar_phase.pattern_cur == 0) {
 			// Hey, that variable is supposed to be off-limits to the main
 			// function! (And also completely pointless, since it could have
 			// just been done locally for pattern 4.)
-			select_for_rank(pattern_state.interval, 56, 32, 24, 20);
+			select_for_rank(t1bp_sar_pattern.interval, 56, 32, 24, 20);
 
 			if(boss_phase_frame > 100) {
 				boss_phase_frame = 0;
 			}
-		} else if(phase.pattern_cur == 1) {
+		} else if(t1bp_sar_phase.pattern_cur == 1) {
 			pattern_curved_spray_leftright_once(boss_phase_frame);
-		} else if(phase.pattern_cur == 2) {
+		} else if(t1bp_sar_phase.pattern_cur == 2) {
 			pattern_rain_from_seal_center(boss_phase_frame);
-		} else if(phase.pattern_cur == 3) {
+		} else if(t1bp_sar_phase.pattern_cur == 3) {
 			pattern_curved_spray_leftright_twice(boss_phase_frame);
-		} else if(phase.pattern_cur == 4) {
-			pattern_swaying_leaves(boss_phase_frame, pattern_state.interval);
+		} else if(t1bp_sar_phase.pattern_cur == 4) {
+			pattern_swaying_leaves(boss_phase_frame, t1bp_sar_pattern.interval);
 			if(boss_phase_frame > 300) {
 				boss_phase_frame = 0;
 			}
-		} else if(phase.pattern_cur == 5) {
+		} else if(t1bp_sar_phase.pattern_cur == 5) {
 			pattern_swaying_leaves(boss_phase_frame, 500);
 			if(boss_phase_frame > 200) {
 				boss_phase_frame = 0;
 			}
-		} else if(phase.pattern_cur == 6) {
+		} else if(t1bp_sar_phase.pattern_cur == 6) {
 			pattern_swaying_leaves(boss_phase_frame, 500);
 			pattern_curved_spray_leftright_once(boss_phase_frame);
-		} else if(phase.pattern_cur == 7) {
+		} else if(t1bp_sar_phase.pattern_cur == 7) {
 			pattern_swaying_leaves(boss_phase_frame, 500);
 			pattern_rain_from_seal_center(boss_phase_frame);
-		} else if(phase.pattern_cur == 8) {
+		} else if(t1bp_sar_phase.pattern_cur == 8) {
 			pattern_swaying_leaves(boss_phase_frame, 32);
 			pattern_curved_spray_leftright_twice(boss_phase_frame);
 		}
 
 		if(boss_phase_frame == 0) {
-			phase.pattern_next(4, 8);
+			t1bp_sar_phase.pattern_next(4, 8);
 		}
 		hit.update_and_render(flash_colors);
 
@@ -2901,11 +2907,11 @@ entrance_rings_still_active:
 			// boss palette, modifying the one entry, and then capturing the
 			// palette again...
 			boss_palette_show();
-			if(phase.u1.pulse_fade_direction == 0) {
+			if(t1bp_sar_phase.u1.pulse_fade_direction == 0) {
 				if(z_Palettes[COL_FORM2_PULSE].c.r < 0xA) {
 					z_Palettes[COL_FORM2_PULSE].c.r++;
 				} else {
-					phase.u1.pulse_fade_direction = 1;
+					t1bp_sar_phase.u1.pulse_fade_direction = 1;
 				}
 				if(z_Palettes[COL_FORM2_PULSE].c.g < 0xA) {
 					z_Palettes[COL_FORM2_PULSE].c.g++;
@@ -2917,7 +2923,7 @@ entrance_rings_still_active:
 				if(z_Palettes[COL_FORM2_PULSE].c.r > 0x0) {
 					z_Palettes[COL_FORM2_PULSE].c.r--;
 				} else {
-					phase.u1.pulse_fade_direction = 0;
+					t1bp_sar_phase.u1.pulse_fade_direction = 0;
 				}
 				if(z_Palettes[COL_FORM2_PULSE].c.g > 0x0) {
 					z_Palettes[COL_FORM2_PULSE].c.g--;
@@ -2935,7 +2941,7 @@ entrance_rings_still_active:
 			mdrv2_bgm_stop();
 			boss_phase = PHASE_FORM2_DEFEATED;
 			boss_phase_frame = 0;
-			invincibility_frame = 0;
+			t1bp_sar_hit_frame = 0;
 		}
 	} else if(boss_phase == PHASE_FORM2_DEFEATED) {
 		graph_accesspage_func(1);
@@ -3132,7 +3138,7 @@ bool16 t1boss_sariel_checkpoint_capture(
 	live.hp = boss_hp;
 	live.hud_hp_first_white = hud_hp_first_white;
 	live.hud_hp_first_redwhite = hud_hp_first_redwhite;
-	live.pattern_state = pattern_state.frame;
+	live.pattern_state = t1bp_sar_pattern.frame;
 	t1boss_sariel_ent_ckpt_capture(&live.shield, ent_shield);
 	t1boss_sariel_anim_ckpt_capture(&live.dress, anm_dress);
 	t1boss_sariel_anim_ckpt_capture(&live.wand, anm_wand);
@@ -3191,7 +3197,7 @@ bool16 t1boss_sariel_ckpt_apply_loaded(
 	boss_hp = checkpoint->hp;
 	hud_hp_first_white = checkpoint->hud_hp_first_white;
 	hud_hp_first_redwhite = checkpoint->hud_hp_first_redwhite;
-	pattern_state.frame = checkpoint->pattern_state;
+	t1bp_sar_pattern.frame = checkpoint->pattern_state;
 	game_cleared = false;
 	return true;
 }
@@ -3207,7 +3213,7 @@ bool16 t1boss_sariel_first_combat_direct_construct(void)
 		!t1boss_sariel_resources_loaded() || game_cleared ||
 		(boss_phase != 0) || (boss_phase_frame != 0) || (boss_hp != 18) ||
 		(hud_hp_first_white != 8) || (hud_hp_first_redwhite != 2) ||
-		(pattern_state.frame != 0) || !t1sar_direct_prepare()
+		(t1bp_sar_pattern.frame != 0) || !t1sar_direct_prepare()
 	) {
 		return false;
 	}

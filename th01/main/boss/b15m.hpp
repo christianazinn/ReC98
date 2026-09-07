@@ -64,5 +64,6 @@ bool16 t1boss_elis_ckpt_apply_loaded(
 // accepts only the still-loaded Makai Stage 15 pre-entrance state and never
 // reads a serialized checkpoint.
 bool16 t1boss_elis_practice_first_combat_apply(void);
+bool16 t1boss_elis_practice_construct(uint8_t target);
 
 #endif /* TH01_MAIN_BOSS_B15M_HPP */

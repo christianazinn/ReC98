@@ -38,6 +38,7 @@
 #include "th02/main/s2_actor.hpp"
 #include "th02/main/s3_actor.hpp"
 #include "th02/main/s3_north.hpp"
+#include "th02/main/s3_late_practice.hpp"
 #include "th02/main/s3_pract.hpp"
 #include "th02/main/s4_actor.hpp"
 #include "th02/main/s5_actor.hpp"
@@ -78,6 +79,8 @@
 #include "th02/main/tile/tile.hpp"
 #include "th02/main/stage/callback.hpp"
 #include "th02/main/null.hpp"
+#include "th02/keyconfig.hpp"
+#include "th04/scorestat.hpp"
 #include "th04/main/rp_guard.hpp"
 
 #define T2REPLAY_BUFFER_PACKET_COUNT 256
@@ -118,6 +121,10 @@ static bool t2replay_finished;
 static bool t2replay_playback_exit;
 static bool t2replay_save_prompted;
 static bool t2replay_stage_seen;
+static bool t2stat_entered;
+static bool t2stat_excluded;
+static bool t2stat_eligible;
+static bool t2stat_continue_pending;
 static uint8_t t2replay_last_stage;
 uint8_t t2replay_practice_target;
 static uint8_t t2replay_fast_forward_phase;
@@ -4243,7 +4250,9 @@ static bool t2replay_start_valid(const t2replay_start_t far *start)
 		(practice_target == T2RPT_STAGE3_BOSS_START) ||
 		(practice_target == T2RPT_STAGE3_INNER_PAIR) ||
 		(practice_target == T2RPT_STAGE3_OUTER_PAIR) ||
-		(practice_target == T2RPT_STAGE3_NORTH_PHASE4)
+		(practice_target == T2RPT_STAGE3_NORTH_PHASE4) ||
+		(practice_target == T2RPT_STAGE3_NORTH_PHASE6) ||
+		(practice_target == T2RPT_STAGE3_NORTH_PHASE8)
 	) {
 		practice_target_valid = (start->stage == 2);
 	} else if(
@@ -6667,6 +6676,12 @@ void replay_entry(void)
 	command_mode = t2replay_command_load(
 		&slot, &command_flags, &command_seek_stage, &command_start
 	);
+	t2stat_excluded = (
+		resident->debug || (command_mode == T2RM_PLAYBACK) ||
+		(command_mode == T2REPLAY_COMMAND_PRACTICE) ||
+		((command_mode == T2RM_RECORD) &&
+		 (command_flags & T2REPLAY_COMMAND_FLAG_PRACTICE))
+	);
 	if(command_mode == T2RM_DISABLED) {
 		return;
 	}
@@ -6944,7 +6959,7 @@ static void near t2replay_stage3_stones_pools_clean(void)
 	shots_free_all();
 }
 
-static bool16 near t2replay_stage3_north_phase4_activate_clean(void)
+static bool16 near t2replay_stage3_north_activate_clean(uint8_t phase)
 {
 	if(stage_id != 2) {
 		return false;
@@ -6958,7 +6973,8 @@ static bool16 near t2replay_stage3_north_phase4_activate_clean(void)
 	Palettes[0].v[2] = 0;
 	palette_show();
 	t2replay_stage3_stones_pools_clean();
-	if(!th02_s3_stones_north_phase4_clean_init()) {
+	if(!((phase == 4) ? th02_s3_stones_north_phase4_clean_init() :
+	     th02_s3_north_late_clean_init(phase))) {
 		t2practice_diag_constructor_result(false);
 		return false;
 	}
@@ -7472,8 +7488,12 @@ static bool16 near t2practice_target_apply_explicit(uint8_t target)
 					? T2S3_STONES_INNER_PAIR : T2S3_STONES_OUTER_PAIR)
 		);
 		if(!t2replay_stage3_stones_activate_clean(stones_target)) { return false; }
-	} else if(target == T2RPT_STAGE3_NORTH_PHASE4) {
-		if((stage_id != 2) || !t2replay_stage3_north_phase4_activate_clean()) {
+	} else if((target == T2RPT_STAGE3_NORTH_PHASE4) ||
+	          (target == T2RPT_STAGE3_NORTH_PHASE6) ||
+	          (target == T2RPT_STAGE3_NORTH_PHASE8)) {
+		if((stage_id != 2) || !t2replay_stage3_north_activate_clean(
+			(target == T2RPT_STAGE3_NORTH_PHASE4) ? 4 :
+			((target == T2RPT_STAGE3_NORTH_PHASE6) ? 6 : 8))) {
 			if(stage_id != 2) { t2practice_diag_failure(T2PDR_STAGE_MISMATCH); }
 			return false;
 		}
@@ -7811,7 +7831,17 @@ void replay_input_sample(uint8_t phase)
 #if T2REPLAY_EXACT_APPLY
 	uint32_t sample_before;
 #endif
+	if(!t2stat_entered && (phase == T2REPLAY_PHASE_GAMEPLAY)) {
+		t2stat_entered = true;
+		t2stat_eligible = (!t2stat_excluded && !resident->demo_num);
+		scorestat_process_enter(rank, 0, t2stat_eligible);
+	}
+	scorestat_process_sync();
 	replay_rank_lock_apply();
+	if((phase == T2REPLAY_PHASE_GAMEPLAY) && !resident->demo_num &&
+		(t2replay_mode != T2RM_PLAYBACK)) {
+		keyconfig_gameplay_apply();
+	}
 
 	t2replay_fast_forward_restore();
 #ifdef T2SGA
@@ -7887,7 +7917,7 @@ void replay_input_sample(uint8_t phase)
 		}
 		if(phase == T2REPLAY_PHASE_GAMEPLAY) {
 			t2replay_fast_forward_wait_skip(
-				(host_input & INPUT_SHOT) != 0
+				(peekb(0, KEYGROUP_5) & K5_Z) != 0
 			);
 		} else {
 			t2replay_fast_forward_wait_skip(false);
@@ -7952,6 +7982,9 @@ bool replay_input_wait_for_change(void)
 
 bool replay_gameover(void)
 {
+	scorestat_process_checkpoint();
+	scorestat_process_enter(rank, 0, false);
+	t2stat_continue_pending = t2stat_eligible;
 	if(t2replay_mode == T2RM_DISABLED) {
 		return false;
 	}
@@ -8088,6 +8121,15 @@ void replay_pause_exit_without_saving(void)
 
 bool replay_process_end(const char *binary_fn)
 {
+	if(t2stat_continue_pending) {
+		scorestat_process_enter(rank, 0, t2stat_eligible);
+		t2stat_continue_pending = false;
+	}
+	if((binary_fn[0] == 'm') && (binary_fn[1] == 'a')) {
+		scorestat_run_complete();
+	} else {
+		scorestat_run_end();
+	}
 	if(!t2replay_finished && (t2replay_mode != T2RM_DISABLED)) {
 		t2replay_finalize(
 			(binary_fn[0] == 'm') ? T2REPLAY_END_CLEAR : T2REPLAY_END_GAME_OVER
@@ -8110,6 +8152,11 @@ bool replay_save_request_prompt_needed(void)
 	t2replay_save_request_t request;
 	char request_fn[11];
 
+	if(t2stat_continue_pending) {
+		scorestat_process_enter(rank, 0, t2stat_eligible);
+		scorestat_run_end();
+		t2stat_continue_pending = false;
+	}
 	if(t2replay_save_prompted) {
 		return false;
 	}
@@ -8139,6 +8186,12 @@ bool replay_save_request_prompt_needed(void)
 
 void replay_save_request_discard(void)
 {
+	// Only the Yes branch reaches this before the refusal/save-prompt hook.
+	if(t2stat_continue_pending) {
+		scorestat_process_enter(rank, 0, t2stat_eligible);
+		scorestat_continue_accept();
+		t2stat_continue_pending = false;
+	}
 	t2replay_paths_init();
 	t2replay_temp_set();
 	t2replay_pending_files_delete();

@@ -37,6 +37,7 @@ typedef char t1_language_config_extent_size_check[
 // Zero-initialization intentionally means Japanese before the first load.
 static t1_language_preference_t t1_language_runtime;
 static bool t1_replay_recording_runtime;
+static bool t1_sfx_disabled;
 
 static void t1_language_config_fn_set(char *fn)
 {
@@ -139,6 +140,7 @@ void far t1_language_load(void)
 	// file. The all-zero BSS state also deliberately means Japanese.
 	t1_language_runtime = T1LANG_JAPANESE;
 	t1_replay_recording_runtime = true;
+	t1_sfx_disabled = false;
 	t1_language_config_fn_set(fn);
 	fh = t1_language_dos_open(fn);
 	if(fh < 0) {
@@ -171,6 +173,7 @@ void far t1_language_load(void)
 	t1_replay_recording_runtime = (
 		(config->preference & T1_SETTINGS_REPLAY_RECORDING_DISABLED) == 0
 	);
+	t1_sfx_disabled = ((config->preference & T1_SETTINGS_SFX_DISABLED) != 0);
 }
 
 t1_language_preference_t far t1_language_get(void)
@@ -181,6 +184,11 @@ t1_language_preference_t far t1_language_get(void)
 bool far t1_replay_recording_enabled(void)
 {
 	return t1_replay_recording_runtime;
+}
+
+bool far t1_sfx_enabled(void)
+{
+	return !t1_sfx_disabled;
 }
 
 // Keep this shared patch segment's growth paragraph-aligned in OP, REIIDEN,

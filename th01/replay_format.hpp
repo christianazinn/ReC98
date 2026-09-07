@@ -218,6 +218,32 @@ enum t1replay_practice_boss_phase_target_t {
 	T1RPBPT_NONE = 0,
 	T1RPBPT_SINGYOKU_FIRST_COMBAT = 1,
 	T1RPBPT_MIMA_FIRST_COMBAT = 2,
+	// 3 through 6 remain reserved for the existing private trace profiles.
+	T1RPBPT_SINGYOKU_PHASE_2 = 16,
+	T1RPBPT_YUUGENMAGAN_PHASE_1 = 17,
+	T1RPBPT_YUUGENMAGAN_PHASE_3 = 18,
+	T1RPBPT_YUUGENMAGAN_PHASE_5 = 19,
+	T1RPBPT_YUUGENMAGAN_PHASE_7 = 20,
+	T1RPBPT_YUUGENMAGAN_PHASE_9 = 21,
+	T1RPBPT_YUUGENMAGAN_PHASE_11 = 22,
+	T1RPBPT_YUUGENMAGAN_PHASE_13 = 23,
+	T1RPBPT_MIMA_PHASE_3 = 24,
+	T1RPBPT_KIKURI_PHASE_2 = 25,
+	T1RPBPT_KIKURI_PHASE_4 = 26,
+	T1RPBPT_KIKURI_PHASE_5 = 27,
+	T1RPBPT_KIKURI_PHASE_6 = 28,
+	T1RPBPT_ELIS_PHASE_1 = 29,
+	T1RPBPT_ELIS_PHASE_3 = 30,
+	T1RPBPT_ELIS_PHASE_5 = 31,
+	T1RPBPT_SARIEL_PHASE_1 = 32,
+	T1RPBPT_SARIEL_PHASE_3 = 33,
+	T1RPBPT_SARIEL_PHASE_5 = 34,
+	T1RPBPT_SARIEL_PHASE_7 = 35,
+	T1RPBPT_SARIEL_FORM_2 = 36,
+	T1RPBPT_KONNGARA_PHASE_1 = 37,
+	T1RPBPT_KONNGARA_PHASE_3 = 38,
+	T1RPBPT_KONNGARA_PHASE_5 = 39,
+	T1RPBPT_KONNGARA_PHASE_7 = 40,
 };
 
 // OP's transient Practice choice is also the semantic restart configuration.
@@ -235,6 +261,7 @@ struct t1replay_practice_start_t {
 	uint16_t point_value;
 	int16_t pellet_speed;
 	uint32_t rand;
+	uint8_t boss_phase;
 };
 
 inline bool t1replay_slot_is_numbered(uint8_t slot)
@@ -289,7 +316,7 @@ inline bool t1replay_slot_valid_for_mode(uint8_t mode, uint8_t slot)
 #define T1REPLAY_RES_ID "T1ReplayState"
 #define T1REPLAY_RES_VERSION 4
 #define T1REPLAY_RESTART_RES_ID "T1ReplayRestart"
-#define T1REPLAY_RESTART_RES_VERSION 1
+#define T1REPLAY_RESTART_RES_VERSION 2
 
 #define T1REPLAY_FNV1A_BASIS 0x811C9DC5UL
 #define T1REPLAY_FNV1A_PRIME 0x01000193UL
@@ -429,6 +456,20 @@ struct t1replay_header_t {
 	uint16_t dos_date;
 	uint16_t dos_time;
 };
+
+// OP appends accelerators only when saving a finished capture. Live recording
+// handoffs must end exactly after the input stream, even for V7/V8.
+inline bool t1replay_file_size_valid(
+	uint16_t version, bool finalized, uint32_t input_end, uint32_t file_size
+)
+{
+	if(finalized && ((version == T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) ||
+		(version == T1REPLAY_VERSION))) {
+		return ((file_size >= input_end) &&
+			((file_size - input_end) >= T1REPLAY_ACCELERATOR_HEADER_SIZE));
+	}
+	return (file_size == input_end);
+}
 
 struct t1replay_accelerator_header_t {
 	char magic[8]; // "T1ACC1\\0\\0"
@@ -597,8 +638,8 @@ struct t1replay_command_t {
 #define T1REPLAY_COMMAND_DIRECT_STAGE_INDEX 1
 #define T1REPLAY_COMMAND_DIRECT_PROCESS_INDEX 2
 #define T1REPLAY_COMMAND_DIRECT_SOURCE_INDEX 3
-#define T1REPLAY_COMMAND_DIRECT_RESERVED_INDEX 4
-#define T1REPLAY_COMMAND_DIRECT_RESERVED_SIZE 2
+#define T1REPLAY_CMD_DIRECT_RSVD_INDEX 4
+#define T1REPLAY_CMD_DIRECT_RSVD_SIZE 2
 #define T1REPLAY_COMMAND_CHECKPOINT_STAGE_NONE 0xFF
 
 struct t1replay_save_request_t {
@@ -627,10 +668,14 @@ struct t1replay_restart_state_t {
 	char magic[4];
 	uint8_t version;
 	uint8_t kind;
-	uint8_t reserved[2];
+	uint8_t reserved[1]; // The former second byte now holds practice.boss_phase.
 	t1replay_practice_start_t practice;
 	uint32_t checksum;
 };
+
+typedef char t1replay_restart_state_size_check[
+	(sizeof(t1replay_restart_state_t) == 47) ? 1 : -1
+];
 
 // This private, pointer-free guard carrier stays outside T1RPY6. It
 // lets the REIIDEN and FUUIN processes verify the same physical-disk witness

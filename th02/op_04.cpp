@@ -14,6 +14,7 @@
 #include "th02/gaiji/str.hpp"
 #include "th02/op/op.h"
 #include "th02/shiftjis/hiscore.hpp"
+#include "th04/scorestat.hpp"
 
 #include "th02/score.c"
 
@@ -157,7 +158,7 @@ void pascal score_menu(void)
 
 	// ZUN quirk: grc_setclip() is endpoint-inclusive, so this actually defines
 	// a 385×209-pixel region.
-	grc_setclip(128, 96, 512, 304);
+	scorestat_clip(128, 96, 512, 304);
 
 	// ZUN bug: Seems redundant since logo_render() starts with the same code.
 	// But note that we're accessing VRAM page 1. The first iteration of the

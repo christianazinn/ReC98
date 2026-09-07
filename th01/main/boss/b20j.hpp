@@ -33,6 +33,7 @@ bool16 t1boss_konngara_checkpoint_capture(
 bool16 t1boss_konngara_ckpt_apply_loaded(
 	const t1boss_konngara_checkpoint_t *checkpoint
 );
+bool16 t1boss_konngara_practice_construct(uint8_t target);
 
 #if T1REPLAY_KONNGARA_PHASE1_TRACE
 // The private witness hashes loaded-resource topology without serializing a

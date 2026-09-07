@@ -2,6 +2,9 @@
 #define TH02_LANGUAGE_HPP
 
 #include "platform.h"
+
+bool far t2_sfx_enabled(void);
+bool far t2_sfx_set(bool enabled);
 // Patch-owned presentation preference. It deliberately stays outside replay,
 // resident, score-file, configuration, Practice, and simulation state.
 enum t2_language_preference_t {

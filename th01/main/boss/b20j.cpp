@@ -107,13 +107,15 @@ static const pixel_t SLASH_DISTANCE_5_TO_6_Y = (
 );
 // ----------------
 
-static union {
+extern "C" {
+union {
 	int group; // pellet_group_t
 	int interval;
 	subpixel_t speed;
 	pixel_t delta_x;
 	int unused;
-} pattern_state;
+} t1bp_kon_pattern;
+}
 
 // Entities
 // --------
@@ -590,7 +592,7 @@ void pattern_diamond_cross_to_edges_followed_by_rain(void)
 		return;
 	} else if(boss_phase_frame == 100) {
 		// MODDERS: Just use a local variable.
-		select_for_rank(pattern_state.group,
+		select_for_rank(t1bp_kon_pattern.group,
 			PG_2_SPREAD_NARROW_AIMED,
 			PG_3_SPREAD_NARROW_AIMED,
 			PG_5_SPREAD_WIDE_AIMED,
@@ -617,10 +619,10 @@ void pattern_diamond_cross_to_edges_followed_by_rain(void)
 		Pellets.add_group(
 			(PLAYFIELD_LEFT + (PLAYFIELD_W / 2) - PELLET_W),
 			(PLAYFIELD_TOP + playfield_fraction_y(8 / 21.0f) - (PELLET_H / 2)),
-			static_cast<pellet_group_t>(pattern_state.group),
+			static_cast<pellet_group_t>(t1bp_kon_pattern.group),
 			to_sp(3.0f)
 		);
-		select_for_rank(pattern_state.interval, 18, 16, 14, 12);
+		select_for_rank(t1bp_kon_pattern.interval, 18, 16, 14, 12);
 		mdrv2_se_play(12);
 	} else if(diamonds.left[0] > PLAYFIELD_LEFT) {
 		diamonds_unput(i);
@@ -655,7 +657,7 @@ void pattern_diamond_cross_to_edges_followed_by_rain(void)
 		return;
 	} else if(diamonds_at_edges_frame < 200) {
 		diamonds_at_edges_frame++;
-		if((diamonds_at_edges_frame % pattern_state.interval) == 0)  {
+		if((diamonds_at_edges_frame % t1bp_kon_pattern.interval) == 0)  {
 			#define speed to_sp(2.5f)
 			screen_x_t from_left;
 			screen_y_t from_top;
@@ -709,8 +711,8 @@ void pattern_diamond_cross_to_edges_followed_by_rain(void)
 
 void pattern_symmetrical_from_cup_fire(unsigned char angle)
 {
-	Pellets.add_single(CUP_RIGHT, CUP_TOP, angle, pattern_state.speed);
-	Pellets.add_single(CUP_LEFT,  CUP_TOP, angle, pattern_state.speed);
+	Pellets.add_single(CUP_RIGHT, CUP_TOP, angle, t1bp_kon_pattern.speed);
+	Pellets.add_single(CUP_LEFT,  CUP_TOP, angle, t1bp_kon_pattern.speed);
 }
 
 void pattern_symmetrical_from_cup(void)
@@ -727,7 +729,7 @@ void pattern_symmetrical_from_cup(void)
 	if(boss_phase_frame == 100) {
 		angle = 0x40;
 		unused = -1;
-		select_subpixel_for_rank(pattern_state.speed, 5.0f, 5.0f, 6.0f, 7.0f);
+		select_subpixel_for_rank(t1bp_kon_pattern.speed, 5.0f, 5.0f, 6.0f, 7.0f);
 	}
 	if((boss_phase_frame < 140) && ((boss_phase_frame % 8) == 0)) {
 		pattern_symmetrical_from_cup_fire(0x40);
@@ -870,7 +872,7 @@ void pattern_aimed_rows_from_top(void)
 		pellet_speed.set(3.0f);
 		mdrv2_se_play(12);
 		diamond_direction = TO_INITIAL_POSITION;
-		select_for_rank(pattern_state.interval, 12, 10, 8, 6);
+		select_for_rank(t1bp_kon_pattern.interval, 12, 10, 8, 6);
 		return;
 	}
 	if(diamond_direction == TO_INITIAL_POSITION) {
@@ -915,7 +917,7 @@ void pattern_aimed_rows_from_top(void)
 			return;
 		}
 		if(diamond_direction < DOWN_START) {
-			if((boss_phase_frame % pattern_state.interval) == 0) {
+			if((boss_phase_frame % t1bp_kon_pattern.interval) == 0) {
 				Pellets.add_group(
 					diamond_left, diamond_top, PG_1_AIMED, pellet_speed
 				);
@@ -943,9 +945,9 @@ void pattern_aimed_spray_from_cup(void)
 		spray_offset = 0x20;
 		spray_delta = -0x08;
 		pellets_fired_in_current_direction = 0;
-		select_for_rank(pattern_state.interval, 5, 4, 3, 2);
+		select_for_rank(t1bp_kon_pattern.interval, 5, 4, 3, 2);
 	}
-	if((boss_phase_frame % pattern_state.interval) == 0) {
+	if((boss_phase_frame % t1bp_kon_pattern.interval) == 0) {
 		// Yes, the point from which these are aimed to the top-left player
 		// coordinate is quite a bit away from where they're actually fired,
 		// leading to some quite imperfect aiming. Probably done on purpose
@@ -989,7 +991,7 @@ void pattern_four_homing_snakes(void)
 		for(i = 1; i < snakes.count(); i++) {
 			snakes.left[i][0] = -PIXEL_NONE;
 		}
-		select_for_rank(pattern_state.unused, 18, 16, 14, 12);
+		select_for_rank(t1bp_kon_pattern.unused, 18, 16, 14, 12);
 		mdrv2_se_play(12);
 		return;
 	}
@@ -1062,7 +1064,7 @@ void pattern_rain_from_edges(void)
 		end_x = PLAYFIELD_LEFT;
 		end_y = (PLAYFIELD_TOP + (SPAWNRAY_SPEED * FRAMES_VERTICAL));
 		unused = 1;
-		select_for_rank(pattern_state.interval, 5, 3, 2, 2);
+		select_for_rank(t1bp_kon_pattern.interval, 5, 3, 2, 2);
 	}
 	if(boss_phase_frame < KEYFRAME_1) {
 		swordray_unput_put_and_move(end_x, end_y, 0, -SPAWNRAY_SPEED);
@@ -1117,7 +1119,7 @@ void pattern_rain_from_edges(void)
 	if((boss_phase_frame % 10) == 0) {
 		mdrv2_se_play(6);
 	}
-	if((boss_phase_frame % pattern_state.interval) == 0) {
+	if((boss_phase_frame % t1bp_kon_pattern.interval) == 0) {
 		pellets_add_single_rain(end_x, end_y, (irand() & 0x7F), 2.0f);
 		pellets_add_single_rain(end_x, end_y, (irand() & 0x7F), 2.0f);
 	}
@@ -1203,7 +1205,7 @@ void pattern_slash_rain(void)
 		face_direction_can_change = false;
 		spawner_left = SWORD_CENTER_X;
 		spawner_top = SWORD_CENTER_Y;
-		select_for_rank(pattern_state.interval, 5, 3, 2, 1);
+		select_for_rank(t1bp_kon_pattern.interval, 5, 3, 2, 1);
 	}
 
 	slash_animate();
@@ -1213,11 +1215,11 @@ void pattern_slash_rain(void)
 	}
 	if(
 		(boss_phase_frame < SLASH_4_FRAME) &&
-		((boss_phase_frame % pattern_state.interval) == 0)
+		((boss_phase_frame % t1bp_kon_pattern.interval) == 0)
 	) {
 		slash_rain_fire(spawner_left, spawner_top);
 		slash_spawner_step_from_2_to_4(
-			spawner_left, spawner_top, pattern_state.interval
+			spawner_left, spawner_top, t1bp_kon_pattern.interval
 		);
 	}
 
@@ -1225,7 +1227,7 @@ void pattern_slash_rain(void)
 		spawner_left = SLASH_4_CORNER_X;
 		spawner_top = SLASH_4_CORNER_Y;
 		// Originally meant to be the step interval between cels 4 and 5?
-		select_for_rank(pattern_state.unused, 3, 2, 2, 2);
+		select_for_rank(t1bp_kon_pattern.unused, 3, 2, 2, 2);
 	}
 	if(boss_phase_frame < SLASH_4_FRAME) {
 		return;
@@ -1238,18 +1240,18 @@ void pattern_slash_rain(void)
 	if(boss_phase_frame == SLASH_4_5_FRAME) {
 		spawner_left = SLASH_5_CORNER_X;
 		spawner_top = SLASH_5_CORNER_Y;
-		select_for_rank(pattern_state.interval, 3, 2, 1, 1);
+		select_for_rank(t1bp_kon_pattern.interval, 3, 2, 1, 1);
 	}
 	if(boss_phase_frame < SLASH_4_5_FRAME) {
 		return;
 	}
 	if(
 		(boss_phase_frame < SLASH_6_FRAME) &&
-		((boss_phase_frame % pattern_state.interval) == 0)
+		((boss_phase_frame % t1bp_kon_pattern.interval) == 0)
 	) {
 		slash_rain_fire(spawner_left, spawner_top);
 		slash_spawner_step_from_4_5_to_6(
-			spawner_left, spawner_top, pattern_state.interval
+			spawner_left, spawner_top, t1bp_kon_pattern.interval
 		);
 	}
 }
@@ -1272,7 +1274,7 @@ void pattern_slash_triangular(void)
 		face_direction_can_change = false;
 		spawner_left = SWORD_CENTER_X;
 		spawner_top = SWORD_CENTER_Y;
-		select_subpixel_for_rank(pattern_state.speed, 2.0f, 3.0f, 4.0f, 4.5f);
+		select_subpixel_for_rank(t1bp_kon_pattern.speed, 2.0f, 3.0f, 4.0f, 4.5f);
 	}
 
 	slash_animate();
@@ -1281,7 +1283,7 @@ void pattern_slash_triangular(void)
 		return;
 	}
 	if((boss_phase_frame < SLASH_4_FRAME) && ((boss_phase_frame % 3) == 0)) {
-		slash_triangular_fire(spawner_left, spawner_top, pattern_state.speed);
+		slash_triangular_fire(spawner_left, spawner_top, t1bp_kon_pattern.speed);
 		slash_spawner_step_from_2_to_4(spawner_left, spawner_top, 3);
 	}
 
@@ -1293,7 +1295,7 @@ void pattern_slash_triangular(void)
 		return;
 	}
 	if(boss_phase_frame < SLASH_4_5_FRAME) {
-		slash_triangular_fire(spawner_left, spawner_top, pattern_state.speed);
+		slash_triangular_fire(spawner_left, spawner_top, t1bp_kon_pattern.speed);
 		slash_spawner_step_from_4_to_4_5(spawner_left, spawner_top, 1);
 	}
 
@@ -1305,7 +1307,7 @@ void pattern_slash_triangular(void)
 		return;
 	}
 	if((boss_phase_frame < SLASH_6_FRAME) && ((boss_phase_frame % 2) == 0)) {
-		slash_triangular_fire(spawner_left, spawner_top, pattern_state.speed);
+		slash_triangular_fire(spawner_left, spawner_top, t1bp_kon_pattern.speed);
 		slash_spawner_step_from_4_5_to_6(spawner_left, spawner_top, 2);
 	}
 }
@@ -1332,7 +1334,7 @@ void pattern_lasers_and_3_spread(void)
 		right_to_left = (irand() % 2);
 
 		// Divisor = number of lasers that are effectively fired.
-		select_for_rank(pattern_state.delta_x,
+		select_for_rank(t1bp_kon_pattern.delta_x,
 			(PLAYFIELD_W / 5),
 			(PLAYFIELD_W / 6.66),
 			(PLAYFIELD_W / 8),
@@ -1342,11 +1344,11 @@ void pattern_lasers_and_3_spread(void)
 	if((boss_phase_frame % INTERVAL) == 0) {
 		if(right_to_left == 0) {
 			target_left = (PLAYFIELD_LEFT + (
-				((boss_phase_frame - 100) / INTERVAL) * pattern_state.delta_x
+				((boss_phase_frame - 100) / INTERVAL) * t1bp_kon_pattern.delta_x
 			));
 		} else {
 			target_left = (PLAYFIELD_RIGHT - (
-				((boss_phase_frame - 100) / INTERVAL) * pattern_state.delta_x
+				((boss_phase_frame - 100) / INTERVAL) * t1bp_kon_pattern.delta_x
 			));
 		}
 		target_y = PLAYFIELD_BOTTOM;
@@ -1388,7 +1390,7 @@ void pattern_slash_aimed(void)
 		face_direction_can_change = false;
 		spawner_left = SWORD_CENTER_X;
 		spawner_top = SWORD_CENTER_Y;
-		select_subpixel_for_rank(pattern_state.speed, 4.0f, 5.0f, 5.5f, 6.0f);
+		select_subpixel_for_rank(t1bp_kon_pattern.speed, 4.0f, 5.0f, 5.5f, 6.0f);
 	}
 
 	slash_animate();
@@ -1396,7 +1398,7 @@ void pattern_slash_aimed(void)
 		return;
 	}
 	if((boss_phase_frame < SLASH_4_FRAME) && ((boss_phase_frame % 3) == 0)) {
-		slash_aimed_fire(spawner_left, spawner_top, pattern_state.speed);
+		slash_aimed_fire(spawner_left, spawner_top, t1bp_kon_pattern.speed);
 		slash_spawner_step_from_2_to_4(spawner_left, spawner_top, 3);
 	}
 
@@ -1408,7 +1410,7 @@ void pattern_slash_aimed(void)
 		return;
 	}
 	if(boss_phase_frame < SLASH_4_5_FRAME) {
-		slash_aimed_fire(spawner_left, spawner_top, pattern_state.speed);
+		slash_aimed_fire(spawner_left, spawner_top, t1bp_kon_pattern.speed);
 		slash_spawner_step_from_4_to_4_5(spawner_left, spawner_top, 1);
 	}
 
@@ -1420,7 +1422,7 @@ void pattern_slash_aimed(void)
 		return;
 	}
 	if((boss_phase_frame < SLASH_6_FRAME) && ((boss_phase_frame % 2) == 0)) {
-		slash_aimed_fire(spawner_left, spawner_top, pattern_state.speed);
+		slash_aimed_fire(spawner_left, spawner_top, t1bp_kon_pattern.speed);
 		slash_spawner_step_from_4_5_to_6(spawner_left, spawner_top, 2);
 	}
 }
@@ -1489,9 +1491,9 @@ inline void kuji_put(kuji_flash_color_t flash_color, int image) {
 	frame_delay(10);
 }
 
-void konngara_main(void)
-{
-	static struct {
+// Export existing storage for tail-only Practice; retain order and widths.
+extern "C" {
+	struct {
 		bool16 invincible;
 		int invincibility_frame;
 
@@ -1517,24 +1519,24 @@ void konngara_main(void)
 				)
 			);
 		}
-	} hit;
+	} t1bp_kon_hit;
 
 	enum {
 		CHOOSE_NEW = 99,
 	};
 
 	// The IDs are associated with a different pattern in every phase.
-	static int pattern_prev;
-	static bool initial_hp_rendered;
+	int t1bp_kon_prev;
+	bool t1bp_kon_hp_done;
 
-	static struct {
+	struct {
 		int pattern_cur;
 		int patterns_done;
 
 		void next(int8_t phase_new) {
 			boss_phase = phase_new;
 			boss_phase_frame = 0;
-			hit.invincibility_frame = 0;
+			t1bp_kon_hit.invincibility_frame = 0;
 			pattern_cur = CHOOSE_NEW;
 			patterns_done = 0;
 			if(phase_new & 1) {
@@ -1544,14 +1546,18 @@ void konngara_main(void)
 
 		void frame_common(face_direction_t& fd_new) {
 			boss_phase_frame++;
-			hit.invincibility_frame++;
+			t1bp_kon_hit.invincibility_frame++;
 
 			fd_new =
 				(player_left < 198) ? FD_LEFT :
 				(player_left > 396) ? FD_RIGHT : FD_CENTER;
 			face_direction_set_and_put(fd_new);
 		}
-	} phase = { 0, 0 };
+	} t1bp_kon_phase = { 0, 0 };
+}
+
+void konngara_main(void)
+{
 
 	int i;
 	int j;
@@ -1562,20 +1568,20 @@ void konngara_main(void)
 	const vc_t flash_colors[3] = { 3, 4, 5 };
 
 	#define pattern_choose( \
-		phase, frame_min, count_on_first_try, count_on_second_try \
+		t1bp_kon_phase, frame_min, count_on_first_try, count_on_second_try \
 	) { \
 		if(boss_phase_frame > frame_min) { \
 			boss_phase_frame = 1; \
-			phase.pattern_cur = (irand() % count_on_first_try); \
-			if(phase.pattern_cur == pattern_prev) { \
-				phase.pattern_cur = (irand() % count_on_second_try); \
+			t1bp_kon_phase.pattern_cur = (irand() % count_on_first_try); \
+			if(t1bp_kon_phase.pattern_cur == t1bp_kon_prev) { \
+				t1bp_kon_phase.pattern_cur = (irand() % count_on_second_try); \
 			} \
-			pattern_prev = phase.pattern_cur; \
-			phase.patterns_done++; \
+			t1bp_kon_prev = t1bp_kon_phase.pattern_cur; \
+			t1bp_kon_phase.patterns_done++; \
 		} \
 	}
 
-	#define phase_frame_siddham_flash(phase, next_phase) { \
+	#define phase_frame_siddham_flash(t1bp_kon_phase, next_phase) { \
 		if(boss_phase_frame == 50) { \
 			siddham_col_white(); \
 		} \
@@ -1583,21 +1589,21 @@ void konngara_main(void)
 			siddham_col_white_in_step(); \
 		} \
 		\
-		hit.update_and_render(flash_colors); \
-		if(!hit.invincible && (boss_phase_frame > 120)) { \
-			phase.next(next_phase); \
+		t1bp_kon_hit.update_and_render(flash_colors); \
+		if(!t1bp_kon_hit.invincible && (boss_phase_frame > 120)) { \
+			t1bp_kon_phase.next(next_phase); \
 		} \
 	}
 
 	if(boss_phase == 0) {
 		boss_phase = 1;
-		pattern_prev = CHOOSE_NEW;
-		phase.pattern_cur = CHOOSE_NEW;
-		phase.patterns_done = 0;
+		t1bp_kon_prev = CHOOSE_NEW;
+		t1bp_kon_phase.pattern_cur = CHOOSE_NEW;
+		t1bp_kon_phase.patterns_done = 0;
 		boss_phase_frame = 0;
-		hit.invincibility_frame = 0;
-		hit.invincible = false;
-		initial_hp_rendered = false;
+		t1bp_kon_hit.invincibility_frame = 0;
+		t1bp_kon_hit.invincible = false;
+		t1bp_kon_hp_done = false;
 		boss_palette_snap();
 		random_seed = frame_rand;
 #if T1REPLAY_KONNGARA_PHASE1_TRACE
@@ -1607,16 +1613,16 @@ void konngara_main(void)
 			boss_hp,
 			hud_hp_first_white,
 			hud_hp_first_redwhite,
-			pattern_state.group,
+			t1bp_kon_pattern.group,
 			face_direction,
 			face_expression,
 			face_direction_can_change,
-			hit.invincible,
-			hit.invincibility_frame,
-			pattern_prev,
-			phase.pattern_cur,
-			phase.patterns_done,
-			initial_hp_rendered,
+			t1bp_kon_hit.invincible,
+			t1bp_kon_hit.invincibility_frame,
+			t1bp_kon_prev,
+			t1bp_kon_phase.pattern_cur,
+			t1bp_kon_phase.patterns_done,
+			t1bp_kon_hp_done,
 			ent_head,
 			ent_face_closed_or_glare,
 			ent_face_aim
@@ -1630,125 +1636,125 @@ void konngara_main(void)
 		// function. Konngara starts with an even number of total HP, so this
 		// will even happen for the easiest possible case of holding ↵ Return
 		// for the first 10 frames of phase 1.
-		hud_hp_increment_render(initial_hp_rendered, boss_hp, boss_phase_frame);
+		hud_hp_increment_render(t1bp_kon_hp_done, boss_hp, boss_phase_frame);
 
-		phase.frame_common(fd_track);
+		t1bp_kon_phase.frame_common(fd_track);
 
-		if(phase.pattern_cur == 0) {
+		if(t1bp_kon_phase.pattern_cur == 0) {
 			pattern_diamond_cross_to_edges_followed_by_rain();
-		} else if(phase.pattern_cur == 1) {
+		} else if(t1bp_kon_phase.pattern_cur == 1) {
 			pattern_symmetrical_from_cup();
-		} else if(phase.pattern_cur == 2) {
+		} else if(t1bp_kon_phase.pattern_cur == 2) {
 			pattern_two_homing_snakes_and_semicircle_spreads();
-		} else if(phase.pattern_cur == CHOOSE_NEW) {
-			pattern_choose(phase, 120, 3, 3);
+		} else if(t1bp_kon_phase.pattern_cur == CHOOSE_NEW) {
+			pattern_choose(t1bp_kon_phase, 120, 3, 3);
 		}
 		if(boss_phase_frame == 0) {
 			face_expression_set_and_put(FE_NEUTRAL);
-			phase.pattern_cur = CHOOSE_NEW;
+			t1bp_kon_phase.pattern_cur = CHOOSE_NEW;
 		}
-		hit.update_and_render(flash_colors);
-		if(!hit.invincible && ((phase.patterns_done >= 7) || (boss_hp < 16))) {
-			if(phase.pattern_cur == CHOOSE_NEW) {
-				phase.next(2);
+		t1bp_kon_hit.update_and_render(flash_colors);
+		if(!t1bp_kon_hit.invincible && ((t1bp_kon_phase.patterns_done >= 7) || (boss_hp < 16))) {
+			if(t1bp_kon_phase.pattern_cur == CHOOSE_NEW) {
+				t1bp_kon_phase.next(2);
 			}
 		}
 	} else if(boss_phase == 2) {
-		phase.frame_common(fd_track);
-		phase_frame_siddham_flash(phase, 3);
+		t1bp_kon_phase.frame_common(fd_track);
+		phase_frame_siddham_flash(t1bp_kon_phase, 3);
 	} else if(boss_phase == 3) {
-		phase.frame_common(fd_track);
+		t1bp_kon_phase.frame_common(fd_track);
 
-		if(phase.pattern_cur == 0) {
+		if(t1bp_kon_phase.pattern_cur == 0) {
 			pattern_aimed_rows_from_top();
-		} else if(phase.pattern_cur == 1) {
+		} else if(t1bp_kon_phase.pattern_cur == 1) {
 			pattern_aimed_spray_from_cup();
-		} else if(phase.pattern_cur == 2) {
+		} else if(t1bp_kon_phase.pattern_cur == 2) {
 			pattern_four_homing_snakes();
-		} else if(phase.pattern_cur == 3) {
+		} else if(t1bp_kon_phase.pattern_cur == 3) {
 			pattern_rain_from_edges();
-		} else if(phase.pattern_cur == CHOOSE_NEW) {
-			pattern_choose(phase, 120, 4, 4);
+		} else if(t1bp_kon_phase.pattern_cur == CHOOSE_NEW) {
+			pattern_choose(t1bp_kon_phase, 120, 4, 4);
 		}
 
 		if(boss_phase_frame == 0) {
 			face_expression_set_and_put(FE_NEUTRAL);
-			phase.pattern_cur = CHOOSE_NEW;
+			t1bp_kon_phase.pattern_cur = CHOOSE_NEW;
 		}
 
-		hit.update_and_render(flash_colors);
-		if(!hit.invincible && ((phase.patterns_done >= 9) || (boss_hp < 13))) {
-			if(phase.pattern_cur == CHOOSE_NEW) {
-				phase.next(4);
+		t1bp_kon_hit.update_and_render(flash_colors);
+		if(!t1bp_kon_hit.invincible && ((t1bp_kon_phase.patterns_done >= 9) || (boss_hp < 13))) {
+			if(t1bp_kon_phase.pattern_cur == CHOOSE_NEW) {
+				t1bp_kon_phase.next(4);
 			}
 		}
 	} else if(boss_phase == 4) {
-		phase.frame_common(fd_track);
-		phase_frame_siddham_flash(phase, 5);
+		t1bp_kon_phase.frame_common(fd_track);
+		phase_frame_siddham_flash(t1bp_kon_phase, 5);
 	} else if(boss_phase == 5) {
-		phase.frame_common(fd_track);
+		t1bp_kon_phase.frame_common(fd_track);
 
-		if(phase.pattern_cur == 0) {
+		if(t1bp_kon_phase.pattern_cur == 0) {
 			pattern_slash_rain();
-		} else if(phase.pattern_cur == 1) {
+		} else if(t1bp_kon_phase.pattern_cur == 1) {
 			pattern_lasers_and_3_spread();
-		} else if(phase.pattern_cur == 2) {
+		} else if(t1bp_kon_phase.pattern_cur == 2) {
 			pattern_slash_triangular();
-		} else if(phase.pattern_cur == CHOOSE_NEW) {
-			pattern_choose(phase, 120, 3, 2);
+		} else if(t1bp_kon_phase.pattern_cur == CHOOSE_NEW) {
+			pattern_choose(t1bp_kon_phase, 120, 3, 2);
 		}
 
 		if(boss_phase_frame == 0) {
 			face_expression_set_and_put(FE_NEUTRAL);
-			phase.pattern_cur = CHOOSE_NEW;
+			t1bp_kon_phase.pattern_cur = CHOOSE_NEW;
 		}
 
-		hit.update_and_render(flash_colors);
-		if(!hit.invincible && ((phase.patterns_done >= 6) || (boss_hp < 10))) {
-			if(phase.pattern_cur == CHOOSE_NEW) {
-				phase.next(6);
+		t1bp_kon_hit.update_and_render(flash_colors);
+		if(!t1bp_kon_hit.invincible && ((t1bp_kon_phase.patterns_done >= 6) || (boss_hp < 10))) {
+			if(t1bp_kon_phase.pattern_cur == CHOOSE_NEW) {
+				t1bp_kon_phase.next(6);
 			}
 		}
 	} else if(boss_phase == 6) {
-		phase.frame_common(fd_track);
-		phase_frame_siddham_flash(phase, 7);
+		t1bp_kon_phase.frame_common(fd_track);
+		phase_frame_siddham_flash(t1bp_kon_phase, 7);
 	} else if(boss_phase == 7) {
-		phase.frame_common(fd_track);
+		t1bp_kon_phase.frame_common(fd_track);
 
-		if(phase.pattern_cur == 0) {
+		if(t1bp_kon_phase.pattern_cur == 0) {
 			pattern_diamond_cross_to_edges_followed_by_rain();
-		} else if(phase.pattern_cur == 1) {
+		} else if(t1bp_kon_phase.pattern_cur == 1) {
 			pattern_symmetrical_from_cup();
-		} else if(phase.pattern_cur == 2) {
+		} else if(t1bp_kon_phase.pattern_cur == 2) {
 			pattern_two_homing_snakes_and_semicircle_spreads();
-		} else if(phase.pattern_cur == 3) {
+		} else if(t1bp_kon_phase.pattern_cur == 3) {
 			pattern_aimed_rows_from_top();
-		} else if(phase.pattern_cur == 4) {
+		} else if(t1bp_kon_phase.pattern_cur == 4) {
 			pattern_aimed_spray_from_cup();
-		} else if(phase.pattern_cur == 5) {
+		} else if(t1bp_kon_phase.pattern_cur == 5) {
 			pattern_four_homing_snakes();
-		} else if(phase.pattern_cur == 6) {
+		} else if(t1bp_kon_phase.pattern_cur == 6) {
 			pattern_rain_from_edges();
-		} else if(phase.pattern_cur == 7) {
+		} else if(t1bp_kon_phase.pattern_cur == 7) {
 			pattern_slash_rain();
-		} else if(phase.pattern_cur == 8) {
+		} else if(t1bp_kon_phase.pattern_cur == 8) {
 			pattern_lasers_and_3_spread();
-		} else if(phase.pattern_cur == 9) {
+		} else if(t1bp_kon_phase.pattern_cur == 9) {
 			pattern_slash_triangular();
-		} else if(phase.pattern_cur == 10) {
+		} else if(t1bp_kon_phase.pattern_cur == 10) {
 			pattern_semicircle_rain_from_sleeve();
-		} else if(phase.pattern_cur == 11) {
+		} else if(t1bp_kon_phase.pattern_cur == 11) {
 			pattern_slash_aimed();
-		} else if(phase.pattern_cur == CHOOSE_NEW) {
-			pattern_choose(phase, 5, 12, 2);
+		} else if(t1bp_kon_phase.pattern_cur == CHOOSE_NEW) {
+			pattern_choose(t1bp_kon_phase, 5, 12, 2);
 		}
 
 		if(boss_phase_frame == 0) {
 			face_expression_set_and_put(FE_NEUTRAL);
-			phase.pattern_cur = CHOOSE_NEW;
+			t1bp_kon_phase.pattern_cur = CHOOSE_NEW;
 		}
 
-		hit.update_and_render(flash_colors);
+		t1bp_kon_hit.update_and_render(flash_colors);
 		if(boss_hp > 0) {
 			return;
 		}
@@ -1968,7 +1974,7 @@ static bool16 t1boss_konngara_state_is_canonical(void)
 	return (
 		(boss_phase == 0) && (boss_phase_frame == 0) && (boss_hp == 18) &&
 		(hud_hp_first_white == 16) && (hud_hp_first_redwhite == 10) &&
-		(pattern_state.group == 0) &&
+		(t1bp_kon_pattern.group == 0) &&
 		(face_direction == FD_CENTER) && (face_expression == FE_NEUTRAL) &&
 		face_direction_can_change && !game_cleared
 	);
@@ -2004,7 +2010,7 @@ bool16 t1boss_konngara_ckpt_apply_loaded(
 
 	// Native startup already owns the entrance, palette, and allocations.
 	konngara_setup();
-	pattern_state.group = 0;
+	t1bp_kon_pattern.group = 0;
 	game_cleared = false;
 	return true;
 }

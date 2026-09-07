@@ -549,7 +549,8 @@ typedef int (*elis_phase_1_3_pattern_func_t)(void);
 // Returns `SP_STAR_OF_DAVID` if done, or `SP_PATTERN` if still ongoing.
 typedef elis_starpattern_ret_t (*elis_starpattern_func_t)(void);
 
-static union {
+extern "C" {
+union {
 	int angle_range; // ACTUAL TYPE: unsigned char
 	int count;
 	pellet_group_t group;
@@ -557,7 +558,8 @@ static union {
 	int ring;
 	int speed_multiplied_by_8;
 	pixel_t speed;
-} pattern_state;
+} t1bp_el_pattern;
+}
 
 // The direct first-combat constructor is consumed on the next elis_main()
 // call. This is outside every native pattern-state domain and is cleared
@@ -733,7 +735,7 @@ int pattern_11_lasers_across(void)
 	if(boss_phase_frame == 50) {
 		direction = (irand() % 2);
 		ent_unput_and_put_both(ent_still_or_wave, 1, C_HAND, false);
-		select_laser_speed_for_rank(pattern_state.speed_multiplied_by_8,
+		select_laser_speed_for_rank(t1bp_el_pattern.speed_multiplied_by_8,
 			6.25f, 6.875f, 7.5f, 8.125f
 		);
 	} else if(boss_phase_frame == 60) {
@@ -781,7 +783,7 @@ int pattern_11_lasers_across(void)
 			girl_lefteye_y(),
 			target_left,
 			target_y,
-			pattern_state.speed_multiplied_by_8,
+			t1bp_el_pattern.speed_multiplied_by_8,
 			V_WHITE,
 			25,
 			4
@@ -815,15 +817,15 @@ int pattern_random_downwards_missiles(void)
 
 	if(boss_phase_frame == 50) {
 		ent_unput_and_put_both(ent_still_or_wave, 1, C_HAND, false);
-		select_for_rank(pattern_state.angle_range, 0x0F, 0x15, 0x19, 0x1D);
+		select_for_rank(t1bp_el_pattern.angle_range, 0x0F, 0x15, 0x19, 0x1D);
 	}
 
 	// That's quite the brave placement for this branch...
 	if((boss_phase_frame > 60) && ((boss_phase_frame % 3) == 0)) {
 		int i = (irand() % rifts.count());
 		angle = (
-			(irand() % pattern_state.angle_range) -
-			((pattern_state.angle_range - 0x01) / 2) +
+			(irand() % t1bp_el_pattern.angle_range) -
+			((t1bp_el_pattern.angle_range - 0x01) / 2) +
 			0x40
 		);
 		vector2(velocity_x, velocity_y, 7, angle);
@@ -851,7 +853,7 @@ int pattern_pellets_along_circle(void)
 	if(boss_phase_frame == 50) {
 		ent_unput_and_put_both(ent_still_or_wave, 1, C_HAND, false);
 		circle.angle = 0x00;
-		select_for_rank(reinterpret_cast<int &>(pattern_state.group),
+		select_for_rank(reinterpret_cast<int &>(t1bp_el_pattern.group),
 			PG_1_AIMED,
 			PG_1_RANDOM_NARROW_AIMED,
 			PG_3_SPREAD_WIDE_AIMED,
@@ -877,7 +879,7 @@ int pattern_pellets_along_circle(void)
 			top = polar_y(
 				form_center_y(F_GIRL), BIGCIRCLE_RADIUS, circle.angle
 			);
-			Pellets.add_group(left, top, pattern_state.group, to_sp(0.25f));
+			Pellets.add_group(left, top, t1bp_el_pattern.group, to_sp(0.25f));
 			circle.angle += (0x100 / 32);
 		}
 		boss_phase_frame = 0;
@@ -996,11 +998,11 @@ elis_starpattern_ret_t near star_of_david(void)
 int pattern_curved_5_stack_rings(void)
 {
 	#define fire_ring(i, angle_offset, speed) { \
-		for(int i = 0; i < pattern_state.ring; i++) { \
+		for(int i = 0; i < t1bp_el_pattern.ring; i++) { \
 			Pellets.add_single( \
 				(form_center_x(F_GIRL) - (PELLET_W / 2)), \
 				(form_center_y(F_GIRL) - (PELLET_H / 2)), \
-				(((0x100 / pattern_state.ring) * i) + angle_offset), \
+				(((0x100 / t1bp_el_pattern.ring) * i) + angle_offset), \
 				to_sp(speed) \
 			); \
 		} \
@@ -1008,7 +1010,7 @@ int pattern_curved_5_stack_rings(void)
 
 	ent_attack_render();
 	if(boss_phase_frame == 10) {
-		select_for_rank(pattern_state.ring, 14, 16, 18, 20);
+		select_for_rank(t1bp_el_pattern.ring, 14, 16, 18, 20);
 		fire_ring(i, 0x00, 3.0f);
 	} else if(boss_phase_frame == 16) {
 		fire_ring(i, 0x02, 3.375f);
@@ -1125,8 +1127,8 @@ int pattern_clusters_from_spheres(void)
 				elis_grc_put(spheres, i, C_SPHERE_LARGE, COL_FX);
 			}
 
-			select_for_rank(pattern_state.count, 5, 7, 9, 13);
-			for(i = 0; i < pattern_state.count; i++) {
+			select_for_rank(t1bp_el_pattern.count, 5, 7, 9, 13);
+			for(i = 0; i < t1bp_el_pattern.count; i++) {
 				subpixel_t speed;
 				unsigned char angle;
 
@@ -1169,13 +1171,13 @@ int pattern_random_from_rifts(void)
 
 	ent_attack_render();
 	if(boss_phase_frame == (KEYFRAME_0 / 2)) {
-		select_for_rank(pattern_state.interval, 6, 3, 2, 2);
+		select_for_rank(t1bp_el_pattern.interval, 6, 3, 2, 2);
 	}
 
 	// That's quite the brave placement for this branch...
 	if(
 		(boss_phase_frame > KEYFRAME_0) &&
-		((boss_phase_frame % pattern_state.interval) == 0) &&
+		((boss_phase_frame % t1bp_el_pattern.interval) == 0) &&
 		(boss_phase_frame < KEYFRAME_1)
 	) {
 		int i = (irand() % rifts.count());
@@ -1462,24 +1464,24 @@ elis_starpattern_ret_t pattern_three_symmetric_4_stacks_then_symmetric_arc(void)
 
 	ent_attack_render();
 	if(boss_phase_frame == 50) {
-		select_for_rank(pattern_state.speed, 2, 3, 3, 4);
+		select_for_rank(t1bp_el_pattern.speed, 2, 3, 3, 4);
 		for(int i = 0; i < 4; i++) {
-			fire_symmetric(0x40, (i + pattern_state.speed));
+			fire_symmetric(0x40, (i + t1bp_el_pattern.speed));
 		}
 	} else if(boss_phase_frame == 60) {
 		for(int i = 0; i < 4; i++) {
-			fire_symmetric(0x30, (i + pattern_state.speed));
+			fire_symmetric(0x30, (i + t1bp_el_pattern.speed));
 		}
 		mdrv2_se_play(7);
 	} else if(boss_phase_frame == 70) {
 		for(int i = 0; i < 4; i++) {
-			fire_symmetric(0x18, (i + pattern_state.speed));
+			fire_symmetric(0x18, (i + t1bp_el_pattern.speed));
 		}
 		mdrv2_se_play(7);
 	} else if(boss_phase_frame == 80) {
 		unsigned char angle = 0x00;
 		for(int i = 0; i < 10; i++) {
-			fire_symmetric(angle, (2 + pattern_state.speed));
+			fire_symmetric(angle, (2 + t1bp_el_pattern.speed));
 			angle += 0x06;
 		}
 		mdrv2_se_play(7);
@@ -1526,7 +1528,7 @@ elis_starpattern_ret_t pattern_safety_circle_and_rain_from_top(void)
 		return SP_PATTERN;
 	}
 	if(boss_phase_frame == 60) {
-		select_for_rank(pattern_state.interval, 4, 2, 2, 2);
+		select_for_rank(t1bp_el_pattern.interval, 4, 2, 2, 2);
 		circle.angle = 0x00;
 	}
 	if(bigcircle_is_summon_frame(60) && (circle.frame == 0)) {
@@ -1564,7 +1566,7 @@ elis_starpattern_ret_t pattern_safety_circle_and_rain_from_top(void)
 		if(player_is_hit == true) {
 			circle.frame = CIRCLE_FRAMES;
 		}
-		if((boss_phase_frame % pattern_state.interval) == 0) {
+		if((boss_phase_frame % t1bp_el_pattern.interval) == 0) {
 			Pellets.add_group(
 				(PLAYFIELD_LEFT + (irand() % (PLAYFIELD_W - PELLET_W))),
 				(PLAYFIELD_TOP),
@@ -1623,7 +1625,7 @@ elis_starpattern_ret_t pattern_aimed_5_spreads_and_lasers_followed_by_ring(void)
 	} else if(boss_phase_frame == KEYFRAME_INIT) {
 		ent_unput_and_put_both(ent_still_or_wave, 1, C_HAND, false);
 		circle.angle = 0x00;
-		select_for_rank(pattern_state.interval, 40, 30, 20, 15);
+		select_for_rank(t1bp_el_pattern.interval, 40, 30, 20, 15);
 	}
 	if(bigcircle_summon_and_flash(circle, KEYFRAME_START, 0x02)) {
 		bigcircle_sloppy_unput(circle);
@@ -1645,7 +1647,7 @@ elis_starpattern_ret_t pattern_aimed_5_spreads_and_lasers_followed_by_ring(void)
 		circle.frame = 0;
 		return SP_STAR_OF_DAVID;
 	}
-	if((boss_phase_frame % pattern_state.interval) == 0) {
+	if((boss_phase_frame % t1bp_el_pattern.interval) == 0) {
 		Pellets.add_group(
 			(girl_wing_left_center_x() - (PELLET_W / 2)),
 			(girl_wing_center_y() - (PELLET_H / 2)),
@@ -1659,7 +1661,7 @@ elis_starpattern_ret_t pattern_aimed_5_spreads_and_lasers_followed_by_ring(void)
 			to_sp(4.0f)
 		);
 	}
-	if((boss_phase_frame % (pattern_state.interval * 2)) == 0) {
+	if((boss_phase_frame % (t1bp_el_pattern.interval * 2)) == 0) {
 		shootout_laser_safe(boss_phase_frame / 10).spawn(
 			(form_center_x(F_GIRL) - (8 / 2)),
 			girl_lefteye_y(),
@@ -1778,23 +1780,24 @@ void phase_5(
 	}
 }
 
-void elis_main(void)
-{
-	static elis_form_t form = F_GIRL;
-	static struct {
+// Export existing storage for tail-only Practice; retain order and widths.
+extern "C" {
+
+	elis_form_t t1bp_el_form = F_GIRL;
+	struct {
 		int invincibility_frame;
 		bool16 invincible;
 
 		#define hit_update_and_render(form_inlined, flash_colors) { \
 			boss_hit_update_and_render( \
-				hit.invincibility_frame, \
-				hit.invincible, \
+				t1bp_el_hit.invincibility_frame, \
+				t1bp_el_hit.invincible, \
 				boss_hp, \
 				flash_colors, \
 				(sizeof(flash_colors) / sizeof(flash_colors[0])), \
 				7000, \
 				boss_nop, \
-				(form == F_GIRL) \
+				(t1bp_el_form == F_GIRL) \
 					? ent_still_or_wave.hittest_orb() \
 					: ent_bat.hittest_orb(), \
 				form_shot_hitbox_left(form_inlined), \
@@ -1803,8 +1806,8 @@ void elis_main(void)
 				form_shot_hitbox_h(form_inlined) \
 			); \
 		}
-	} hit;
-	static struct {
+	} t1bp_el_hit;
+	struct {
 		union {
 			int pattern;
 
@@ -1815,7 +1818,7 @@ void elis_main(void)
 
 		void frame_common(int8_t phase_id) {
 			boss_phase_frame++;
-			hit.invincibility_frame++;
+			t1bp_el_hit.invincibility_frame++;
 
 			// ZUN bloat: Already done as part of ent_unput_and_put_both(),
 			// which is the only function that reads from [ent_attack].
@@ -1825,37 +1828,40 @@ void elis_main(void)
 		}
 
 		#define phase_frame_common(phase_id, phase_func, flash_colors) { \
-			phase.frame_common(phase_id); \
+			t1bp_el_phase.frame_common(phase_id); \
 			\
-			if(phase.cur.pattern != CHOOSE_NEW) { \
-				phase.cur.pattern = phase_func(phase.cur.pattern); \
-			} else if(phase.teleport_done == false) { \
-				phase.teleport_done = wave_teleport( \
+			if(t1bp_el_phase.cur.pattern != CHOOSE_NEW) { \
+				t1bp_el_phase.cur.pattern = phase_func(t1bp_el_phase.cur.pattern); \
+			} else if(t1bp_el_phase.teleport_done == false) { \
+				t1bp_el_phase.teleport_done = wave_teleport( \
 					elis_playfield_random_left(), elis_playfield_random_top() \
 				); \
-			} else if(phase.teleport_done == true) { \
-				phase.cur.pattern = phase_func(phase.cur.pattern); \
-				phase.teleport_done = false; \
+			} else if(t1bp_el_phase.teleport_done == true) { \
+				t1bp_el_phase.cur.pattern = phase_func(t1bp_el_phase.cur.pattern); \
+				t1bp_el_phase.teleport_done = false; \
 			} \
 			hit_update_and_render(F_GIRL, flash_colors); \
 		}
 
 		#define phase_done(end_hp) ( \
-			(boss_hp <= end_hp) && (phase.teleport_done == true) \
+			(boss_hp <= end_hp) && (t1bp_el_phase.teleport_done == true) \
 		)
 
 		void next(int8_t phase_new, int pattern_new) {
 			boss_phase = phase_new;
 			boss_phase_frame = 0;
-			hit.invincibility_frame = 0;
+			t1bp_el_hit.invincibility_frame = 0;
 			cur.pattern = pattern_new;
 			teleport_done = false;
 		}
-	} phase;
-	static pixel_t bat_velocity_y;
-	static pixel_t bat_velocity_x;
-	static bool initial_hp_rendered;
+	} t1bp_el_phase;
+	pixel_t t1bp_el_vy;
+	pixel_t t1bp_el_vx;
+	bool t1bp_el_hp_done;
+}
 
+void elis_main(void)
+{
 	screen_x_t head_left;
 	screen_y_t head_top;
 	bool16 trails_offscreen;
@@ -1864,17 +1870,17 @@ void elis_main(void)
 
 	if(
 		(boss_phase == 1) &&
-		(pattern_state.angle_range == ELIS_FIRST_COMBAT_CARRIER)
+		(t1bp_el_pattern.angle_range == ELIS_FIRST_COMBAT_CARRIER)
 	) {
-		form = F_GIRL;
-		hit.invincibility_frame = 0;
-		hit.invincible = false;
-		phase.cur.pattern = 1;
-		phase.teleport_done = false;
-		bat_velocity_y = 0;
-		bat_velocity_x = 0;
-		initial_hp_rendered = false;
-		pattern_state.angle_range = 0;
+		t1bp_el_form = F_GIRL;
+		t1bp_el_hit.invincibility_frame = 0;
+		t1bp_el_hit.invincible = false;
+		t1bp_el_phase.cur.pattern = 1;
+		t1bp_el_phase.teleport_done = false;
+		t1bp_el_vy = 0;
+		t1bp_el_vx = 0;
+		t1bp_el_hp_done = false;
+		t1bp_el_pattern.angle_range = 0;
 	}
 
 #if T1ELX_TRACE
@@ -1882,9 +1888,9 @@ void elis_main(void)
 	// the direct carrier have initialized the same Elis-local static state.
 	t1elx_pre_input(
 		BID_ELIS, boss_phase, boss_phase_frame, boss_hp,
-		pattern_state.angle_range, form, hit.invincibility_frame,
-		hit.invincible, phase.cur.pattern, phase.teleport_done,
-		bat_velocity_x, bat_velocity_y, initial_hp_rendered,
+		t1bp_el_pattern.angle_range, t1bp_el_form, t1bp_el_hit.invincibility_frame,
+		t1bp_el_hit.invincible, t1bp_el_phase.cur.pattern, t1bp_el_phase.teleport_done,
+		t1bp_el_vx, t1bp_el_vy, t1bp_el_hp_done,
 		ent_still_or_wave, ent_attack, ent_bat
 	);
 #endif
@@ -1938,7 +1944,7 @@ void elis_main(void)
 		// Trailing rotation
 		// -----------------
 
-		#define entrance_tick hit.invincibility_frame
+		#define entrance_tick t1bp_el_hit.invincibility_frame
 
 		angle = 0x00;
 		entrance_tick = 0;
@@ -1998,7 +2004,7 @@ void elis_main(void)
 			KEYFRAME_ENTRANCE_DONE = 140,
 		};
 
-		#define entrance_frame hit.invincibility_frame
+		#define entrance_frame t1bp_el_hit.invincibility_frame
 
 		entrance_frame = 0;
 		trails_offscreen = false;
@@ -2089,7 +2095,7 @@ void elis_main(void)
 		#undef sphere_unput_and_put_head
 
 		boss_phase_frame = 0;
-		hit.invincibility_frame = 0;
+		t1bp_el_hit.invincibility_frame = 0;
 		boss_phase = 1;
 		ent_still_or_wave.hitbox_orb_inactive = false;
 
@@ -2100,9 +2106,9 @@ void elis_main(void)
 		// ... which makes this blitting call redundant, though.
 		graph_accesspage_func(0); ent_still_or_wave.unlock_put_lock_8();
 
-		phase.teleport_done = false;
-		phase.cur.pattern = 1;
-		initial_hp_rendered = false;
+		t1bp_el_phase.teleport_done = false;
+		t1bp_el_phase.cur.pattern = 1;
+		t1bp_el_hp_done = false;
 	} else if(boss_phase == 1) {
 		// ZUN bug: Since the fight only ends in Phase 5 at the earliest, HP
 		// subtraction in debug mode can lead to this function being called
@@ -2111,44 +2117,44 @@ void elis_main(void)
 		// function. Elis starts with an even number of total HP, so this will
 		// even happen for the easiest possible case of holding ↵ Return for
 		// the first 8 frames of phase 1.
-		hud_hp_increment_render(initial_hp_rendered, boss_hp, boss_phase_frame);
+		hud_hp_increment_render(t1bp_el_hp_done, boss_hp, boss_phase_frame);
 
 		phase_frame_common(1, phase_1, flash_colors);
-		if(!hit.invincible && phase_done(HP_PHASE_1_END)) {
-			phase.next(2, CHOOSE_NEW);
+		if(!t1bp_el_hit.invincible && phase_done(HP_PHASE_1_END)) {
+			t1bp_el_phase.next(2, CHOOSE_NEW);
 		}
 	} else if(boss_phase == 2) {
 		boss_phase_frame++;
-		phase.teleport_done = wave_teleport(BASE_LEFT, BASE_TOP);
-		if(phase.teleport_done == true) {
+		t1bp_el_phase.teleport_done = wave_teleport(BASE_LEFT, BASE_TOP);
+		if(t1bp_el_phase.teleport_done == true) {
 			phase_3(99);
 
-			phase.next(3, 1);
+			t1bp_el_phase.next(3, 1);
 		}
 	} else if(boss_phase == 3) {
 		phase_frame_common(3, phase_3, flash_colors);
-		if(!hit.invincible && phase_done(HP_PHASE_3_END)) {
-			phase.next(4, CHOOSE_NEW);
-			form = F_GIRL;
+		if(!t1bp_el_hit.invincible && phase_done(HP_PHASE_3_END)) {
+			t1bp_el_phase.next(4, CHOOSE_NEW);
+			t1bp_el_form = F_GIRL;
 		}
 	} else if(boss_phase == 4) {
 		boss_phase_frame++;
-		if(!phase.teleport_done) {
-			phase.teleport_done = wave_teleport(BASE_LEFT, BASE_TOP);
+		if(!t1bp_el_phase.teleport_done) {
+			t1bp_el_phase.teleport_done = wave_teleport(BASE_LEFT, BASE_TOP);
 		} else {
-			phase.cur.form = transform_girl_to_bat();
+			t1bp_el_phase.cur.form = transform_girl_to_bat();
 		}
-		if(phase.cur.form == F_BAT) {
-			phase.next(5, CHOOSE_NEW);
-			form = F_BAT;
+		if(t1bp_el_phase.cur.form == F_BAT) {
+			t1bp_el_phase.next(5, CHOOSE_NEW);
+			t1bp_el_form = F_BAT;
 
-			phase_5(form, bat_velocity_x, bat_velocity_y, true);
+			phase_5(t1bp_el_form, t1bp_el_vx, t1bp_el_vy, true);
 		}
 	} else if(boss_phase == 5) {
-		phase.frame_common(5);
-		if(form != F_GIRL) {
+		t1bp_el_phase.frame_common(5);
+		if(t1bp_el_form != F_GIRL) {
 			ent_bat.locked_move_unput_and_put_8(
-				0, bat_velocity_x, bat_velocity_y, (BAT_SPEED_DIVISOR - 1)
+				0, t1bp_el_vx, t1bp_el_vy, (BAT_SPEED_DIVISOR - 1)
 			);
 
 			#define bat_cycle_frame (boss_phase_frame % BAT_CYCLE_FRAMES)
@@ -2161,8 +2167,8 @@ void elis_main(void)
 			}
 			#undef bat_cycle_frame
 		}
-		phase_5(form, bat_velocity_x, bat_velocity_y);
-		hit_update_and_render(form, flash_colors);
+		phase_5(t1bp_el_form, t1bp_el_vx, t1bp_el_vy);
+		hit_update_and_render(t1bp_el_form, flash_colors);
 		if(boss_hp <= HP_PHASE_5_END) {
 			int i;
 
@@ -2202,17 +2208,19 @@ static bool16 t1boss_elis_entity_checkpoint_validate(
 
 static bool16 t1boss_elis_entities_loaded(void)
 {
+	// w_aligned() includes one extra 16-pixel blit cell, not just image width.
+	// Retain its expression shape to preserve this interleaved patch segment.
 	return (
 		(ent_still_or_wave.bos_slot == 0) &&
 		(ent_still_or_wave.bos_image_count > C_WAVE_3) &&
-		(ent_still_or_wave.w_aligned() == GIRL_W) &&
+		(ent_still_or_wave.w_aligned() == (GIRL_W + 16)) &&
 		(ent_still_or_wave.h == GIRL_H) &&
 		(ent_attack.bos_slot == 1) &&
 		(ent_attack.bos_image_count > C_ATTACK_2) &&
-		(ent_attack.w_aligned() == GIRL_W) && (ent_attack.h == GIRL_H) &&
+		(ent_attack.w_aligned() == (GIRL_W + 16)) && (ent_attack.h == GIRL_H) &&
 		(ent_bat.bos_slot == 2) &&
 		(ent_bat.bos_image_count > C_BAT_last) &&
-		(ent_bat.w_aligned() == BAT_W) && (ent_bat.h == BAT_H) &&
+		(ent_bat.w_aligned() == (BAT_W + 16)) && (ent_bat.h == BAT_H) &&
 		!ent_still_or_wave.loading && !ent_attack.loading && !ent_bat.loading
 	);
 }
@@ -2242,7 +2250,7 @@ static bool16 t1boss_elis_first_combat_preconditions_valid(void)
 		(frame_since_start_of_binary == 0) &&
 		t1boss_elis_entities_loaded() &&
 		(boss_phase == 0) && (boss_phase_frame == 0) &&
-		(boss_hp == HP_TOTAL) && (pattern_state.angle_range == 0) &&
+		(boss_hp == HP_TOTAL) && (t1bp_el_pattern.angle_range == 0) &&
 		(hud_hp_first_white == HP_PHASE_1_END) &&
 		(hud_hp_first_redwhite == HP_PHASE_3_END) &&
 		t1boss_elis_live_entity_is_canonical(ent_still_or_wave) &&
@@ -2308,7 +2316,7 @@ bool16 t1boss_elis_checkpoint_capture(
 	live.reserved_0 = 0;
 	live.phase_frame = boss_phase_frame;
 	live.hp = boss_hp;
-	live.pattern_state = pattern_state.angle_range;
+	live.pattern_state = t1bp_el_pattern.angle_range;
 	t1boss_elis_entity_checkpoint_capture(&live.entity[0], ent_still_or_wave);
 	t1boss_elis_entity_checkpoint_capture(&live.entity[1], ent_attack);
 	t1boss_elis_entity_checkpoint_capture(&live.entity[2], ent_bat);
@@ -2355,7 +2363,7 @@ bool16 t1boss_elis_ckpt_apply_loaded(
 	boss_phase = checkpoint->phase;
 	boss_phase_frame = checkpoint->phase_frame;
 	boss_hp = checkpoint->hp;
-	pattern_state.angle_range = checkpoint->pattern_state;
+	t1bp_el_pattern.angle_range = checkpoint->pattern_state;
 	hud_hp_first_white = HP_PHASE_1_END;
 	hud_hp_first_redwhite = HP_PHASE_3_END;
 	return true;
@@ -2392,7 +2400,7 @@ bool16 t1boss_elis_practice_first_combat_apply(void)
 	boss_phase_frame = 0;
 	boss_hp = HP_TOTAL;
 	ent_still_or_wave.hitbox_orb_inactive = false;
-	pattern_state.angle_range = ELIS_FIRST_COMBAT_CARRIER;
+	t1bp_el_pattern.angle_range = ELIS_FIRST_COMBAT_CARRIER;
 	return true;
 }
 

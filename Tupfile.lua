@@ -142,6 +142,14 @@ function Config:build(inputs)
 	return ret
 end
 
+-- Last CODE contribution before the runtime library. A paragraph boundary plus
+-- the pinned offset keeps CRT near addresses stable as patch tails grow.
+function Config:replay_crt_align(phase, object_name)
+	return self:branch({ aflags = "/dPATCH_CRT_PHASE=" .. phase }):build_uncached({
+		"th01/crtalign.asm", o = object_name,
+	})
+end
+
 ---@param exe_stem string
 ---@param inputs ReC98Input[]
 function Config:link(exe_stem, inputs)
@@ -540,6 +548,10 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th01/rpyfont.cpp",
 	"th01/language.cpp",
 	"th01/rpymile.cpp",
+	"th01/audio.cpp",
+	"th01/keycfg_o.cpp",
+	"th01/scrstat.cpp",
+	th01:replay_crt_align(0, "opalgn.obj"),
 })
 th01_reiiden:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	piloadc,
@@ -612,6 +624,20 @@ th01_reiiden:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	"th01/t1kik.cpp",
 	"th01/t1sar.cpp",
 	"th01/rpymile.cpp",
+	"th01/audio.cpp",
+	"th01/mdpause.cpp",
+	"th01/keycfg_i.cpp",
+	"th01/scrstat.cpp",
+	"th01/statview.cpp",
+	"th01/t1bprac.cpp",
+	"th01/bpr_05.cpp",
+	"th01/bpr_10j.cpp",
+	"th01/bpr_10m.cpp",
+	"th01/bpr_15j.cpp",
+	"th01/bpr_15m.cpp",
+	"th01/bpr_20m.cpp",
+	"th01/bpr_20j.cpp",
+	th01_reiiden:replay_crt_align(0, "mnalgn.obj"),
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	piloadc,
@@ -638,6 +664,11 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	"th01/language.cpp",
 	"th01/langfuu.cpp",
 	{ "th01/staff_fast_forward.cpp", o = "staff_~1.obj" },
+	"th01/audio.cpp",
+	"th01/keycfg_i.cpp",
+	"th01/scrstat.cpp",
+	"th01/fstatv.cpp",
+	th01:replay_crt_align(0, "enalgn.obj"),
 })
 -- ----
 
@@ -709,6 +740,10 @@ th02_replay:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th02/oplife.cpp",
 	-- Shared adaptive conventional-memory admission for patch-enlarged OP.
 	{ "th02/op/op_memory_budget.cpp", o = "op_mem~1.obj" },
+	"th02/sectrl.cpp",
+	"th02/keycfg_o.cpp",
+	"th02/scrst_o.cpp",
+	th02_replay:replay_crt_align(6, "opalgn.obj"),
 })
 local th02_main_sources = {
 	{ "th02_main.asm", extra_inputs = {
@@ -830,7 +865,12 @@ local th02_main_sources = {
 	-- Private lifecycle evidence is a separate shared tail. It is empty in
 	-- release profiles and lets MAIN/MAINE report the same admission contract.
 	"th02/mainlife.cpp",
-
+	"th02/mdpause.cpp",
+	"th02/sectrl.cpp",
+	"th02/keycfg_i.cpp",
+	"th02/scrst_m.cpp",
+	"th02/main/s3late.cpp",
+	th02_main:replay_crt_align(1, "mnalgn.obj"),
 }
 th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", th02_main_sources)
 -- Use the replay profile here too. Debug lifecycle evidence must cover the
@@ -867,6 +907,8 @@ th02_replay:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	{ "th02/main/memory_budget.cpp", o = "memory~1.obj" },
 	"th02/endlife.cpp",
 	{ "th02/end/staff_fast_forward.cpp", o = "staff_~1.obj" },
+	"th02/scrst_m.cpp",
+	th02_replay:replay_crt_align(9, "enalgn.obj"),
 })
 -- ----
 
@@ -1371,6 +1413,10 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th04/op_title.cpp",
 	"th04/m_char.cpp",
 	"th04/rpyop.cpp",
+	"th04/mdload.cpp",
+	"th04/keycfg_o.cpp",
+	"th04/scrst_o.cpp",
+	th04:replay_crt_align(3, "opalgn.obj"),
 })
 local th04_main_inputs = {
 	{ "th04_main.asm", extra_inputs = {
@@ -1558,6 +1604,11 @@ local th04_main_inputs = {
 	"th04/rp_ckpt.cpp",
 	-- SAVESTATE GUARD MOD: physical FAT verification in an isolated tail.
 	"th04/main/rp_guard.cpp",
+	"th04/mdpause.cpp",
+	"th04/mdload.cpp",
+	"th04/keycfg_i.cpp",
+	"th04/scrst_m.cpp",
+	th04:replay_crt_align(12, "mnalgn.obj"),
 }
 th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link(
 	"main", th04_main_inputs
@@ -1610,6 +1661,9 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	-- LANGUAGE OVERLAY MOD: optional presentation assets in a trailing segment.
 	"th04/rpyend.cpp",
 	{ "th04/end/staff_fast_forward.cpp", o = "staff_~2.obj" },
+	"th04/mdload.cpp",
+	"th04/scrst_m.cpp",
+	th04:replay_crt_align(14, "enalgn.obj"),
 })
 -- ----
 
@@ -1685,6 +1739,10 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='O'" }):link("op", {
 	"th05/hi_view.cpp",
 	"th05/m_char.cpp",
 	"th05/rpyop.cpp",
+	"th05/mdload.cpp",
+	"th05/keycfg_o.cpp",
+	"th05/scrst_o.cpp",
+	th05:replay_crt_align(4, "opalgn.obj"),
 })
 local th05_main_inputs = {
 	{ "th05_main.asm", extra_inputs = {
@@ -1846,6 +1904,11 @@ local th05_main_inputs = {
 	"th05/rp_ckpt.cpp",
 	-- SAVESTATE GUARD MOD: physical FAT verification in an isolated tail.
 	"th05/main/rp_guard.cpp",
+	"th05/mdpause.cpp",
+	"th05/mdload.cpp",
+	"th05/keycfg_i.cpp",
+	"th05/scrst_m.cpp",
+	th05:replay_crt_align(13, "mnalgn.obj"),
 }
 th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link(
 	"main", th05_main_inputs
@@ -1911,6 +1974,9 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	-- LANGUAGE OVERLAY MOD: optional presentation assets in a trailing segment.
 	"th05/rpyend.cpp",
 	"th05/staffff.cpp",
+	"th05/mdload.cpp",
+	"th05/scrst_m.cpp",
+	th05:replay_crt_align(8, "enalgn.obj"),
 })
 -- ----
 

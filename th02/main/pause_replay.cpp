@@ -19,6 +19,7 @@
 #include "th02/main/pause_replay.hpp"
 #include "th02/main/replay.hpp"
 #include "th02/snd/snd.h"
+#include "th02/snd/mdpause.hpp"
 
 #define T2PAUSE_TITLE_LEFT 18
 #define T2PAUSE_TITLE_Y 12
@@ -211,7 +212,7 @@ static bool16 t2pause_playback_exit(bool bgm_paused)
 {
 	t2pause_clear();
 	if(bgm_paused) {
-		snd_kaja_func(PMD_UNPAUSE, 0);
+		snd_bgm_resume();
 	}
 	return true;
 }
@@ -265,12 +266,9 @@ bool16 far t2pause_menu(void)
 	);
 	bool restart_available = replay_pause_restart_available();
 	bool save_available = replay_pause_save_available();
-	bool bgm_paused = (snd_bgm_active() && snd_bgm_is_fm());
+	bool bgm_paused = snd_bgm_pause();
 
 	t2pause_backing_capture();
-	if(bgm_paused) {
-		snd_kaja_func(PMD_PAUSE, 0);
-	}
 
 	while((key_det != INPUT_NONE) || t2pause_restart_pressed()) {
 		if(t2pause_input_sample()) {
@@ -354,7 +352,7 @@ bool16 far t2pause_menu(void)
 	}
 	t2pause_clear();
 	if(bgm_paused) {
-		snd_kaja_func(PMD_UNPAUSE, 0);
+		snd_bgm_resume();
 	}
 	action = t2pause_action(selected, restart_semantics);
 	if(action == T2PAUSE_RESUME) {

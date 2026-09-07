@@ -56,6 +56,7 @@ bool16 t1boss_singyoku_ckpt_apply_loaded(
 // Constructs the one public direct-start seam from native post-entrance
 // constants. It never accepts a serialized checkpoint payload.
 bool16 t1boss_singyoku_practice_boss_phase_apply(uint8_t target);
+bool16 t1boss_singyoku_practice_construct(uint8_t target);
 
 #if T1REPLAY_CHECKPOINT_PRIVATE_RESTORE
 // Private source-owned phase-2 constructor. It deliberately has no public

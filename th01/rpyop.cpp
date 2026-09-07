@@ -27,11 +27,18 @@
 #include "th01/language.hpp"
 #include "th01/rpyfont.hpp"
 #include "th01/replay_op.hpp"
+#include "th01/boss_practice.hpp"
 #if defined(T1RB)
 #include "th01/replay_milestone.hpp"
 #endif
 #include "th01/resident.hpp"
 #include "th01/rank.h"
+#include "th01/formats/cfg.hpp"
+#include "th01/snd/audio.hpp"
+#include "th04/scorestat.hpp"
+
+extern cfg_options_t opts;
+extern int8_t debug_mode;
 
 // Keep the complete title backing on page 1.  Replay and Practice own their
 // full-screen PI backgrounds on both pages and restore the stock title only
@@ -558,14 +565,9 @@ static uint32_t t1replay_op_restart_state_checksum(
 	return checksum;
 }
 
-static bool t1replay_op_practice_boss_phase_available(
-	uint8_t scene, uint8_t route
-)
+static bool t1replay_op_practice_boss_phase_available(uint8_t scene, uint8_t route)
 {
-	return (
-		((scene == 0) && (route == ROUTE_MAKAI)) ||
-		((scene == 1) && (route == ROUTE_JIGOKU))
-	);
+	return ((scene < 4) && (route < 2) && ((scene != 0) || (route == 0)));
 }
 
 static bool t1replay_op_practice_start_valid(
@@ -587,9 +589,8 @@ static bool t1replay_op_practice_start_valid(
 		(
 			(start->section != T1RPS_BOSS_PHASE) ?
 			true :
-			t1replay_op_practice_boss_phase_available(
-				start->scene, start->route
-			) && (start->chapter == BOSS_STAGE)
+t1boss_practice_target_valid(start->boss_phase,
+				(start->scene * STAGES_PER_SCENE) + start->chapter, start->route)
 		)
 	);
 }
@@ -1389,6 +1390,7 @@ bool t1replay_op_exact_bootstrap(void)
 
 bool t1replay_op_record_prepare(void)
 {
+	bool story = !t1replay_op_restart_practice_armed;
 	// The command is one-shot process control, never durable replay state. A
 	// new capture always supersedes an abandoned temporary, while the full
 	// numbered slot set remains available to the post-run picker.
@@ -1401,15 +1403,15 @@ bool t1replay_op_record_prepare(void)
 	t1replay_op_restart_practice_armed = false;
 	t1replay_op_command_clear();
 	t1replay_op_pending_discard();
-	if(!t1_replay_recording_enabled()) {
-		return true;
-	}
-	if(!t1replay_op_command_write(
+	if(t1_replay_recording_enabled() && !t1replay_op_command_write(
 		T1REPLAY_COMMAND_RECORD, T1REPLAY_SLOT_PENDING,
 		T1REPLAY_COMMAND_CHECKPOINT_STAGE_NONE, 0, T1REPLAY_PROCESS_NONE
 	)) {
 		t1replay_op_command_clear();
 		return false;
+	}
+	if(story && (debug_mode == 0)) {
+		scorestat_run_begin(static_cast<uint8_t>(opts.rank), 0);
 	}
 	return true;
 }
@@ -1423,6 +1425,8 @@ bool t1replay_op_milestone_practice_bootstrap(
 	char mode[3];
 	uint8_t marker;
 	uint8_t extra;
+	int scene;
+	int route;
 	FILE *fp;
 	bool valid;
 
@@ -1438,7 +1442,7 @@ bool t1replay_op_milestone_practice_bootstrap(
 		(fread(&marker, 1, 1, fp) == 1) &&
 		(fread(&extra, 1, 1, fp) == 0) &&
 		((marker == 'P') || (marker == 'S') ||
-		 (marker == 'H') || (marker == '4'))
+		 (marker == 'H') || (marker == '4') || (marker & 0x80))
 	);
 	fclose(fp);
 	// H remains for REIIDEN's private one-shot route. P and S are fully
@@ -1455,6 +1459,25 @@ bool t1replay_op_milestone_practice_bootstrap(
 		return false;
 	}
 	t1replay_process_milestone(T1RPM_PRACTICE_SURFACE_READY);
+	if(marker & 0x80) {
+		bool found = false;
+		for(scene = 0; scene < 4; scene++) {
+			for(route = 0; route < 2; route++) {
+				if(t1boss_practice_target_valid(marker & 0x7F,
+					(scene * STAGES_PER_SCENE) + BOSS_STAGE, route)) {
+					t1replay_practice_start.scene = scene;
+					t1replay_practice_start.route = route;
+					t1replay_practice_start.section = T1RPS_BOSS_PHASE;
+					t1replay_practice_start.chapter = BOSS_STAGE;
+					t1replay_practice_start.boss_phase = (marker & 0x7F);
+					found = true;
+				}
+			}
+		}
+		if(!found) {
+			return false;
+		}
+	}
 	// The private S route exercises the ordinary OP-to-REIIDEN carrier for
 	// the final boss start. It is unavailable to normal builds and uses the
 	// same validated Practice state as the public start command.
@@ -2826,7 +2849,8 @@ void t1replay_op_language_choice_put(int left, int top, int col, int fx)
 }
 
 static bool t1replay_op_settings_write(
-	t1_language_preference_t preference, bool replay_recording
+	t1_language_preference_t preference, bool replay_recording,
+	bool sfx_enabled = t1_sfx_enabled()
 )
 {
 	uint8_t data[8];
@@ -2839,6 +2863,7 @@ static bool t1replay_op_settings_write(
 	data[4] = 1;
 	data[5] = static_cast<uint8_t>(
 		preference |
+		(sfx_enabled ? 0 : T1_SETTINGS_SFX_DISABLED) |
 		(replay_recording ? 0 : T1_SETTINGS_REPLAY_RECORDING_DISABLED)
 	);
 	data[6] = t1replay_op_language_checksum(data);
@@ -2860,7 +2885,8 @@ static bool t1replay_op_settings_write(
 	t1_language_load();
 	return (
 		(t1_language_get() == preference) &&
-		(t1_replay_recording_enabled() == replay_recording)
+		(t1_replay_recording_enabled() == replay_recording) &&
+		(t1_sfx_enabled() == sfx_enabled)
 	);
 }
 
@@ -2873,6 +2899,13 @@ bool t1replay_op_language_toggle(void)
 
 	return t1replay_op_settings_write(
 		preference, t1_replay_recording_enabled()
+	);
+}
+
+bool far t1_sfx_set(bool enabled)
+{
+	return t1replay_op_settings_write(
+		t1_language_get(), t1_replay_recording_enabled(), enabled
 	);
 }
 
@@ -2958,6 +2991,15 @@ static void t1replay_op_practice_start_point_normalize(void)
 	) {
 		t1replay_practice_start.section = T1RPS_BOSS_START;
 	}
+
+	if(t1replay_practice_start.section != T1RPS_BOSS_PHASE) {
+		t1replay_practice_start.boss_phase = 0;
+	} else if(!t1boss_practice_target_valid(t1replay_practice_start.boss_phase,
+		t1replay_practice_start.scene * STAGES_PER_SCENE + BOSS_STAGE,
+		t1replay_practice_start.route)) {
+		t1replay_practice_start.boss_phase = t1boss_practice_first(
+			t1replay_practice_start.scene, t1replay_practice_start.route);
+	}
 }
 
 static void t1replay_op_practice_stage_set(uint8_t stage)
@@ -3011,7 +3053,10 @@ static char *t1replay_op_practice_direct_target_append(char *p)
 			)
 		);
 		*p++ = ' ';
-		return t1replay_op_word_append(p, T1ROW_FIRST_COMBAT);
+		p = t1replay_op_word_append(p, T1ROW_BOSS_PHASE);
+		*p++ = ' ';
+		return t1replay_op_uint_append(p,
+			t1boss_practice_phase(t1replay_practice_start.boss_phase), 1);
 	}
 	if(t1replay_practice_start.section == T1RPS_BOSS_START) {
 		return t1replay_op_word_append(p, T1ROW_BOSS_START);
@@ -4951,6 +4996,7 @@ bool t1replay_op_pending_enter(void)
 	t1replay_save_request_t request;
 	char request_fn[11];
 
+	t1_audio_configure(opts.bgm_mode);
 	t1replay_op_restart_enter();
 	t1replay_op_save_request_fn(request_fn);
 	if(!t1replay_op_file_exists(request_fn)) {
@@ -5380,10 +5426,11 @@ static void t1replay_op_practice_change(int delta, bool fast)
 		} else if(t1replay_op_practice_boss_phase_available(
 			t1replay_practice_start.scene, t1replay_practice_start.route
 		)) {
-			t1replay_practice_start.section = (
-				(t1replay_practice_start.section == T1RPS_BOSS_START) ?
-				T1RPS_BOSS_PHASE : T1RPS_BOSS_START
-			);
+			t1replay_practice_start.boss_phase = t1boss_practice_step(
+				t1replay_practice_start.boss_phase,
+				t1replay_practice_start.scene, t1replay_practice_start.route, delta);
+			t1replay_practice_start.section = t1replay_practice_start.boss_phase ?
+				T1RPS_BOSS_PHASE : T1RPS_BOSS_START;
 		} else {
 			t1replay_practice_start.section = T1RPS_BOSS_START;
 		}

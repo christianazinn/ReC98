@@ -275,7 +275,7 @@ unsigned char near gameover(void)
 		i += GAIJI_TRAM_W;
 	}
 	gaiji_putsa(GAMEOVER_TRAM_LEFT, GAMEOVER_TRAM_Y, gGAMEOVER, TX_WHITE);
-	replay_input_wait_for_change(0);
+	replay_gameover_wait(0);
 	overlay_wipe();
 
 	i = continue_prompt();

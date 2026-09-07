@@ -84,6 +84,7 @@ void replay_input_reset_sense_interstitial(void);
 void replay_input_sense_interstitial(void);
 int16_t replay_input_reset_sense_held_interstitial(void);
 void pascal replay_input_wait_for_change(int frames);
+void pascal replay_gameover_wait(int frames);
 
 // Called as the first operation of GameExecl(). Finalizes a recording or
 // verifies playback's terminal control. Returns true when playback or a

@@ -21,6 +21,7 @@
 #include "th04/op/op.hpp"
 #endif
 #include "th04/language_overlay.hpp"
+#include "th04/scorestat.hpp"
 
 enum hiscore_patnum_t {
 	// scnum.bft
@@ -351,7 +352,7 @@ void near rank_render(void)
 	super_put(
 		(RANK_LEFT + (0 * (RANK_W / 2))), RANK_TOP, (PAT_RANK_1 + (rank * 2))
 	);
-	super_put(
+	scorestat_rank_put(
 		(RANK_LEFT + (1 * (RANK_W / 2))), RANK_TOP, (PAT_RANK_2 + (rank * 2))
 	);
 }

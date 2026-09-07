@@ -63,5 +63,6 @@ bool16 t1boss_yuugenmagan_checkpoint_apply(
 bool16 t1boss_yuugenmagan_ckpt_apply_loaded(
 	const t1boss_yuugenmagan_checkpoint_t *checkpoint
 );
+bool16 t1boss_yuugenmagan_practice_construct(uint8_t target);
 
 #endif /* TH01_MAIN_BOSS_B10M_HPP */

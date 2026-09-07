@@ -14,20 +14,21 @@
 #include "th02/gaiji/gaiji.h"
 #include "th02/op/replay.hpp"
 #include "th02/practice_diag.hpp"
+#include "th02/keyconfig.hpp"
 
 extern char menu_sel;
 extern bool in_option;
 extern unsigned char snd_bgm_mode;
 extern resident_t __seg *resident_seg;
 
-#define T2_LANGUAGE_OPTION_COUNT 9
+#define T2_LANGUAGE_OPTION_COUNT 10
 #define T2_LANGUAGE_OPTION_LABEL_CENTER 256
 #define T2_LANGUAGE_OPTION_VALUE_CENTER 400
 #define T2_PERF_OPTION_LABEL_CENTER 224
 #define T2_PERF_OPTION_VALUE_LEFT 336
 #define T2_PERF_OPTION_VALUE_CELLS 8
-#define T2_PERF_OPTION_TOP 320
-#define T2_LANGUAGE_OPTION_TOP 336
+#define T2_PERF_OPTION_TOP 304
+#define T2_LANGUAGE_OPTION_TOP 320
 #define T2_LANGUAGE_OPTION_VALUE_LEFT 344
 #define T2_LANGUAGE_OPTION_VALUE_CELLS 7
 #define T2_AUTOFIRE_OPTION_TOP 352
@@ -36,9 +37,11 @@ static bool t2_language_option_initialized;
 static bool t2_language_option_input_allowed;
 static bool t2_language_option_reload_pending;
 static int8_t t2_language_option_sel;
+static bool t2_keyconfig_returning;
 
 static uint8_t t2_language_option_gaiji(char c)
 {
+	if((c >= '0') && (c <= '9')) return (gb_0 + c - '0');
 	if((c >= 'a') && (c <= 'z')) {
 		c = static_cast<char>(c - ('a' - 'A'));
 	}
@@ -58,7 +61,7 @@ static void t2_language_option_native_center_put_at(
 	screen_x_t center, screen_y_t top, tram_atrb2 atrb, const char *text
 )
 {
-	uint8_t gaiji[9];
+	uint8_t gaiji[10];
 	unsigned length = 0;
 	screen_x_t left;
 
@@ -69,7 +72,7 @@ static void t2_language_option_native_center_put_at(
 	gaiji[length] = gs_NULL;
 	left = static_cast<screen_x_t>(center - ((length * GAIJI_W) / 2));
 	graph_gaiji_puts(
-		(left + 4), (top + 4), GAIJI_W,
+		left, top, GAIJI_W,
 		reinterpret_cast<const char *>(gaiji), 0
 	);
 	gaiji_putsa(
@@ -96,7 +99,7 @@ static void t2_language_option_japanese_center_put(tram_atrb2 atrb)
 		T2_LANGUAGE_OPTION_VALUE_CENTER - ((3 * GAIJI_W) / 2)
 	);
 
-	graph_putsa_fx(left + 4, T2_LANGUAGE_OPTION_TOP + 4, 0, japanese);
+	graph_putsa_fx(left, T2_LANGUAGE_OPTION_TOP, 0, japanese);
 	text_putsa(
 		(left / GLYPH_HALF_W), (T2_LANGUAGE_OPTION_TOP / GLYPH_H), japanese,
 		atrb
@@ -119,7 +122,7 @@ static void t2_language_option_language_put(tram_atrb2 atrb)
 	graph_copy_rect_1_to_0_16(
 		T2_LANGUAGE_OPTION_VALUE_LEFT, T2_LANGUAGE_OPTION_TOP,
 		((T2_LANGUAGE_OPTION_VALUE_CELLS * GAIJI_W) + GAIJI_W),
-		(GLYPH_H + 4)
+		GLYPH_H
 	);
 	for(i = 0; i < (T2_LANGUAGE_OPTION_VALUE_CELLS * GAIJI_TRAM_W); i++) {
 		clear[i] = ' ';
@@ -153,7 +156,7 @@ static void t2_language_option_perf_put(tram_atrb2 atrb)
 	graph_copy_rect_1_to_0_16(
 		T2_PERF_OPTION_VALUE_LEFT, T2_PERF_OPTION_TOP,
 		((T2_PERF_OPTION_VALUE_CELLS * GAIJI_W) + GAIJI_W),
-		(GLYPH_H + 4)
+		GLYPH_H
 	);
 	for(i = 0; i < (T2_PERF_OPTION_VALUE_CELLS * GAIJI_TRAM_W); i++) {
 		clear[i] = ' ';
@@ -198,21 +201,99 @@ static void t2_language_option_autofire_put(tram_atrb2 atrb)
 	);
 }
 
+static void t2_keyconfig_option_word(char __ss *out, int id)
+{
+	switch(id) {
+	case 0:
+		out[0] = 82; out[1] = 97; out[2] = 110; out[3] = 107; out[4] = 0;
+		break;
+	case 1:
+		out[0] = 77; out[1] = 117; out[2] = 115; out[3] = 105; out[4] = 99; out[5] = 0;
+		break;
+	case 2:
+		out[0] = 83; out[1] = 70; out[2] = 88; out[3] = 0;
+		break;
+	case 3:
+		out[0] = 80; out[1] = 108; out[2] = 97; out[3] = 121; out[4] = 101; out[5] = 114; out[6] = 0;
+		break;
+	case 4:
+		out[0] = 66; out[1] = 111; out[2] = 109; out[3] = 98; out[4] = 0;
+		break;
+	case 5:
+		out[0] = 80; out[1] = 101; out[2] = 114; out[3] = 102; out[4] = 0;
+		break;
+	case 6:
+		out[0] = 76; out[1] = 97; out[2] = 110; out[3] = 103; out[4] = 117; out[5] = 97; out[6] = 103; out[7] = 101; out[8] = 0;
+		break;
+	case 7:
+		out[0] = 75; out[1] = 101; out[2] = 121; out[3] = 67; out[4] = 111; out[5] = 110; out[6] = 102; out[7] = 105; out[8] = 103; out[9] = 0;
+		break;
+	case 8:
+		out[0] = 82; out[1] = 101; out[2] = 115; out[3] = 101; out[4] = 116; out[5] = 0;
+		break;
+	case 9:
+		out[0] = 81; out[1] = 117; out[2] = 105; out[3] = 116; out[4] = 0;
+		break;
+	case 10:
+		out[0] = 69; out[1] = 97; out[2] = 115; out[3] = 121; out[4] = 0;
+		break;
+	case 11:
+		out[0] = 78; out[1] = 111; out[2] = 114; out[3] = 109; out[4] = 97; out[5] = 108; out[6] = 0;
+		break;
+	case 12:
+		out[0] = 72; out[1] = 97; out[2] = 114; out[3] = 100; out[4] = 0;
+		break;
+	case 13:
+		out[0] = 76; out[1] = 117; out[2] = 110; out[3] = 97; out[4] = 116; out[5] = 105; out[6] = 99; out[7] = 0;
+		break;
+	case 14:
+		out[0] = 79; out[1] = 102; out[2] = 102; out[3] = 0;
+		break;
+	case 15:
+		out[0] = 70; out[1] = 77; out[2] = 0;
+		break;
+	case 16:
+		out[0] = 77; out[1] = 73; out[2] = 68; out[3] = 73; out[4] = 0;
+		break;
+	case 17:
+		out[0] = 79; out[1] = 110; out[2] = 0;
+		break;
+	}
+}
+
 static void t2_language_option_put(int sel, tram_atrb2 atrb)
 {
-	if(sel == 4) {
+	char label[16];
+	char value[16];
+	char blank[49];
+	int top = (224 + (sel * 16));
+	int i;
+	if(sel == 5) {
 		t2_language_option_perf_put(atrb);
-	} else if(sel == 5) {
-		t2_language_option_language_put(atrb);
-	} else if(sel == 6) {
-		t2_language_option_autofire_put(atrb);
-	} else if(sel == 7) {
-		t2_language_op_bridge(T2LOB_OPTION_PUT, 6, atrb);
-	} else if(sel == 8) {
-		t2_language_op_bridge(T2LOB_OPTION_PUT, 7, atrb);
-	} else {
-		t2_language_op_bridge(T2LOB_OPTION_PUT, sel, atrb);
+		return;
 	}
+	if(sel == 6) {
+		t2_language_option_language_put(atrb);
+		return;
+	}
+	graph_copy_rect_1_to_0_16(128, top, 384, 16);
+	for(i = 0; i < 48; i++) blank[i] = ' ';
+	blank[48] = 0;
+	text_putsa(16, top / 16, blank, TX_BLACK);
+	t2_keyconfig_option_word(label, sel);
+	if(sel >= 7) {
+		t2_language_option_native_center_put_at(320, top, atrb, label);
+		return;
+	}
+	if(sel == 0) t2_keyconfig_option_word(value, 10 + rank);
+	else if(sel == 1) t2_keyconfig_option_word(value, 14 + snd_bgm_mode);
+	else if(sel == 2) t2_keyconfig_option_word(value, t2_sfx_enabled() ? 17 : 14);
+	else {
+		value[0] = ('0' + ((sel == 3) ? lives + 1 : bombs));
+		value[1] = 0;
+	}
+	t2_language_option_native_center_put_at(256, top, atrb, label);
+	t2_language_option_native_center_put_at(400, top, atrb, value);
 }
 
 static bool t2_language_option_change(int direction)
@@ -234,24 +315,24 @@ static bool t2_language_option_change(int direction)
 		}
 		t2_language_op_bridge(T2LOB_BGM_RESTART, 0, 0);
 		break;
-	case 2:
+	case 3:
 		if(direction > 0) {
 			ring_inc(lives, CFG_LIVES_MAX);
 		} else {
 			ring_dec(lives, CFG_LIVES_MAX);
 		}
 		break;
-	case 3:
+	case 4:
 		if(direction > 0) {
 			ring_inc(bombs, CFG_BOMBS_MAX);
 		} else {
 			ring_dec(bombs, CFG_BOMBS_MAX);
 		}
 		break;
-	case 4:
+	case 5:
 		resident->reduce_effects = (true - resident->reduce_effects);
 		break;
-	case 5: {
+	case 6: {
 		t2_language_preference_t target = (
 			(t2_language_get() == T2LANG_JAPANESE) ?
 				T2LANG_ENGLISH : T2LANG_JAPANESE
@@ -268,8 +349,8 @@ static bool t2_language_option_change(int direction)
 		}
 		break;
 	}
-	case 6:
-		t2_autofire_set(!t2_autofire_get());
+	case 2:
+		t2_sfx_set(!t2_sfx_enabled());
 		break;
 	}
 	t2_language_option_put(t2_language_option_sel, TX_WHITE);
@@ -309,17 +390,15 @@ void far pascal t2_language_option_update_and_render(void)
 	int i;
 
 	if(!t2_language_option_initialized) {
-		t2_language_option_sel = 5;
+		t2_language_option_sel = t2_keyconfig_returning ? 7 : 6;
+		t2_keyconfig_returning = false;
 		t2_language_option_input_allowed = false;
 		text_clear();
 		graph_accesspage(1);
 		graph_copy_page(0);
 		graph_showpage(0);
 		graph_accesspage(0);
-		t2_language_op_bridge(T2LOB_OPTION_SHADOW, 0, 0);
-		t2_language_option_perf_put(TX_BLACK);
-		t2_language_option_language_put(TX_BLACK);
-		t2_language_option_autofire_put(TX_BLACK);
+
 		for(i = 0; i < T2_LANGUAGE_OPTION_COUNT; i++) {
 			t2_language_option_put(
 				i, ((i == t2_language_option_sel) ? TX_WHITE : TX_YELLOW)
@@ -352,12 +431,23 @@ void far pascal t2_language_option_update_and_render(void)
 	}
 	if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
 		if(t2_language_option_sel == 7) {
+			keyconfig_menu();
+			// Use the established balanced PI/font/palette title transaction.
+			replay_title_restore_request();
+			key_det = INPUT_NONE;
+			replay_title_update_and_render();
+			t2_keyconfig_returning = true;
+			t2_language_option_initialized = false;
+			t2_language_option_input_allowed = false;
+			return;
+		} else if(t2_language_option_sel == 8) {
 			t2_language_op_bridge(T2LOB_OPTION_RESET, 0, 0);
 			t2_autofire_set(false);
+			t2_sfx_set(true);
 			for(i = 0; i <= 6; i++) {
 				t2_language_option_put(i, TX_YELLOW);
 			}
-		} else if(t2_language_option_sel == 8) {
+		} else if(t2_language_option_sel == 9) {
 			t2_language_option_return_to_main();
 		} else {
 			if(t2_language_option_change(+1)) {

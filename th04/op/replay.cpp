@@ -37,6 +37,7 @@
 #include "th04/language_overlay.hpp"
 #include "th04/replay_format.hpp"
 #include "th04/replay_targets.hpp"
+#include "th04/scorestat.hpp"
 #include "th04/snd/snd.h"
 #include "th04/sprites/op_cdg.hpp"
 #if (GAME == 5)
@@ -5172,6 +5173,21 @@ static void replay_main_th05_scores_reset(void)
 }
 #endif
 
+static void replay_main_stats_begin(void)
+{
+	if(resident->debug) {
+		return;
+	}
+	uint8_t rank = ((resident->stage == STAGE_EXTRA)
+		? RANK_EXTRA : resident->rank);
+#if (GAME == 5)
+	uint8_t owner = resident->playchar;
+#else
+	uint8_t owner = (resident->playchar_ascii - '0');
+#endif
+	scorestat_run_begin(rank, owner);
+}
+
 // Returns true only after committing to the OP -> MAIN handoff. A rejected
 // command-pair write leaves the caller responsible for reconstructing OP's
 // title surface after the native character-select menu has faded it away.
@@ -5208,6 +5224,7 @@ static bool replay_main_start_game(void)
 	} else {
 		replay_command_clear();
 	}
+	replay_main_stats_begin();
 	replay_op_exit_into_main(true, true, false);
 	return true;
 }
@@ -5244,6 +5261,7 @@ static bool replay_main_start_extra(void)
 	} else {
 		replay_command_clear();
 	}
+	replay_main_stats_begin();
 	replay_op_exit_into_main(true, false, false);
 	return true;
 }
@@ -5322,6 +5340,7 @@ static bool replay_main_start_restart_apply(
 		resident->stage_ascii = ('0' + start->stage);
 		resident->shottype = start->shottype;
 	#endif
+	replay_main_stats_begin();
 	replay_op_exit_into_main(true, false, false);
 	return true;
 }

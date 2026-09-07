@@ -1598,7 +1598,8 @@ static bool16 t1boss_kikuri_first_combat_resources_loaded(void)
 		(souls[1].bos_slot != 0) ||
 		(souls[1].bos_image_count != SOUL_CELS) || souls[1].loading ||
 		!ptn_images[PTN_SLOT_RIPPLE] ||
-		(ptn_image_count[PTN_SLOT_RIPPLE] != 4)
+		// The four 16x16 ripple cels share one 32x32 PTN image.
+		(ptn_image_count[PTN_SLOT_RIPPLE] != 1)
 	) {
 		return false;
 	}

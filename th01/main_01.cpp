@@ -619,10 +619,8 @@ int main(void)
 		}
 	}
 
-	// ZUN bloat: Unnecessary cast.
-	if(static_cast<int>(bgm_mode) == BGM_MODE_MDRV2) {
-		mdrv2_enable_if_board_installed();
-	}
+	mdrv2_enable_if_board_installed();
+	t1_audio_configure(bgm_mode);
 	scene_id = (
 		(stage_id < (1 * STAGES_PER_SCENE)) ? 0 :
 		(stage_id < (2 * STAGES_PER_SCENE)) ? ((route == ROUTE_MAKAI) ? 1 : 2) :
@@ -660,7 +658,7 @@ int main(void)
 	rem_bombs = resident->rem_bombs;
 	player_left = PLAYER_LEFT_START;
 
-	if((bgm_mode != BGM_MODE_OFF) && resident->snd_need_init) {
+	if(resident->snd_need_init) {
 		mdrv2_bgm_load("init.mdt");
 		mdrv2_bgm_play();
 		mdrv2_se_load(SE_FN);
@@ -1265,3 +1263,7 @@ op:
 	execl(BINARY_OP, BINARY_OP, nullptr);
 	return 0;
 }
+
+// The independent-SFX startup removes five bytes from main(), the last
+// function here. Keep the following stock segment at its original address.
+#pragma codestring "\x90\x90\x90\x90\x90"

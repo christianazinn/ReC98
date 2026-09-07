@@ -12,10 +12,12 @@
 #include "libs/master.lib/master.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
 #include "th01/core/initexit.hpp"
+#include "th01/keyconfig.hpp"
 #include "th01/rpyfuuin.hpp"
 #include "th01/rp_guard.hpp"
 #include "th01/savestate_acceptance.hpp"
 #include "th01/resident.hpp"
+#include "th01/snd/audio.hpp"
 #include "th01/shiftjis/fns.hpp"
 #if T1REPLAY_FUUIN_SCORE_PROOF
 #include "th01/formats/scoredat.hpp"
@@ -951,16 +953,8 @@ static bool t1replay_header_read(bool finalized)
 			(T1REPLAY_INPUT_SIZE_MAX / T1REPLAY_PACKET_SIZE)) ||
 		(t1replay_header.input_size !=
 			(t1replay_header.packet_count * T1REPLAY_PACKET_SIZE)) ||
-		((((t1replay_header.version ==
-		   T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) ||
-		  (t1replay_header.version == T1REPLAY_VERSION)) &&
-		  (file_size < (t1replay_header.input_offset +
-		   t1replay_header.input_size + T1REPLAY_ACCELERATOR_HEADER_SIZE))) ||
-		 (((t1replay_header.version !=
-		   T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
-		  (t1replay_header.version != T1REPLAY_VERSION)) &&
-		  (file_size != (t1replay_header.input_offset +
-		   t1replay_header.input_size)))) ||
+		!t1replay_file_size_valid(t1replay_header.version, finalized,
+			(t1replay_header.input_offset + t1replay_header.input_size), file_size) ||
 		(stored_checksum != computed_checksum) ||
 		(t1replay_header.start_checksum != t1replay_fnv1a(
 			T1REPLAY_FNV1A_BASIS, &t1replay_header.start,
@@ -1512,6 +1506,10 @@ bool16 far t1replay_fuuin_entry(bool16 continuation_expected)
 	t1replay_paths_init();
 	t1replay_res_id_init(res_id);
 	t1replay_resident_id_init(resident_id);
+	resident = ResData<resident_t>::exist(resident_id);
+	if(resident) {
+		t1_audio_configure(resident->bgm_mode);
+	}
 	t1replay_state_reset();
 	t1replay_abort_pending = false;
 	t1replay_mode = T1RM_DISABLED;
@@ -1523,7 +1521,6 @@ bool16 far t1replay_fuuin_entry(bool16 continuation_expected)
 		t1replay_res_clear();
 		return false;
 	}
-	resident = ResData<resident_t>::exist(resident_id);
 	if(
 		!resident || !t1replay_res_valid() ||
 		(t1replay_res->handoff_checksum !=
@@ -1601,6 +1598,15 @@ void far t1replay_fuuin_phase_begin(uint8_t phase)
 
 void far t1replay_fuuin_frame_io(void)
 {
+	keyconfig_input_groups_t groups;
+
+	if(t1replay_mode != T1RM_PLAYBACK) {
+		keyconfig_input_sense(&groups);
+		t1replay_keys[T1RFIG_0] = groups.group_0;
+		t1replay_keys[T1RFIG_3] = groups.group_3;
+		t1replay_keys[T1RFIG_5] = groups.group_5;
+		t1replay_keys[T1RFIG_7] = groups.group_7;
+	}
 	if(t1replay_mode == T1RM_DISABLED) {
 		return;
 	}
@@ -1609,18 +1615,6 @@ void far t1replay_fuuin_frame_io(void)
 		return;
 	}
 	if(t1replay_mode == T1RM_RECORD) {
-		t1replay_keys[T1RFIG_0] = static_cast<uint8_t>(
-			(key_sense(0) | key_sense(0)) & T1REPLAY_INPUT_MASK_0
-		);
-		t1replay_keys[T1RFIG_3] = static_cast<uint8_t>(
-			(key_sense(3) | key_sense(3)) & T1REPLAY_INPUT_MASK_3
-		);
-		t1replay_keys[T1RFIG_5] = static_cast<uint8_t>(
-			(key_sense(5) | key_sense(5)) & T1REPLAY_INPUT_MASK_5
-		);
-		t1replay_keys[T1RFIG_7] = static_cast<uint8_t>(
-			(key_sense(7) | key_sense(7)) & T1REPLAY_INPUT_MASK_7
-		);
 		if(!t1replay_record_sample() ||
 			!t1replay_guard_sample(&t1replay_res->guard)) {
 			t1replay_fail();
@@ -1634,9 +1628,6 @@ int far t1replay_fuuin_key_sense(int keygroup)
 {
 	if(t1replay_abort_pending) {
 		return 0;
-	}
-	if(t1replay_mode == T1RM_DISABLED) {
-		return key_sense(keygroup);
 	}
 	switch(keygroup) {
 	case 0: return t1replay_keys[T1RFIG_0];

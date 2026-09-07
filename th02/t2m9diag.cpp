@@ -124,6 +124,7 @@ void far t2m9diag_op_autostart(void)
 		T2REPLAY_COMMAND_RECORD,
 		T2REPLAY_TEMP_SLOT,
 		T2REPLAY_COMMAND_FLAG_PRACTICE,
+		0,
 		&t2op_practice
 	)) {
 		return;

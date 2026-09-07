@@ -33,6 +33,7 @@
 #include "th02/practice_diag.hpp"
 #include "th02/language.hpp"
 #include "th02/v_colors.hpp"
+#include "th04/scorestat.hpp"
 
 #define T2OP_LINE_CAPACITY 79
 #define T2OP_SLOT_ROWS 10
@@ -536,7 +537,9 @@ static bool t2op_start_valid(const t2replay_start_t far *start)
 		(practice_target == T2RPT_STAGE3_BOSS_START) ||
 		(practice_target == T2RPT_STAGE3_INNER_PAIR) ||
 		(practice_target == T2RPT_STAGE3_OUTER_PAIR) ||
-		(practice_target == T2RPT_STAGE3_NORTH_PHASE4)
+		(practice_target == T2RPT_STAGE3_NORTH_PHASE4) ||
+		(practice_target == T2RPT_STAGE3_NORTH_PHASE6) ||
+		(practice_target == T2RPT_STAGE3_NORTH_PHASE8)
 	) {
 		practice_target_valid = (start->stage == 2);
 	} else if(
@@ -3757,7 +3760,9 @@ static uint8_t t2op_practice_target_step(
 	case 2:
 		if(direction < 0) {
 			switch(target) {
-			case T2RPT_STAGE_START: return T2RPT_STAGE3_NORTH_PHASE4;
+			case T2RPT_STAGE_START: return T2RPT_STAGE3_NORTH_PHASE8;
+			case T2RPT_STAGE3_NORTH_PHASE8: return T2RPT_STAGE3_NORTH_PHASE6;
+			case T2RPT_STAGE3_NORTH_PHASE6: return T2RPT_STAGE3_NORTH_PHASE4;
 			case T2RPT_STAGE3_CHAPTER2: return T2RPT_STAGE_START;
 			case T2RPT_STAGE3_MIDBOSS: return T2RPT_STAGE3_CHAPTER2;
 			case T2RPT_STAGE3_CHAPTER3: return T2RPT_STAGE3_MIDBOSS;
@@ -3783,6 +3788,8 @@ static uint8_t t2op_practice_target_step(
 		case T2RPT_STAGE3_BOSS_START: return T2RPT_STAGE3_INNER_PAIR;
 		case T2RPT_STAGE3_INNER_PAIR: return T2RPT_STAGE3_OUTER_PAIR;
 		case T2RPT_STAGE3_OUTER_PAIR: return T2RPT_STAGE3_NORTH_PHASE4;
+		case T2RPT_STAGE3_NORTH_PHASE4: return T2RPT_STAGE3_NORTH_PHASE6;
+		case T2RPT_STAGE3_NORTH_PHASE6: return T2RPT_STAGE3_NORTH_PHASE8;
 		default: return T2RPT_STAGE_START;
 		}
 	case 3:
@@ -4498,6 +4505,12 @@ static void t2op_practice_render(void)
 			case T2RPT_STAGE3_NORTH_PHASE4:
 				p = t2op_word_append(p, T2OW_BOSS_PHASE_1);
 				break;
+			case T2RPT_STAGE3_NORTH_PHASE6:
+				p = t2op_word_append(p, T2OW_BOSS_PHASE_2);
+				break;
+			case T2RPT_STAGE3_NORTH_PHASE8:
+				p = t2op_word_append(p, T2OW_BOSS_PHASE_3);
+				break;
 			case T2RPT_EXTRA_MIDBOSS:
 				p = t2op_word_append(p, T2OW_MIDBOSS);
 				break;
@@ -4659,6 +4672,9 @@ void far replay_op_restart_or_snd_load(const char *fn, int func)
 	}
 	t2_language_op_bridge(T2LOB_START_INIT, 0, 0);
 	t2op_resident_apply(&start);
+	if(!(flags & T2REPLAY_COMMAND_FLAG_PRACTICE) && !resident->debug) {
+		scorestat_run_begin(start.rank, 0);
+	}
 	t2op_main_exec();
 }
 
@@ -4803,6 +4819,9 @@ static void t2op_record_then_start(bool extra)
 		t2op_file_delete(t2op_command_fn);
 		t2op_handoff_fn_set(handoff_fn);
 		t2op_file_delete(handoff_fn);
+	}
+	if(!resident->debug) {
+		scorestat_run_begin((extra ? RANK_EXTRA : rank), 0);
 	}
 	if(extra) {
 		t2_language_op_bridge(T2LOB_START_EXTRA, 0, 0);

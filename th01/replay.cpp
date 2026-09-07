@@ -12,6 +12,7 @@
 #include "libs/master.lib/master.hpp"
 #include "th01/replay.hpp"
 #include "th01/replay_format.hpp"
+#include "th01/boss_practice.hpp"
 #if defined(T1RB)
 #include "th01/replay_milestone.hpp"
 #endif
@@ -42,6 +43,7 @@
 #include "th01/main/particle.hpp"
 #include "th01/hardware/input.hpp"
 #include "th01/main/boss/boss.hpp"
+#include "th01/main/debug.hpp"
 #include "th01/main/boss/b05.hpp"
 #include "th01/main/boss/b10j.hpp"
 #include "th01/main/boss/b15j.hpp"
@@ -55,6 +57,8 @@
 #include "th01/t1kik.hpp"
 #include "th01/t1sar.hpp"
 #include "th01/snd/mdrv2.h"
+#include "th01/keyconfig.hpp"
+#include "th04/scorestat.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
 
 #define T1REPLAY_BUFFER_PACKET_COUNT 128
@@ -140,6 +144,10 @@ static bool t1replay_timing_frame_armed;
 static bool t1replay_timing_first_frame;
 static bool t1replay_command_delete_failed;
 static bool t1replay_terminal_pending;
+static bool t1stat_entered;
+static bool t1stat_eligible;
+static bool t1stat_gameover;
+static int32_t t1stat_continues;
 static t1replay_pause_action_t t1replay_pause_action;
 static t1replay_mode_t t1replay_mode;
 static t1replay_header_t t1replay_header;
@@ -752,13 +760,8 @@ static bool t1replay_restart_practice_start_valid(
 		(
 			(start->section != T1RPS_BOSS_PHASE) ?
 			true :
-			(
-				(
-					((start->scene == 0) && (start->route == ROUTE_MAKAI)) ||
-					((start->scene == 1) && (start->route == ROUTE_JIGOKU))
-				) &&
-				(start->chapter == BOSS_STAGE)
-			)
+			t1boss_practice_target_valid(start->boss_phase,
+				(start->scene * STAGES_PER_SCENE) + start->chapter, start->route)
 		)
 	);
 }
@@ -1461,21 +1464,9 @@ static bool t1replay_practice_boss_phase_start_valid(
 	const t1replay_start_t far *start
 )
 {
-	if(
-		(start->practice_boss_phase == T1RPBPT_NONE) ||
-		(
-			(start->practice_boss_phase ==
-				T1RPBPT_SINGYOKU_FIRST_COMBAT) &&
-			(start->stage_id == BOSS_STAGE) &&
-			(start->route == ROUTE_MAKAI)
-		) ||
-		(
-			(start->practice_boss_phase ==
-				T1RPBPT_MIMA_FIRST_COMBAT) &&
-			(start->stage_id == ((1 * STAGES_PER_SCENE) + BOSS_STAGE)) &&
-			(start->route == ROUTE_JIGOKU)
-		)
-	) {
+	if((start->practice_boss_phase == T1RPBPT_NONE) ||
+	   t1boss_practice_target_valid(start->practice_boss_phase,
+		start->stage_id, start->route)) {
 		return true;
 	}
 #if T1REPLAY_KONNGARA_PHASE1_DIRECT_TRACE
@@ -1862,16 +1853,8 @@ static bool t1replay_header_read(bool finalized)
 			(T1REPLAY_INPUT_SIZE_MAX / T1REPLAY_PACKET_SIZE)) ||
 		(t1replay_header.input_size !=
 			(t1replay_header.packet_count * T1REPLAY_PACKET_SIZE)) ||
-		((((t1replay_header.version ==
-		   T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) ||
-		  (t1replay_header.version == T1REPLAY_VERSION)) &&
-		  (file_size < (t1replay_header.input_offset +
-		   t1replay_header.input_size + T1REPLAY_ACCELERATOR_HEADER_SIZE))) ||
-		 (((t1replay_header.version !=
-		   T1REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
-		  (t1replay_header.version != T1REPLAY_VERSION)) &&
-		  (file_size != (t1replay_header.input_offset +
-		   t1replay_header.input_size)))) ||
+		!t1replay_file_size_valid(t1replay_header.version, finalized,
+			(t1replay_header.input_offset + t1replay_header.input_size), file_size) ||
 		(stored_checksum != computed_checksum) ||
 		(t1replay_header.start_checksum != t1replay_fnv1a(
 			T1REPLAY_FNV1A_BASIS, &t1replay_header.start, sizeof(t1replay_header.start)
@@ -2416,23 +2399,8 @@ static uint8_t t1replay_practice_boss_phase_from_restart(
 	) {
 		return T1RPBPT_NONE;
 	}
-	if(
-		(state->practice.scene == 0) &&
-		(state->practice.route == ROUTE_MAKAI) &&
-		(start->stage_id == BOSS_STAGE) &&
-		(start->route == ROUTE_MAKAI)
-	) {
-		return T1RPBPT_SINGYOKU_FIRST_COMBAT;
-	}
-	if(
-		(state->practice.scene == 1) &&
-		(state->practice.route == ROUTE_JIGOKU) &&
-		(start->stage_id == ((1 * STAGES_PER_SCENE) + BOSS_STAGE)) &&
-		(start->route == ROUTE_JIGOKU)
-	) {
-		return T1RPBPT_MIMA_FIRST_COMBAT;
-	}
-	return T1RPBPT_NONE;
+	return t1boss_practice_target_valid(state->practice.boss_phase,
+		start->stage_id, start->route) ? state->practice.boss_phase : T1RPBPT_NONE;
 }
 
 static void t1replay_start_capture(void)
@@ -2863,8 +2831,8 @@ static t1replay_mode_t t1replay_command_load(
 		  (command.reserved[T1REPLAY_COMMAND_DIRECT_SOURCE_INDEX] ==
 			T1REPLAY_PROCESS_REIIDEN))) &&
 		t1replay_bytes_zero(
-			&command.reserved[T1REPLAY_COMMAND_DIRECT_RESERVED_INDEX],
-			T1REPLAY_COMMAND_DIRECT_RESERVED_SIZE
+			&command.reserved[T1REPLAY_CMD_DIRECT_RSVD_INDEX],
+			T1REPLAY_CMD_DIRECT_RSVD_SIZE
 		)
 	);
 	if(
@@ -3674,23 +3642,11 @@ static bool t1replay_practice_boss_phase_restore_apply(
 		t1replay_fail();
 		return false;
 	}
-	if(start->practice_boss_phase == T1RPBPT_SINGYOKU_FIRST_COMBAT) {
-		constructed = (
-			(resident->stage_id == BOSS_STAGE) &&
-			(resident->route == ROUTE_MAKAI) &&
-			(boss_id == BID_SINGYOKU) &&
-			t1boss_singyoku_practice_boss_phase_apply(
-				start->practice_boss_phase
-			)
-		);
-	} else if(start->practice_boss_phase == T1RPBPT_MIMA_FIRST_COMBAT) {
-		constructed = (
-			(resident->stage_id == ((1 * STAGES_PER_SCENE) + BOSS_STAGE)) &&
-			(resident->route == ROUTE_JIGOKU) &&
-			(boss_id == BID_MIMA) &&
-			t1boss_mima_practice_first_combat_construct()
-		);
-	}
+	constructed = t1boss_practice_construct(start->practice_boss_phase);
+	#if T1REPLAY_PROCESS_MILESTONES
+	t1replay_process_milestone(constructed ?
+		T1RPM_BOSS_PHASE_CONSTRUCTED : T1RPM_BOSS_PHASE_REJECTED);
+	#endif
 	if(!constructed) {
 		t1replay_checkpoint_restore_is_pending = false;
 		t1replay_fail();
@@ -4529,9 +4485,19 @@ bool16 far t1replay_pixel_probe_world_capture(
 
 void far t1replay_frame_io(void)
 {
-	uint8_t i;
-	int group;
+	keyconfig_input_groups_t groups;
 
+	scorestat_process_sync();
+	if(t1replay_mode != T1RM_PLAYBACK) {
+		keyconfig_input_sense(&groups);
+		t1replay_keys[T1RIG_0] = groups.group_0;
+		t1replay_keys[T1RIG_3] = groups.group_3;
+		t1replay_keys[T1RIG_5] = groups.group_5;
+		t1replay_keys[T1RIG_6] = groups.group_6;
+		t1replay_keys[T1RIG_7] = groups.group_7;
+		t1replay_keys[T1RIG_8] = groups.group_8;
+		t1replay_keys[T1RIG_9] = groups.group_9;
+	}
 	if(t1replay_mode == T1RM_DISABLED) {
 		return;
 	}
@@ -4543,12 +4509,6 @@ void far t1replay_frame_io(void)
 		return;
 	}
 	if(t1replay_mode == T1RM_RECORD) {
-		for(i = 0; i < T1REPLAY_INPUT_GROUP_COUNT; i++) {
-			group = t1replay_group_number(i);
-			t1replay_keys[i] = static_cast<uint8_t>(
-				(key_sense(group) | key_sense(group)) & t1replay_group_mask(i)
-			);
-		}
 		if(!t1replay_record_sample() ||
 			!t1replay_guard_sample(&t1replay_res->guard)) {
 			t1replay_fail();
@@ -4575,6 +4535,23 @@ void far t1replay_frame_io(void)
 
 void far t1replay_gameplay_input_begin(void)
 {
+	#if T1REPLAY_PROCESS_MILESTONES
+	if((t1replay_header.start.practice_boss_phase != T1RPBPT_NONE) &&
+		(frame_since_start_of_binary == 32)) {
+		t1replay_process_milestone(T1RPM_BOSS_PHASE_GAMEPLAY);
+	}
+	#endif
+	if(!t1stat_entered) {
+		t1stat_entered = true;
+		t1stat_eligible = (
+			(t1replay_mode != T1RM_PLAYBACK) && !mode_test && !mode_debug &&
+			!t1replay_no_record_practice &&
+			!(t1replay_header.flags & T1REPLAY_FLAG_PRACTICE)
+		);
+		t1stat_continues = resident->continues_total;
+		scorestat_process_enter(rank, 0, t1stat_eligible);
+	}
+	scorestat_process_sync();
 	// A previous frame can terminate before it reaches the orbital wait. Do not
 	// allow that private pacing state to cross into this frame or a transition.
 	t1replay_gameplay_input_armed = true;
@@ -4637,9 +4614,6 @@ int far t1replay_key_sense(int keygroup)
 {
 	if(t1replay_abort_pending) {
 		return 0;
-	}
-	if(t1replay_mode == T1RM_DISABLED) {
-		return key_sense(keygroup);
 	}
 	switch(keygroup) {
 	case 0: return t1replay_keys[T1RIG_0];
@@ -4775,6 +4749,20 @@ bool16 far t1replay_process_handoff(uint8_t target_process)
 	) {
 		return false;
 	}
+	if(t1stat_eligible) {
+		if(t1stat_gameover) {
+			scorestat_process_enter(rank, 0, true);
+		}
+		if((target_process == T1REPLAY_PROCESS_REIIDEN) &&
+			(resident->continues_total > t1stat_continues)) {
+			scorestat_continue_accept();
+		} else if(target_process == T1REPLAY_PROCESS_FUUIN) {
+			scorestat_run_complete();
+		} else {
+			scorestat_process_checkpoint();
+		}
+		t1stat_continues = resident->continues_total;
+	}
 	t1replay_self_exec_prepare();
 	if(t1replay_mode == T1RM_DISABLED) {
 		// continue_menu() reaches this path only for Yes. The first credit has
@@ -4885,6 +4873,18 @@ void far t1replay_terminal(uint8_t end_reason)
 {
 	bool playback = (t1replay_mode == T1RM_PLAYBACK);
 
+	if(end_reason == T1REPLAY_END_GAME_OVER) {
+		if(!t1stat_gameover) {
+			scorestat_process_checkpoint();
+			scorestat_process_enter(rank, 0, false);
+			t1stat_gameover = true;
+		}
+	} else if(end_reason == T1REPLAY_END_MENU) {
+		if(t1stat_gameover && t1stat_eligible) {
+			scorestat_process_enter(rank, 0, true);
+		}
+		scorestat_run_end();
+	}
 	t1replay_fast_forward_boundary_reset();
 
 	if(t1replay_mode == T1RM_DISABLED) {
@@ -4976,6 +4976,10 @@ void far t1replay_gameover_regist_menu(
 
 void far t1replay_terminal_save_request(void)
 {
+	if(t1stat_gameover && t1stat_eligible) {
+		scorestat_process_enter(rank, 0, true);
+	}
+	scorestat_run_end();
 	t1replay_terminal_request_pending(T1RSRS_POSTGAME);
 	mdrv2_bgm_stop();
 }

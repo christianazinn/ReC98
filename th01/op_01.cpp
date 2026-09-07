@@ -22,6 +22,7 @@
 #include "th01/formats/cfg.hpp"
 #include "th01/formats/grp.h"
 #include "th01/language.hpp"
+#include "th01/keyconfig.hpp"
 #include "th01/replay_op.hpp"
 #include "th01/rpyfont.hpp"
 #if defined(T1RB)
@@ -1010,7 +1011,7 @@ void main(int argc, const char *argv[])
 			main_update_and_render();
 		} else if(menu_id == MID_OPTION) {
 			option_input_sense();
-			option_update_and_render();
+			keyconfig_option_update();
 		} else if(menu_id == MID_MUSIC) {
 			option_input_sense();
 			music_update_and_render();
@@ -1084,10 +1085,9 @@ void main(int argc, const char *argv[])
 	mdrv2_bgm_stop();
 	#if !defined(T1RB)
 	// Keep the release OP owner at its frozen pre-tail extent. The
-	// Replay/Practice hooks above replace 14 bytes of title-owner code; these
+	// Replay/Practice/KeyConfig hooks leave 13 bytes of title-owner code; these
 	// local NOPs occupy that extent without moving PF_TEXT or any later owner.
 	asm {
-		nop
 		nop
 		nop
 		nop

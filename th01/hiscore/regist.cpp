@@ -3,12 +3,10 @@
 #include "th01/hardware/frmdelay.h"
 #include "th01/hardware/grp2xscs.hpp"
 #include "th01/hiscore/regist.hpp"
+#include "th01/statview.hpp"
 #if (BINARY == 'E')
 	#include "th01/langfuu.hpp"
 #endif
-
-// Null-terminated version of scoredat_name_t, used internally.
-typedef ShiftJISKanjiBuffer<SCOREDAT_NAME_KANJI + 1> scoredat_name_z_t;
 
 // Byte-wise access to [scoredat_routes].
 inline int8_t& scoredat_route_byte(int place, int byte) {
@@ -328,7 +326,7 @@ void regist_put_initial(
 			);
 #endif
 		}
-		graph_putsa_fx(
+		scorestat_row_put(
 			table_stage_left(2), top, col_and_fx_text, REGIST_STAGE_ROUTE_DASH
 		);
 		regist_route_put(
@@ -599,7 +597,7 @@ void scoredat_save(void)
 	char fn[16];
 	scoredat_fn(fn);
 
-	if( (fp = fopen(fn, "wb")) == nullptr) {
+	if( (fp = scorestat_fopen(fn, "wb")) == nullptr) {
 		return;
 	}
 	write(fileno(fp), magic, sizeof(SCOREDAT_MAGIC) - 1);
@@ -614,7 +612,7 @@ void scoredat_save(void)
 		scoredat_routes,
 		(sizeof(shiftjis_kanji_t) * SCOREDAT_PLACES)
 	);
-	fclose(fp);
+	scorestat_fclose(fp);
 }
 
 void regist_name_enter(int entered_place)

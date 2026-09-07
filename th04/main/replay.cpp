@@ -33,10 +33,13 @@
 #include "th04/gaiji/gaiji.h"
 #include "th04/replay_format.hpp"
 #include "th04/replay_targets.hpp"
+#include "th04/keyconfig.hpp"
+#include "th04/scorestat.hpp"
 #include "th04/score.h"
 #include "th04/snd/snd.h"
 #define MMD_22FG_SEEK_IMPLEMENTATION
 #include "th02/snd/mmd_seek.hpp"
+#include "th02/snd/mdpause.hpp"
 #undef MMD_22FG_SEEK_IMPLEMENTATION
 #include "th03/core/initexit.h"
 #if (GAME == 5)
@@ -80,6 +83,14 @@ enum replay_runtime_mode_t {
 	RRM_PLAYBACK = 2,
 	RRM_PRACTICE = 3,
 };
+
+static bool replay_stat_entered;
+static bool replay_stat_excluded;
+static bool replay_stat_eligible;
+static bool replay_stat_gameover;
+static uint8_t replay_stat_owner;
+static uint8_t replay_stat_continues;
+static void far replay_stat_sample(void);
 
 extern unsigned char stage_id;
 extern unsigned char power;
@@ -1925,6 +1936,9 @@ static void replay_sample_current(uint8_t phase)
 	input_t input;
 	bool shift;
 
+	if(replay_stat_entered) {
+		replay_stat_sample();
+	}
 	if(replay_practice_preroll_pending) {
 		if(phase == REPLAY_PACKET_PHASE_GAMEPLAY) {
 			key_det = static_cast<input_t>(
@@ -2621,6 +2635,11 @@ bool replay_practice_run_start_requested(void)
 
 bool replay_stage_is_first(uint8_t stage)
 {
+	// stage_setup() resets vsync_Count2 immediately before this tail seam.
+	scorestat_process_rebase();
+	if(replay_stat_entered) {
+		scorestat_process_checkpoint();
+	}
 	return (
 		(stage == 0) ||
 		(stage == 6) ||
@@ -2873,6 +2892,12 @@ void replay_entry(void)
 	}
 	replay_practice_diagnostic = replay_diagnostic_file_exists();
 	command_mode = replay_command_load(&slot, &command_flags, &command_start);
+	replay_stat_excluded = (
+		resident->debug || (command_mode == RCM_PLAYBACK) ||
+		((command_mode == RCM_RECORD) &&
+		 (command_flags & (REPLAY_COMMAND_FLAG_PRACTICE |
+		  REPLAY_COMMAND_FLAG_PRIVATE_TEST | REPLAY_COMMAND_FLAG_NO_RECORD)))
+	);
 	if(command_mode == RCM_NONE) {
 		return;
 	}
@@ -2998,11 +3023,43 @@ static void replay_indicator_put(void)
 	text_putca(30, 0, 'Y', TX_YELLOW);
 }
 
+#pragma codeseg STATLINK_TEXT
+static void far replay_stat_sample(void)
+{
+	if(!replay_stat_entered) {
+		replay_stat_entered = true;
+		replay_stat_continues = continues_used;
+		#if (GAME == 5)
+			uint8_t owner = resident->playchar;
+		#else
+			uint8_t owner = (resident->playchar_ascii - '0');
+		#endif
+		replay_stat_owner = owner;
+		replay_stat_eligible = (
+			!replay_stat_excluded && !resident->demo_num && !oracle_active()
+		);
+		scorestat_process_enter(rank, owner, replay_stat_eligible);
+	}
+	// Native TH04/05 increments only after Yes. This observes the accepted
+	// boundary at the next existing sample, once, without a root-code hook.
+	if(continues_used > replay_stat_continues) {
+		if(replay_stat_gameover) {
+			scorestat_process_enter(rank, replay_stat_owner, replay_stat_eligible);
+			replay_stat_gameover = false;
+		}
+		scorestat_continue_accept();
+	}
+	replay_stat_continues = continues_used;
+	scorestat_process_sync();
+}
+#pragma codeseg
+
 void replay_stage_start(void)
 {
 	uint16_t arg;
 	uint8_t arg8;
 
+	replay_stat_sample();
 	language_main_titles_apply();
 	replay_diagnostic_stage_start_compare();
 	if(replay_mode == RRM_DISABLED) {
@@ -3404,13 +3461,9 @@ extern "C" int far replay_pause_menu(void)
 	uint8_t selected = 0;
 	bool save_available;
 	bool save_became_unavailable;
-	bool bgm_paused = (snd_bgm_active() && snd_bgm_is_fm());
+	bool bgm_paused = snd_bgm_pause();
 
 	replay_pause_backing_capture();
-
-	if(bgm_paused) {
-		snd_kaja_func(PMD_PAUSE, 0);
-	}
 
 	while(
 		(key_det != INPUT_NONE) || (peekb(0, KEYGROUP_2) & K2_R)
@@ -3493,7 +3546,7 @@ extern "C" int far replay_pause_menu(void)
 	}
 	replay_pause_clear();
 	if(bgm_paused) {
-		snd_kaja_func(PMD_UNPAUSE, 0);
+		snd_bgm_resume();
 	}
 	if(selected == 0) {
 		replay_pause_backing_restore();
@@ -3514,6 +3567,10 @@ void replay_gameplay_input(void)
 {
 	input_t host_input;
 
+	if(!resident->demo_num && (replay_mode != RRM_PLAYBACK) &&
+		!replay_practice_preroll_pending) {
+		keyconfig_gameplay_apply();
+	}
 	if(replay_mode == RRM_DISABLED) {
 		return;
 	}
@@ -3615,6 +3672,9 @@ static void replay_debug_stage_coordinates_put(void)
 
 void replay_input_reset_sense_tail(void)
 {
+	if(replay_stat_entered) {
+		replay_stat_sample();
+	}
 	if(replay_mode == RRM_RECORD) {
 		replay_sample_current(REPLAY_PACKET_PHASE_GAMEPLAY);
 		if(
@@ -3655,6 +3715,14 @@ int16_t replay_input_reset_sense_held_interstitial(void)
 	#endif
 	replay_sample_current(REPLAY_PACKET_PHASE_INTERSTITIAL);
 	return static_cast<int16_t>(key_det);
+}
+
+void pascal replay_gameover_wait(int frames)
+{
+	scorestat_process_checkpoint();
+	scorestat_process_enter(rank, replay_stat_owner, false);
+	replay_stat_gameover = true;
+	replay_input_wait_for_change(frames);
 }
 
 void pascal replay_input_wait_for_change(int frames)
@@ -3742,6 +3810,23 @@ bool replay_process_end(void)
 	uint8_t end_reason;
 	bool protect_blocked = false;
 
+	if(!replay_finished) {
+		if(replay_stat_entered) {
+			replay_stat_sample();
+		}
+		if(replay_stat_gameover) {
+			scorestat_process_enter(rank, replay_stat_owner, replay_stat_eligible);
+			replay_stat_gameover = false;
+		}
+		// TH04 ES_BAD also means final-stage death, not a completed run.
+		if((replay_pause_action == RPA_NONE) &&
+			((resident->end_sequence == ES_GOOD) ||
+			 (resident->end_sequence == ES_EXTRA))) {
+			scorestat_run_complete();
+		} else {
+			scorestat_run_end();
+		}
+	}
 	if(replay_finished) {
 		return (replay_mode == RRM_PLAYBACK);
 	}

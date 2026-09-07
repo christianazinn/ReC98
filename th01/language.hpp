@@ -13,9 +13,11 @@ enum t1_language_preference_t {
 // Patch settings share T1LANG.CFG. Zero in the recording bit deliberately
 // keeps captures enabled for configurations written before this option.
 #define T1_SETTINGS_LANGUAGE_MASK 0x01
+#define T1_SETTINGS_SFX_DISABLED 0x20
 #define T1_SETTINGS_REPLAY_RECORDING_DISABLED 0x40
 #define T1_SETTINGS_KNOWN_MASK ( \
-	T1_SETTINGS_LANGUAGE_MASK | T1_SETTINGS_REPLAY_RECORDING_DISABLED \
+	T1_SETTINGS_LANGUAGE_MASK | T1_SETTINGS_REPLAY_RECORDING_DISABLED | \
+	T1_SETTINGS_SFX_DISABLED \
 )
 
 // Each executable validates the on-disk preference before its first
@@ -23,5 +25,7 @@ enum t1_language_preference_t {
 void far t1_language_load(void);
 t1_language_preference_t far t1_language_get(void);
 bool far t1_replay_recording_enabled(void);
+bool far t1_sfx_enabled(void);
+bool far t1_sfx_set(bool enabled);
 
 #endif /* TH01_LANGUAGE_HPP */

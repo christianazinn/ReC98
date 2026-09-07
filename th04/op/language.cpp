@@ -4,6 +4,7 @@
 // parcel neither reads translated game data nor affects replay determinism.
 
 #include "th04/op/language.hpp"
+#include "th04/keyconfig.hpp"
 #include "th04/language_overlay.hpp"
 
 // This file is included by rpyop.cpp after the established replay-tail
@@ -17,7 +18,7 @@
 #define LANGUAGE_CONFIG_KNOWN_MASK ( \
 	LANGUAGE_CONFIG_LANGUAGE_MASK | LANGUAGE_CONFIG_REPLAY_RECORDING_DISABLED \
 )
-#define LANGUAGE_OPTION_STOCK_TOP ((GAME == 5) ? 250 : 224)
+#define LANGUAGE_OPTION_STOCK_TOP 240
 #define LANGUAGE_OPTION_TOP (LANGUAGE_OPTION_STOCK_TOP - LANGUAGE_OPTION_LABEL_H)
 #define LANGUAGE_OPTION_LEFT 224
 #define LANGUAGE_OPTION_W 192
@@ -25,7 +26,7 @@
 #define LANGUAGE_OPTION_CURSOR_RIGHT 384
 #define LANGUAGE_OPTION_DESC_TOP (RES_Y - GLYPH_H)
 #define LANGUAGE_OPTION_MENU_W 224
-#define LANGUAGE_OPTION_MENU_H 164
+#define LANGUAGE_OPTION_MENU_H 160
 #define LANGUAGE_OPTION_COMMAND_LEFT 272
 #define LANGUAGE_OPTION_COMMAND_CURSOR_LEFT 256
 #define LANGUAGE_OPTION_COMMAND_CURSOR_RIGHT 336
@@ -41,6 +42,7 @@ static char language_config_fn[11];
 static char language_menu_bgm_fn[3];
 static char language_se_fn[5];
 static bool language_option_initialized;
+static bool language_keyconfig_returning;
 static bool language_option_input_allowed;
 static int8_t language_option_sel;
 static language_preference_t language_option_entry_preference;
@@ -53,6 +55,7 @@ enum language_option_choice_t {
 	LOC_BGM,
 	LOC_SE,
 	LOC_TURBO_OR_SLOW,
+	LOC_KEYCONFIG,
 	LOC_RESET,
 	LOC_QUIT,
 	LOC_COUNT,
@@ -755,15 +758,7 @@ bool16 replay_recording_enabled_set(bool16 enabled)
 
 static screen_y_t language_option_choice_top(language_option_choice_t sel)
 {
-	if(sel == LOC_LANGUAGE) {
-		return LANGUAGE_OPTION_TOP;
-	}
-	sel = static_cast<language_option_choice_t>(sel - 1);
-	return ((sel >= 7)
-		? (LANGUAGE_OPTION_STOCK_TOP + (6 * LANGUAGE_OPTION_LABEL_H) +
-			((sel - 6) * LANGUAGE_OPTION_COMMAND_H))
-		: (LANGUAGE_OPTION_STOCK_TOP + (sel * LANGUAGE_OPTION_LABEL_H))
-	);
+	return (LANGUAGE_OPTION_TOP + (sel * LANGUAGE_OPTION_LABEL_H));
 }
 
 static void language_option_desc_put(int desc_id)
@@ -927,10 +922,32 @@ static void language_option_stock_put(language_option_choice_t sel, vc2 color)
 	}
 }
 
+static void language_option_keyconfig_put(vc2 color)
+{
+	char label[10];
+	screen_y_t top = language_option_choice_top(LOC_KEYCONFIG);
+	label[0] = 'K'; label[1] = 'e'; label[2] = 'y';
+	label[3] = 'C'; label[4] = 'o'; label[5] = 'n';
+	label[6] = 'f'; label[7] = 'i'; label[8] = 'g'; label[9] = 0;
+	egc_copy_rect_1_to_0_16(
+		LANGUAGE_OPTION_LEFT, top, LANGUAGE_OPTION_W, LANGUAGE_OPTION_LABEL_H
+	);
+	graph_putsa_fx_func = FX_WEIGHT_BOLD;
+	graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
+	graph_putsa_fx(284, top, color, label);
+	if(color == LANGUAGE_OPTION_COL_ACTIVE) {
+		cdg_put_8(LANGUAGE_OPTION_COMMAND_CURSOR_LEFT, top, CDG_CURSOR_LEFT);
+		cdg_put_8(LANGUAGE_OPTION_COMMAND_CURSOR_RIGHT, top, CDG_CURSOR_RIGHT);
+		egc_copy_rect_1_to_0_16(0, LANGUAGE_OPTION_DESC_TOP, RES_X, GLYPH_H);
+	}
+}
+
 static void language_option_put(language_option_choice_t sel, vc2 color)
 {
 	if(sel == LOC_LANGUAGE) {
 		language_option_language_put(color);
+	} else if(sel == LOC_KEYCONFIG) {
+		language_option_keyconfig_put(color);
 	} else {
 		language_option_stock_put(sel, color);
 	}
@@ -1095,8 +1112,11 @@ void far language_option_update_and_render(void)
 	int i;
 
 	if(!language_option_initialized) {
-		language_option_sel = LOC_LANGUAGE;
-		language_option_entry_preference = language_preference_get();
+		language_option_sel = language_keyconfig_returning ? LOC_KEYCONFIG : LOC_LANGUAGE;
+		if(!language_keyconfig_returning) {
+			language_option_entry_preference = language_preference_get();
+		}
+		language_keyconfig_returning = false;
 		language_option_input_allowed = false;
 		egc_copy_rect_1_to_0_16(
 			LANGUAGE_OPTION_LEFT, LANGUAGE_OPTION_TOP,
@@ -1125,7 +1145,15 @@ void far language_option_update_and_render(void)
 		language_option_selection_move(+1);
 	}
 	if((key_det & INPUT_OK) || (key_det & INPUT_SHOT)) {
-		if(language_option_sel == LOC_RESET) {
+		if(language_option_sel == LOC_KEYCONFIG) {
+			keyconfig_menu();
+			replay_main_language_assets_reload();
+			language_keyconfig_returning = true;
+			language_option_initialized = false;
+			language_option_input_allowed = false;
+			key_det = INPUT_NONE;
+			return;
+		} else if(language_option_sel == LOC_RESET) {
 			snd_kaja_func(KAJA_SONG_STOP, 0);
 			resident->rank = RANK_NORMAL;
 			resident->cfg_lives = CFG_LIVES_DEFAULT;

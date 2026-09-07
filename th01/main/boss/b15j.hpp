@@ -81,6 +81,7 @@ bool16 t1boss_kikuri_checkpoint_apply(
 bool16 t1boss_kikuri_ckpt_apply_loaded(
 	const t1boss_kikuri_checkpoint_t *checkpoint
 );
+bool16 t1boss_kikuri_practice_construct(uint8_t target);
 
 #if T1REPLAY_KIKURI_FIRST_COMBAT_PROFILE
 bool16 t1boss_kikuri_first_combat_construct(

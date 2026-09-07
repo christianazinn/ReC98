@@ -12,11 +12,12 @@
 #define T2LANG_CONFIG_SIZE 8
 #define T2LANG_CONFIG_VERSION 1
 #define T2_SETTINGS_LANGUAGE_MASK 0x01
+#define T2_SETTINGS_SFX_DISABLED 0x20
 #define T2_SETTINGS_REPLAY_RECORDING_DISABLED 0x40
 #define T2_SETTINGS_AUTOFIRE 0x80
 #define T2_SETTINGS_KNOWN_MASK ( \
 	T2_SETTINGS_LANGUAGE_MASK | T2_SETTINGS_REPLAY_RECORDING_DISABLED | \
-	T2_SETTINGS_AUTOFIRE \
+	T2_SETTINGS_AUTOFIRE | T2_SETTINGS_SFX_DISABLED \
 )
 #define T2LANG_DOS_ACCESS_READ 0
 #define T2LANG_FP_SEG(p) ((unsigned)(((unsigned long)(void far *)(p)) >> 16))
@@ -38,6 +39,7 @@ typedef char t2_language_config_size_check[
 static t2_language_preference_t t2_language_runtime;
 static bool t2_autofire_runtime;
 static bool t2_replay_recording_runtime;
+static bool t2_sfx_disabled;
 
 static void t2_language_config_fn_set(char *fn)
 {
@@ -302,6 +304,7 @@ void far t2_language_load(void)
 	t2_language_runtime = T2LANG_JAPANESE;
 	t2_autofire_runtime = false;
 	t2_replay_recording_runtime = true;
+	t2_sfx_disabled = false;
 	t2_language_config_fn_set(fn);
 	fh = t2_language_dos_open(fn);
 	if(fh < 0) {
@@ -332,6 +335,7 @@ void far t2_language_load(void)
 		config->preference & T2_SETTINGS_LANGUAGE_MASK
 	);
 	t2_autofire_runtime = ((config->preference & T2_SETTINGS_AUTOFIRE) != 0);
+	t2_sfx_disabled = ((config->preference & T2_SETTINGS_SFX_DISABLED) != 0);
 	t2_replay_recording_runtime = (
 		(config->preference & T2_SETTINGS_REPLAY_RECORDING_DISABLED) == 0
 	);
@@ -343,7 +347,8 @@ t2_language_preference_t far t2_language_get(void)
 }
 
 static bool t2_settings_set(
-	t2_language_preference_t preference, bool autofire, bool replay_recording
+	t2_language_preference_t preference, bool autofire, bool replay_recording,
+	bool sfx_enabled
 )
 {
 	t2_language_config_t config;
@@ -368,6 +373,7 @@ static bool t2_settings_set(
 	config.preference = static_cast<uint8_t>(
 		preference |
 		(autofire ? T2_SETTINGS_AUTOFIRE : 0) |
+		(sfx_enabled ? 0 : T2_SETTINGS_SFX_DISABLED) |
 		(replay_recording ? 0 : T2_SETTINGS_REPLAY_RECORDING_DISABLED)
 	);
 	config.checksum = t2_language_config_checksum(&config);
@@ -420,13 +426,15 @@ static bool t2_settings_set(
 	t2_language_runtime = preference;
 	t2_autofire_runtime = autofire;
 	t2_replay_recording_runtime = replay_recording;
+	t2_sfx_disabled = !sfx_enabled;
 	return true;
 }
 
 bool far t2_language_set(t2_language_preference_t preference)
 {
 	return t2_settings_set(
-		preference, t2_autofire_runtime, t2_replay_recording_runtime
+		preference, t2_autofire_runtime, t2_replay_recording_runtime,
+		!t2_sfx_disabled
 	);
 }
 
@@ -438,7 +446,7 @@ bool far t2_autofire_get(void)
 bool far t2_autofire_set(bool enabled)
 {
 	return t2_settings_set(
-		t2_language_runtime, enabled, t2_replay_recording_runtime
+		t2_language_runtime, enabled, t2_replay_recording_runtime, !t2_sfx_disabled
 	);
 }
 
@@ -449,7 +457,22 @@ bool far t2_replay_recording_enabled(void)
 
 bool far t2_replay_recording_set(bool enabled)
 {
-	return t2_settings_set(t2_language_runtime, t2_autofire_runtime, enabled);
+	return t2_settings_set(
+		t2_language_runtime, t2_autofire_runtime, enabled, !t2_sfx_disabled
+	);
+}
+
+bool far t2_sfx_enabled(void)
+{
+	return !t2_sfx_disabled;
+}
+
+bool far t2_sfx_set(bool enabled)
+{
+	return t2_settings_set(
+		t2_language_runtime, t2_autofire_runtime, t2_replay_recording_runtime,
+		enabled
+	);
 }
 
 // Keep this shared patch segment's growth paragraph-aligned in OP, MAIN, and
