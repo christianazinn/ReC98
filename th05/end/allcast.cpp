@@ -1,6 +1,7 @@
 #pragma option -zCMAINE_01_TEXT
 
 #include "th05/end/allcast.hpp"
+#include "th04/end/staff_fast_forward.hpp"
 #include "th05/snd/snd.h"
 #include "th05/formats/pi.hpp"
 #include "th05/playchar.h"
@@ -123,13 +124,13 @@ void pascal near screen_fadeout_animate_and_advance(
 
 bool near wait_flip_and_check_measure_target(void)
 {
-	frame_delay(2);
+	staff_fast_forward_frame_delay(2);
 
 	graph_accesspage(page_shown);
 	graph_showpage(page_shown = (1 - page_shown));
 
 	frame_half++;
-	measure_cur = snd_bgm_measure();
+	measure_cur = staff_fast_forward_allcast_measure();
 	if(measure_cur < 0) {
 		// ZUN bug: 「Peaceful Romancer」 is timed using beats as measures. So,
 		// 22×2 frames translates to (44 / 56.423) ≈ 780 ms = 76.94 BPM, which

@@ -26,6 +26,7 @@
 #include "th03/math/polar.hpp"
 #include "th04/formats/cdg.h"
 #include "th04/hardware/bgimage.hpp"
+#include "th04/end/staff_fast_forward.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 
@@ -187,8 +188,7 @@ void pascal near dissolve_unput(
 /// One animation frame: wait out two VSyncs, flip the pages, and start drawing
 /// into the one that is no longer shown.
 #define dissolve_frame_flip() { \
-	while(vsync_Count1 < 2) {} \
-	vsync_Count1 = 0; \
+	staff_fast_forward_vsync_wait(2); \
 	graph_showpage(page); \
 	page = (1 - page); \
 	graph_accesspage(page); \

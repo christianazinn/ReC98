@@ -12,6 +12,7 @@
 /// the same translation unit.
 #include "th03/formats/pi.hpp"
 #include "th04/snd/snd.h"
+#include "th04/end/staff_fast_forward.hpp"
 
 /// `[measured]` All eleven filenames stay `_DATA` bytes of the root dump for
 /// the reason th04/hiscore/regist_menu.cpp documents at length, and are
@@ -67,13 +68,13 @@ void near staffroll_animate(void)
 	palette_black_in(12);
 
 	staffroll_cdg_load(0, sff1_cdg, sff1b_cdg);
-	snd_delay_until_measure(3, 64);
+	staff_fast_forward_delay_until_measure(3, 64);
 	cdg_slot = 0;
 	dissolve_put_func = dissolve_put_radial;
 	dissolve_in_animate(352, 160);
 
 	staffroll_cdg_load(2, sff2_cdg, sff2b_cdg);
-	snd_delay_until_measure(7, 160);
+	staff_fast_forward_delay_until_measure(7, 160);
 	dissolve_put_func = dissolve_put_diagonal;
 	dissolve_out_animate(352, 160);
 	cdg_slot = 2;
@@ -83,10 +84,10 @@ void near staffroll_animate(void)
 	graph_accesspage(0);
 	cdg_slot = 0;
 	staffroll_cdg_load(0, sff3_cdg, sff3b_cdg);
-	snd_delay_until_measure(11, 160);
+	staff_fast_forward_delay_until_measure(11, 160);
 	dissolve_in_animate(288, 200);
 
-	snd_delay_until_measure(19, 160);
+	staff_fast_forward_delay_until_measure(19, 160);
 	dissolve_put_func = dissolve_put_diagonal;
 	dissolve_out_2_animate(192, 128, 288, 200);
 
@@ -96,40 +97,40 @@ void near staffroll_animate(void)
 	palette_black_in(4);
 
 	staffroll_cdg_load(2, sff4_cdg, sff4b_cdg);
-	snd_delay_until_measure(23, 160);
+	staff_fast_forward_delay_until_measure(23, 160);
 	cdg_slot = 2;
 	dissolve_put_func = dissolve_put_horizontal;
 	dissolve_in_animate(32, 112);
 
 	cdg_free(2);
 	staffroll_cdg_load(4, sff5_cdg, sff5b_cdg);
-	snd_delay_until_measure(27, 160);
+	staff_fast_forward_delay_until_measure(27, 160);
 	cdg_slot = 4;
 	dissolve_put_func = dissolve_put_diagonal;
 	dissolve_in_animate(32, 184);
 
 	staffroll_cdg_load(0, sff8_cdg, sff8b_cdg);
-	snd_delay_until_measure(31, 160);
+	staff_fast_forward_delay_until_measure(31, 160);
 	dissolve_put_func = dissolve_put_horizontal;
 	dissolve_out_animate(32, 184);
 	cdg_slot = 0;
 	dissolve_in_animate(64, 184);
 
 	staffroll_cdg_load(4, sff9_cdg, sff9b_cdg);
-	snd_delay_until_measure(35, 160);
+	staff_fast_forward_delay_until_measure(35, 160);
 	dissolve_put_func = dissolve_put_radial;
 	dissolve_out_animate(64, 184);
 	cdg_slot = 4;
 	dissolve_in_animate(64, 184);
 
 	staffroll_cdg_load(0, sff6_cdg, sff6b_cdg);
-	snd_delay_until_measure(39, 160);
+	staff_fast_forward_delay_until_measure(39, 160);
 	dissolve_put_func = dissolve_put_diagonal;
 	dissolve_out_animate(64, 184);
 	cdg_slot = 0;
 	dissolve_in_animate(32, 184);
 
-	snd_delay_until_measure(43, 160);
+	staff_fast_forward_delay_until_measure(43, 160);
 	dissolve_put_func = dissolve_put_horizontal;
 	dissolve_out_2_animate(32, 112, 32, 184);
 
@@ -137,7 +138,7 @@ void near staffroll_animate(void)
 	cdg_slot = 0;
 	dissolve_in_animate(32, 336);
 
-	snd_delay_until_measure(48, 160);
+	staff_fast_forward_delay_until_measure(48, 160);
 	bgimage_free();
 	cdg_free_all();
 	palette_black_out(4);

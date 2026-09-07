@@ -37,6 +37,7 @@ struct resident_t {
 	char unused_2;
 	unsigned char op_main_retval;
 	bool reduce_effects;
+	// Replay Patch: Nonzero if a main-game clear existed before this run.
 	char unused_3;
 	uint8_t shottype;
 

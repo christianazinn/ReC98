@@ -13,6 +13,7 @@
 #include "th01/hardware/vsync.hpp"
 #include "th01/formats/grp.h"
 #include "th01/end/type.hpp"
+#include "th01/staff_fast_forward.hpp"
 
 #define TYPE_DELAY 3
 static const int TYPE_FX = (COL_TYPE | FX_WEIGHT_NORMAL);
@@ -73,7 +74,7 @@ void pascal grp_palette_settone(int tone)
 	for(i = 0; i < (100 / TONE_STEP_PER_FRAME); i++) { \
 		tone direction TONE_STEP_PER_FRAME; \
 		grp_palette_settone(tone); \
-		frame_delay(delay); \
+		t1staff_fast_forward_frame_delay(delay); \
 	}
 
 void pascal grp_palette_black_out(unsigned int frame_delay_per_step)
@@ -107,7 +108,7 @@ void pascal graph_type_ank_n(
 		graph_printf_fx(
 			left + (i * GLYPH_HALF_W), top, TYPE_FX, "%c", str[i]
 		);
-		frame_delay(TYPE_DELAY);
+		t1staff_fast_forward_frame_delay(TYPE_DELAY);
 	}
 }
 
@@ -120,6 +121,6 @@ void pascal graph_type_kanji_n(
 			left + (i * GLYPH_FULL_W), top, TYPE_FX,
 			"%c%c", str[(2 * i) + 0], str[(2 * i) + 1]
 		);
-		frame_delay(TYPE_DELAY);
+		t1staff_fast_forward_frame_delay(TYPE_DELAY);
 	}
 }

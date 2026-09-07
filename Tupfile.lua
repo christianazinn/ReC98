@@ -637,6 +637,7 @@ th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {
 	"th01/rpyfuuin.cpp",
 	"th01/language.cpp",
 	"th01/langfuu.cpp",
+	{ "th01/staff_fast_forward.cpp", o = "staff_~1.obj" },
 })
 -- ----
 
@@ -865,6 +866,7 @@ th02_replay:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	-- Share the checked MAIN/MAINE conventional-memory admission policy.
 	{ "th02/main/memory_budget.cpp", o = "memory~1.obj" },
 	"th02/endlife.cpp",
+	{ "th02/end/staff_fast_forward.cpp", o = "staff_~1.obj" },
 })
 -- ----
 
@@ -1607,6 +1609,7 @@ th04:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th04/staff.cpp",
 	-- LANGUAGE OVERLAY MOD: optional presentation assets in a trailing segment.
 	"th04/rpyend.cpp",
+	{ "th04/end/staff_fast_forward.cpp", o = "staff_~2.obj" },
 })
 -- ----
 
@@ -1907,6 +1910,7 @@ th05:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("maine", {
 	"th05/staff.cpp",
 	-- LANGUAGE OVERLAY MOD: optional presentation assets in a trailing segment.
 	"th05/rpyend.cpp",
+	"th05/staffff.cpp",
 })
 -- ----
 

@@ -23,6 +23,7 @@
 #include "th01/shiftjis/fns.hpp"
 #include "th01/shiftjis/scoredat.hpp"
 #include "th01/shiftjis/title.hpp"
+#include "th01/staff_fast_forward.hpp"
 
 // > rendering text to VRAM, where it wouldn't be limited to the byte grid
 // > still aligning it to the byte grid
@@ -357,16 +358,18 @@ static const int BOSS_TEXT_DELAY = 50;
 
 void near pascal boss_slide_next(int quarter)
 {
-	frame_delay(BOSS_SLIDE_DELAY);
+	t1staff_fast_forward_frame_delay(BOSS_SLIDE_DELAY);
 	grp_palette_black_out(5);
 	z_graph_clear();
 	end_pic_show(quarter);
 	grp_palette_black_in(5);
-	frame_delay(BOSS_TEXT_DELAY);
+	t1staff_fast_forward_frame_delay(BOSS_TEXT_DELAY);
 }
 
 void near boss_slides_animate(void)
 {
+	t1staff_fast_forward_begin();
+
 	// MODDERS: Move to end_and_verdict_and_regist_animate() for cleanliness.
 	end_done();
 
@@ -377,7 +380,7 @@ void near boss_slides_animate(void)
 	}
 	end_pic_show(0);
 	grp_palette_settone(100);
-	frame_delay(BOSS_TEXT_DELAY);
+	t1staff_fast_forward_frame_delay(BOSS_TEXT_DELAY);
 
 	// ZUN calculated with one extra romaji? Was this character originally
 	// called "ShinGyoku" after all?!
@@ -404,7 +407,8 @@ void near boss_slides_animate(void)
 		pic_caption_type_2(SLIDES_TITLE_20, SLIDES_BOSS_20_JIGOKU, 0);
 	}
 
-	frame_delay(BOSS_SLIDE_DELAY);
+	t1staff_fast_forward_frame_delay(BOSS_SLIDE_DELAY);
+	t1staff_fast_forward_end();
 }
 /// --------------
 

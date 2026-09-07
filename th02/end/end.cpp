@@ -27,6 +27,7 @@
 #include "th02/gaiji/score_p.hpp"
 #include "th02/snd/snd.h"
 #include "th02/end/staff.hpp"
+#include "th02/end/staff_fast_forward.hpp"
 #include "th02/shiftjis/end.hpp"
 #include "th02/shiftjis/title.hpp"
 #include "th02/sprites/verdict.hpp"
@@ -206,10 +207,10 @@ void pascal near line_type(
 			// alternate between this delay and no delay at all, resulting in
 			// two kanji every ([frames_per_kanji] / 3) frames.
 			if(loop & 3) {
-				frame_delay(frames_per_kanji / 3);
+				t2staff_fast_forward_frame_delay(frames_per_kanji / 3);
 			}
 		} else {
-			frame_delay(frames_per_kanji);
+			t2staff_fast_forward_frame_delay(frames_per_kanji);
 		}
 	}
 	for(i = 0; i < 20; i++) {
@@ -237,9 +238,9 @@ void pascal near line_type(
 			// to get here at the very start of a frame, it makes sense to
 			// assume that 20 of those calls can easily fit within the ≈600,000
 			// cycles we have for every frame on the game's target 33 MHz CPUs.
-			frame_delay(0);
+			t2staff_fast_forward_frame_delay(0);
 		} else {
-			frame_delay(2);
+			t2staff_fast_forward_frame_delay(2);
 		}
 	}
 	if(line_type_allow_fast_forward_and_automatically_clear_end_line) {
@@ -829,7 +830,7 @@ void pascal near staffroll_rotrect_and_put_pic_animate(
 	// rectangle animation.
 	staffroll_rotrect_animate(angle_speed, angle_start);
 	staffroll_pic_put(STAFFROLL_PIC_LEFT, STAFFROLL_PIC_TOP, quarter);
-	frame_delay(4);
+	t2staff_fast_forward_frame_delay(4);
 	palette_100();
 }
 
@@ -846,6 +847,7 @@ inline void staffroll_text_put(
 
 void near staffroll_and_verdict_animate(void)
 {
+	t2staff_fast_forward_begin();
 	/// Staff roll
 	/// ----------
 
@@ -856,12 +858,12 @@ void near staffroll_and_verdict_animate(void)
 		VELOCITY = 4,
 	};
 
-	snd_delay_until_measure(6);
+	t2staff_fast_forward_delay_until_measure(6);
 
 	int i = 0;
 	while(i < (ENDFT_CELS * ENDFT_SEGMENT_COUNT)) {
 		endft_put(ENDFT_LEFT, ENDFT_TOP, i);
-		frame_delay(4);
+		t2staff_fast_forward_frame_delay(4);
 		i += ENDFT_SEGMENT_COUNT;
 	}
 	graph_putsa_fx(
@@ -870,7 +872,7 @@ void near staffroll_and_verdict_animate(void)
 		(V_WHITE | FX_WEIGHT_BOLD),
 		GAME_VERSION
 	);
-	snd_delay_until_measure(8);
+	t2staff_fast_forward_delay_until_measure(8);
 
 	// Move game title and version down to make room for the staff roll text
 	// ---------------------------------------------------------------------
@@ -898,12 +900,12 @@ void near staffroll_and_verdict_animate(void)
 			(V_WHITE | FX_WEIGHT_BOLD),
 			GAME_VERSION
 		);
-		frame_delay(1);
+		t2staff_fast_forward_frame_delay(1);
 		endft_top += VELOCITY;
 	}
 	#undef endft_top
 	// ---------------------------------------------------------------------
-	snd_delay_until_measure(9);
+	t2staff_fast_forward_delay_until_measure(9);
 
 	line_col_set(V_WHITE);
 	line_type(
@@ -913,7 +915,7 @@ void near staffroll_and_verdict_animate(void)
 		STAFFROLL_TITLE,
 		12
 	);
-	snd_delay_until_measure(13);
+	t2staff_fast_forward_delay_until_measure(13);
 
 	graph_accesspage(1);
 	pi_fullres_load_palette_apply_put_free(CUTSCENE_PIC_SLOT, "ed06.pi");
@@ -921,14 +923,14 @@ void near staffroll_and_verdict_animate(void)
 	staffroll_rotrect_and_put_pic_animate(0x04, 0, 0x29);
 	staffroll_text_clear();
 	staffroll_text_put(0, 0, STAFFROLL_PROGRAM);
-	snd_delay_until_measure(17);
+	t2staff_fast_forward_delay_until_measure(17);
 
 	// ZUN quirk: This palette has #FCC instead of #FFF at the 0-based index
 	// #15, discoloring every part of the screen.
 	palette_entry_rgb_show("ed06b.rgb");
 
 	staffroll_rotrect_and_put_pic_animate(-0x04, 2, 0x29);
-	snd_delay_until_measure(21);
+	t2staff_fast_forward_delay_until_measure(21);
 
 	// ZUN bloat: Will be immediately overwritten with the animation. (And
 	// we're still on the wrong palette.)
@@ -940,7 +942,7 @@ void near staffroll_and_verdict_animate(void)
 	graph_accesspage(1);
 	pi_fullres_load_put_free(CUTSCENE_PIC_SLOT, "ed07.pi"); // Unchanged palette
 	graph_accesspage(0);
-	snd_delay_until_measure(25);
+	t2staff_fast_forward_delay_until_measure(25);
 
 	staffroll_text_clear();
 	staffroll_text_put(0, 0, STAFFROLL_GRAPHIC_1);
@@ -948,11 +950,11 @@ void near staffroll_and_verdict_animate(void)
 	staffroll_text_put(0, 3, STAFFROLL_GRAPHIC_3);
 	palette_entry_rgb_show("ed07a.rgb");
 	staffroll_rotrect_and_put_pic_animate(-0x04, 0, 0x29);
-	snd_delay_until_measure(29);
+	t2staff_fast_forward_delay_until_measure(29);
 
 	palette_entry_rgb_show("ed07b.rgb");
 	staffroll_rotrect_and_put_pic_animate(0x08, 1, -0x17);
-	snd_delay_until_measure(33);
+	t2staff_fast_forward_delay_until_measure(33);
 
 	// ZUN bloat: Will be immediately overwritten with the animation. It also
 	// wastes time on the frame, since this isn't double-buffered and
@@ -961,7 +963,7 @@ void near staffroll_and_verdict_animate(void)
 	staffroll_pic_put(STAFFROLL_PIC_LEFT, STAFFROLL_PIC_TOP, 2);
 
 	staffroll_rotrect_and_put_pic_animate(-0x08, 2, -0x17);
-	snd_delay_until_measure(37);
+	t2staff_fast_forward_delay_until_measure(37);
 
 	staffroll_text_clear();
 	staffroll_text_put(GLYPH_FULL_W, 0, STAFFROLL_MUSIC);
@@ -975,16 +977,16 @@ void near staffroll_and_verdict_animate(void)
 	pi_load(CUTSCENE_PIC_SLOT, "ed08.pi");
 	pi_put_8(0, 0, CUTSCENE_PIC_SLOT);
 	graph_accesspage(0);
-	snd_delay_until_measure(41);
+	t2staff_fast_forward_delay_until_measure(41);
 
 	pi_palette_apply(CUTSCENE_PIC_SLOT);
 	pi_free(CUTSCENE_PIC_SLOT);
 	staffroll_rotrect_and_put_pic_animate(-0x08, 0, -0x17);
-	snd_delay_until_measure(45);
+	t2staff_fast_forward_delay_until_measure(45);
 
 	palette_entry_rgb_show("ed08a.rgb");
 	staffroll_rotrect_and_put_pic_animate(0x0C, 1, 0x29);
-	snd_delay_until_measure(49);
+	t2staff_fast_forward_delay_until_measure(49);
 
 	staffroll_text_clear();
 	staffroll_text_put(0, 0.0, STAFFROLL_TESTER_1);
@@ -994,13 +996,14 @@ void near staffroll_and_verdict_animate(void)
 	staffroll_text_put(0, 6.5, STAFFROLL_TESTER_5);
 	palette_entry_rgb_show("ed08b.rgb");
 	staffroll_rotrect_and_put_pic_animate(-0x0C, 2, 0x29);
-	snd_delay_until_measure(53);
+	t2staff_fast_forward_delay_until_measure(53);
 
 	palette_entry_rgb_show("ed08c.rgb");
 	staffroll_rotrect_and_put_pic_animate(0x0C, 3, 0x29);
-	snd_delay_until_measure(57);
+	t2staff_fast_forward_delay_until_measure(57);
 
 	palette_black_out(4);
+	t2staff_fast_forward_end();
 	/// ----------
 
 	/// Verdict

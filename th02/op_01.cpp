@@ -360,7 +360,6 @@ void pascal near start_init(void)
 	resident->start_power = 0;
 	resident->score = 0;
 	resident->continues_used = 0;
-	resident->unused_3 = 0;
 	resident->unused_1 = 0;
 	resident->demo_num = 0;
 	resident->score_highest = 0;
@@ -833,8 +832,8 @@ void far pascal t2_language_op_bridge(
 
 // Keep _main and every following OP_01_TEXT symbol at their stock offsets.
 // The trampoline and expanded native bridge occupy 521 of the original
-// updater's 623 bytes; these 102 bytes preserve the remainder of that span.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+// updater's 623 bytes. The preexisting-clear snapshot below occupies 32 of
+// the remaining 102 bytes; these 70 bytes preserve the original boundary.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90"
@@ -861,6 +860,10 @@ int main(void)
 		if(cfg_load() == 1) {
 			return 1;
 		}
+		resident->unused_3 = (
+			cleared_game_with[0] || cleared_game_with[1] ||
+			cleared_game_with[2]
+		);
 #ifdef T2PD
 		replay_practice_diag_boot(2);
 #endif

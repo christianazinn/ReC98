@@ -5,6 +5,7 @@
 #include "th02/math/vector.hpp"
 #include "th02/hardware/frmdelay.h"
 #include "th02/end/staff.hpp"
+#include "th02/end/staff_fast_forward.hpp"
 
 static const screen_x_t ROTRECT_CENTER_X = (
 	STAFFROLL_PIC_LEFT + (CUTSCENE_PIC_W / 2)
@@ -103,7 +104,7 @@ void pascal staffroll_rotrect_animate(
 			angles[RECT_COUNT - 1] += angle_speed;
 		}
 		rotrect_put(rads[RECT_COUNT - 1], angles[RECT_COUNT - 1]);
-		frame_delay(1);
+		t2staff_fast_forward_frame_delay(1);
 	}
 	grcg_setcolor(GC_RMW, 0);
 	grcg_boxfill(0, 0, AREA_RIGHT, (RES_Y - 1));

@@ -24,6 +24,7 @@
 #pragma option -zCMAINE_01__TEXT -zPgroup_01
 
 #include "th05/staff.hpp"
+#include "th04/end/staff_fast_forward.hpp"
 #include "libs/master.lib/master.hpp"
 #include "libs/master.lib/pc98_gfx.hpp"
 #include "th02/v_colors.hpp"
@@ -1015,7 +1016,7 @@ void near staffroll_frame_and_flip(void)
 {
 	space_update();
 	space_put();
-	frame_delay(1);
+	staff_fast_forward_frame_delay(1);
 	graph_accesspage(staffroll_page_shown);
 	graph_showpage(staffroll_page_shown = (1 - staffroll_page_shown));
 	if(text_clear_pending) {
@@ -1023,7 +1024,7 @@ void near staffroll_frame_and_flip(void)
 		text_clear_pending = false;
 	}
 	staffroll_frame++;
-	staffroll_measure_cur = snd_bgm_measure();
+	staffroll_measure_cur = staff_fast_forward_main_measure();
 	if(staffroll_measure_cur < 0) {
 		// The staff roll's own track is 「Mystic Dream」, not the 「Days」 an
 		// earlier revision of this comment named: that is TH04's staff-roll
