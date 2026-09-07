@@ -3549,11 +3549,14 @@ void replay_title_background_restore(void)
 {
 	text_clear();
 	replay_title_background_prepare_hidden();
+	// Keep the still-valid previous surface visible while the title portraits
+	// are loaded. Flipping first exposed the rebuilt title through the previous
+	// menu's palette for the entire (comparatively slow) allocation.
+	t2op_title_pictures_load();
 	graph_accesspage(1);
 	graph_copy_page(0);
 	graph_showpage(0);
 	graph_accesspage(0);
-	t2op_title_pictures_load();
 }
 
 static void t2op_main_line_put(
@@ -5233,10 +5236,10 @@ static bool t2op_save_confirm(t2op_save_confirm_t modal, bool default_yes)
 				yes = !yes;
 				t2op_save_confirm_render(modal, yes);
 			} else if(key_det & INPUT_CANCEL) {
-				key_det = INPUT_NONE;
+				t2op_input_wait_release();
 				return false;
 			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
-				key_det = INPUT_NONE;
+				t2op_input_wait_release();
 				return yes;
 			}
 			if(key_det != INPUT_NONE) {
@@ -5723,7 +5726,10 @@ void far replay_title_update_and_render(void)
 			t2op_practice_menu();
 			break;
 		case T2OMC_REPLAY:
-			text_clear();
+			// The menu labels' foreground lives in TRAM, but their four-pixel
+			// shadows live in VRAM. Restore both from the clean hidden title page
+			// before fading into the Replay browser.
+			t2op_surface_background_restore();
 			palette_black_out(1);
 			t2op_browser(false, 0);
 			break;
@@ -5763,7 +5769,7 @@ void far replay_title_update_and_render(void)
 
 // Keep this replay-owned segment's growth paragraph-aligned so every
 // following stock and patch segment retains its audited phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
 
