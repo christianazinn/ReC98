@@ -50,7 +50,7 @@
 //                                <- th04/main/player/shot.hpp
 //                                     -> th04/math/randring.hpp
 //   th04/main/bullet/bullet.hpp  (`bullets`, `bullet_template`)
-//                                <- th04/main/gather.hpp
+//                                <- th04/main/enemy/enemy.hpp
 #include "platform.h"
 
 #if (GAME == 5)
@@ -119,7 +119,6 @@
 #include "th04/main/drawp.hpp"
 #include "th04/main/ems.hpp"
 #include "th04/main/frames.h"
-#include "th04/main/gather.hpp"
 #include "th04/main/item/splash.hpp"
 #include "th04/main/midboss/midboss.hpp"
 #include "th04/main/null.hpp"
@@ -171,6 +170,35 @@ struct Explosion {
 };
 extern Explosion explosions_small[EXPLOSION_SMALL_COUNT];
 extern Explosion explosions_big;
+
+// `gather.hpp` and `enemy.hpp` both include frozen, unguarded `bullet.hpp`.
+// Keep `enemy.hpp` as the single provider because its complete state is
+// observed below. This exact TH04 layout mirror replaces only the otherwise
+// duplicate gather declaration dependency; it neither reimplements nor calls
+// gather gameplay code.
+static const int ORACLE_GATHER_COUNT = 16;
+struct oracle_gather_t {
+	entity_flag_t flag;
+	vc_t col;
+	PlayfieldMotion center;
+	Subpixel radius_cur;
+	int ring_points;
+	unsigned char angle_cur;
+	unsigned char angle_delta;
+	BulletTemplate bullet_template;
+	Subpixel radius_prev;
+	Subpixel radius_delta;
+};
+struct oracle_gather_template_t {
+	PlayfieldPoint center;
+	PlayfieldPoint velocity;
+	Subpixel radius;
+	int ring_points;
+	vc_t col;
+	unsigned char angle_delta;
+};
+extern oracle_gather_t gather_circles[ORACLE_GATHER_COUNT];
+extern oracle_gather_template_t gather_template;
 
 #if (GAME == 5)
 	struct puppet_t;
@@ -1794,7 +1822,7 @@ static void oracle_hash_group_items(oracle_split_hash_t far *out)
 	}
 #endif
 
-	for(i = 0; i < GATHER_COUNT; i++) {
+	for(i = 0; i < ORACLE_GATHER_COUNT; i++) {
 		oracle_hash_u8(static_cast<uint8_t>(gather_circles[i].flag));
 		oracle_hash_u8(static_cast<uint8_t>(gather_circles[i].col));
 		oracle_hash_motion(&gather_circles[i].center);
