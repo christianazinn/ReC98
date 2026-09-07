@@ -818,19 +818,26 @@ void far pascal t2_language_op_bridge(
 	} else if(func == T2LOB_MUSICROOM_MENU) {
 		musicroom_menu();
 	} else if(func == T2LOB_TITLE_BG_LOAD) {
-		pi_load_put_8_free_to(MENU_MAIN_BG_FN, 1);
+		// The Option page is still visible here. The shared helper also applies
+		// OP2.PI's embedded palette, which recolors that page cyan until OP.RGB
+		// is published after the title rebuild. Draw the hidden title backing
+		// without changing the hardware palette.
+		if(t2_language_pi_load(0, MENU_MAIN_BG_FN) == 0) {
+			graph_accesspage(1);
+			pi_put_8(0, 0, 0);
+			pi_free(0);
+		}
+		pi_buffers[0] = 0;
 	}
 }
 
 // Keep _main and every following OP_01_TEXT symbol at their stock offsets.
-// The trampoline and expanded native bridge occupy 461 of the original
-// updater's 623 bytes; these 162 bytes preserve the remainder of that span.
+// The trampoline and expanded native bridge occupy 521 of the original
+// updater's 623 bytes; these 102 bytes preserve the remainder of that span.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
-#pragma codestring "\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
 #ifndef T2PD
 // The diagnostic profile's five far calls occupy another 53 bytes. Preserve
 // the same native segment boundary when those calls are absent in release.
