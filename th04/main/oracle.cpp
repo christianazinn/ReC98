@@ -289,6 +289,23 @@ static int oracle_tile_ring_row_filled_get(void)
 	);
 }
 
+// `playfld[bss].asm` publishes `_scroll_line dw ?` and immediately follows it
+// with the unexported `_scroll_last_delta dw ?`. The source header already
+// establishes both as 16-bit scroll-space values; retain the public anchor and
+// avoid adding an absolute data address or a label to gameplay assembly.
+typedef char oracle_scroll_last_delta_layout_must_match_frozen[
+	(sizeof(scroll_line) == sizeof(subpixel_t)) &&
+	(sizeof(subpixel_t) == 2) &&
+	(sizeof(total_max_valued_point_items_collected) == 2)
+	? 1 : -1
+];
+static subpixel_t oracle_scroll_last_delta_get(void)
+{
+	return *(
+		reinterpret_cast<const subpixel_t near *>(&scroll_line) + 1
+	);
+}
+
 #if (GAME == 5)
 	struct puppet_t;
 	typedef bool (pascal near *near oracle_puppet_func_t)(
@@ -1894,7 +1911,8 @@ static void oracle_hash_group_items(oracle_split_hash_t far *out)
 	oracle_hash_u16(items_spawned);
 	oracle_hash_u16(items_collected);
 	oracle_hash_u16(total_point_items_collected);
-	oracle_hash_u16(total_max_valued_point_items);
+	// Current code uses a shorter private alias for this frozen-public word.
+	oracle_hash_u16(total_max_valued_point_items_collected);
 #if (GAME == 5)
 	oracle_hash_u16(stage_point_items_collected);
 	oracle_hash_u16(extend_point_items_collected);
@@ -2006,7 +2024,7 @@ static void oracle_hash_group_field(oracle_split_hash_t far *out)
 	oracle_hash_u8(scroll_subpixel_line.v);
 	oracle_hash_u8(scroll_speed.v);
 	oracle_hash_u16(static_cast<uint16_t>(scroll_line));
-	oracle_hash_u16(static_cast<uint16_t>(scroll_last_delta.v));
+	oracle_hash_u16(static_cast<uint16_t>(oracle_scroll_last_delta_get()));
 	oracle_hash_u8(static_cast<uint8_t>(scroll_active));
 	for(y = 0; y < TILES_Y; y++) {
 		for(x = 0; x < TILES_MEMORY_X; x++) {
