@@ -38,7 +38,7 @@
 // Most ReC98 game headers carry no include guards, so this list has to be
 // exact rather than defensive: including a header that another one already
 // pulled in is a hard error ("Variable ... is initialized more than once").
-// Three headers this file needs are therefore NOT listed, because a listed one
+// Four headers this file needs are therefore NOT listed, because a listed one
 // already supplies them:
 //
 //   th04/hardware/inputvar.h  (`key_det`, `shiftkey`)
@@ -49,6 +49,8 @@
 //   th02/math/randring.hpp  (`randring[]`)
 //                                <- th04/main/player/shot.hpp
 //                                     -> th04/math/randring.hpp
+//   th04/main/bullet/bullet.hpp  (`bullets`, `bullet_template`)
+//                                <- th04/main/gather.hpp
 #include "platform.h"
 
 #if (GAME == 5)
@@ -109,7 +111,6 @@
 #include "th04/common.h"
 #include "th04/end/end.h"
 #include "th04/formats/std.hpp"
-#include "th04/main/bullet/bullet.hpp"
 #include "th04/main/bullet/clearzap.hpp"
 #include "th04/main/bg.hpp"
 #include "th04/main/circle.hpp"
