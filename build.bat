@@ -84,7 +84,7 @@ endlocal
 exit /b
 
 :tup
-bin\tup -j1
+bin\tup
 goto return_from_tup
 
 :fallback
