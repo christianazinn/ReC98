@@ -228,6 +228,34 @@ typedef char oracle_gather_template_layout_must_match_frozen[
 	? 1 : -1
 ];
 
+// These four symbols remain public in the frozen TH04 MAIN map. The current
+// headers merely published their already-existing declarations later.
+extern unsigned int dream_score;
+extern subpixel_t miss_explosion_radius;
+extern unsigned char miss_explosion_angle;
+
+// Like gathers, circles were defined only in circle.cpp at the frozen tip.
+// The complete layout remains in circles[bss].asm, whose 16 entries are the
+// observed TH04 array. This declaration mirrors that source state only.
+static const int ORACLE_CIRCLE_COUNT = 16;
+struct oracle_circle_t {
+	entity_flag_t flag;
+	unsigned char age;
+	screen_point_t center;
+	pixel_t radius_cur;
+	pixel_t radius_delta;
+};
+extern oracle_circle_t circles[ORACLE_CIRCLE_COUNT];
+typedef char oracle_circle_layout_must_match_frozen[
+	(sizeof(oracle_circle_t) == 10) &&
+	(offsetof(oracle_circle_t, flag) == 0) &&
+	(offsetof(oracle_circle_t, age) == 1) &&
+	(offsetof(oracle_circle_t, center) == 2) &&
+	(offsetof(oracle_circle_t, radius_cur) == 6) &&
+	(offsetof(oracle_circle_t, radius_delta) == 8)
+	? 1 : -1
+];
+
 #if (GAME == 5)
 	struct puppet_t;
 	typedef bool (pascal near *near oracle_puppet_func_t)(
@@ -1988,7 +2016,7 @@ static void oracle_hash_group_effects(oracle_split_hash_t far *out)
 		oracle_hash_u16(static_cast<uint16_t>(sparks[i].angle));
 	}
 	oracle_hash_u16(spark_ring_offset);
-	for(i = 0; i < CIRCLE_COUNT; i++) {
+	for(i = 0; i < ORACLE_CIRCLE_COUNT; i++) {
 		oracle_hash_u8(static_cast<uint8_t>(circles[i].flag));
 		oracle_hash_u8(circles[i].age);
 		oracle_hash_u16(static_cast<uint16_t>(circles[i].center.x));
