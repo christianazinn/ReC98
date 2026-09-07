@@ -3400,7 +3400,7 @@ static bool t2op_name_menu(uint8_t far *name)
 				}
 				t2op_name_menu_render(name, col, row);
 			}
-			if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
+			else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
 				cell = static_cast<uint8_t>(
 					(row * T2OP_NAME_ALPHABET_COLS) + col
 				);
@@ -3538,7 +3538,9 @@ void replay_title_background_prepare_hidden(void)
 	// pi_load_put_8_free_to() releases slot 0 but master.lib leaves its pointer
 	// nonzero. The next PI load would otherwise free the same block again.
 	pi_buffers[0] = 0;
-	palette_entry_rgb_show(MENU_MAIN_PALETTE_FN);
+	// Keep the Option surface's palette active until the rebuilt title page is
+	// visible. t2op_main_render() publishes this palette immediately afterward.
+	palette_entry_rgb(MENU_MAIN_PALETTE_FN);
 	graph_accesspage(0);
 	t2op_title_font_restore();
 }
@@ -5721,6 +5723,7 @@ void far replay_title_update_and_render(void)
 			t2op_practice_menu();
 			break;
 		case T2OMC_REPLAY:
+			text_clear();
 			palette_black_out(1);
 			t2op_browser(false, 0);
 			break;
@@ -5760,7 +5763,7 @@ void far replay_title_update_and_render(void)
 
 // Keep this replay-owned segment's growth paragraph-aligned so every
 // following stock and patch segment retains its audited phase.
-#pragma codestring "\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
 
