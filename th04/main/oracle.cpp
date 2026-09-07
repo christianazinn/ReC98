@@ -200,6 +200,34 @@ struct oracle_gather_template_t {
 extern oracle_gather_t gather_circles[ORACLE_GATHER_COUNT];
 extern oracle_gather_template_t gather_template;
 
+// th04/main/gather.inc fixes these offsets independently of this C++ mirror:
+// 16 live entries and 2 unused entries occupy 18 * 42 bytes before the
+// template in gather[bss].asm. Keep the mirror from silently drifting.
+typedef char oracle_gather_layout_must_match_frozen[
+	(sizeof(oracle_gather_t) == 42) &&
+	(offsetof(oracle_gather_t, flag) == 0) &&
+	(offsetof(oracle_gather_t, col) == 1) &&
+	(offsetof(oracle_gather_t, center) == 2) &&
+	(offsetof(oracle_gather_t, radius_cur) == 14) &&
+	(offsetof(oracle_gather_t, ring_points) == 16) &&
+	(offsetof(oracle_gather_t, angle_cur) == 18) &&
+	(offsetof(oracle_gather_t, angle_delta) == 19) &&
+	(offsetof(oracle_gather_t, bullet_template) == 20) &&
+	(offsetof(oracle_gather_t, radius_prev) == 38) &&
+	(offsetof(oracle_gather_t, radius_delta) == 40)
+	? 1 : -1
+];
+typedef char oracle_gather_template_layout_must_match_frozen[
+	(sizeof(oracle_gather_template_t) == 14) &&
+	(offsetof(oracle_gather_template_t, center) == 0) &&
+	(offsetof(oracle_gather_template_t, velocity) == 4) &&
+	(offsetof(oracle_gather_template_t, radius) == 8) &&
+	(offsetof(oracle_gather_template_t, ring_points) == 10) &&
+	(offsetof(oracle_gather_template_t, col) == 12) &&
+	(offsetof(oracle_gather_template_t, angle_delta) == 13)
+	? 1 : -1
+];
+
 #if (GAME == 5)
 	struct puppet_t;
 	typedef bool (pascal near *near oracle_puppet_func_t)(
