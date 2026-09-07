@@ -149,9 +149,9 @@ static const char far *language_main_text(unsigned index)
 	const char far *p;
 	_asm {
 #if (GAME == 4)
-		db 0xE8, 0x61, 0x04
+		db 0xE8, 0x60, 0x04
 #else
-		db 0xE8, 0x5E, 0x04
+		db 0xE8, 0x5D, 0x04
 #endif
 		db 'E', 'l', 'e', 'm', 'e', 'n', 't', 's', ' ', 'o', 'f', ' ', 'C', 'r', 'e', 'a'
 		db 't', 'i', 'o', 'n', 0, 'M', 'a', 'g', 'i', 'c', 'a', 'l', ' ', 'S', 'p', 'a'

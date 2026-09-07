@@ -65,6 +65,7 @@
 #define REPLAY_OP_CELL_W REPLAY_OP_FONT_NUMERIC_CELL_W
 #define REPLAY_SCORE_DISPLAY_DIGITS 9
 #define REPLAY_OP_COL_ACTIVE ((GAME == 5) ? 14 : 8)
+#define REPLAY_SAVE_MODAL_COL_SELECTED 8
 #define REPLAY_OP_COL_SELECTED 7
 #define REPLAY_OP_COL_PRACTICE_SELECTED REPLAY_OP_COL_SELECTED
 #define REPLAY_OP_TEXT_SPACING 16
@@ -4354,22 +4355,22 @@ static void replay_save_modal_render(
 		replay_op_line_put_centered(152, V_WHITE, p);
 		p = replay_save_modal_english_choice_append(replay_op_line, true);
 		replay_op_line_put_centered(
-			200, (selected_yes ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
+			200, (selected_yes ? REPLAY_SAVE_MODAL_COL_SELECTED : V_WHITE), p
 		);
 		p = replay_save_modal_english_choice_append(replay_op_line, false);
 		replay_op_line_put_centered(
-			232, (selected_yes ? V_WHITE : REPLAY_OP_COL_ACTIVE), p
+			232, (selected_yes ? V_WHITE : REPLAY_SAVE_MODAL_COL_SELECTED), p
 		);
 	} else {
 		p = replay_save_modal_question_append(replay_op_line, modal);
 		replay_save_sjis_put_centered(152, V_WHITE, p);
 		p = replay_save_modal_choice_append(replay_op_line, true);
 		replay_save_sjis_put_centered(
-			200, (selected_yes ? REPLAY_OP_COL_ACTIVE : V_WHITE), p
+			200, (selected_yes ? REPLAY_SAVE_MODAL_COL_SELECTED : V_WHITE), p
 		);
 		p = replay_save_modal_choice_append(replay_op_line, false);
 		replay_save_sjis_put_centered(
-			232, (selected_yes ? V_WHITE : REPLAY_OP_COL_ACTIVE), p
+			232, (selected_yes ? V_WHITE : REPLAY_SAVE_MODAL_COL_SELECTED), p
 		);
 	}
 	graph_showpage(page_drawn);
