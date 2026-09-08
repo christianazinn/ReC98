@@ -43,6 +43,12 @@ include th02/sprites/main_pat.inc
 	extern @t2case_init_main$qv:proc
 	extern @t2case_game_exit$qv:proc
 	extern @t2rpy_input_reset_sense$qv:proc
+	extern @t2rpy_diag_pre_stage$qv:proc
+	extern @t2rpy_diag_post_pre_stage$qv:proc
+	extern @t2rpy_diag_post_stage_init$qv:proc
+	extern @t2rpy_diag_before_story_audio$qv:proc
+	extern @t2rpy_diag_after_story_audio$qv:proc
+	extern @t2rpy_diag_before_vsync_wait$qv:proc
 
 playperf_min = -6
 
@@ -750,13 +756,16 @@ loc_B1BA:
 		nopcall	demo_load
 
 loc_B1CA:
+		call	@t2rpy_diag_pre_stage$qv
 		call	sub_B2AB
 
 loc_B1CD:
+		call	@t2rpy_diag_post_pre_stage$qv
 		les	bx, _resident
 		mov	eax, es:[bx+mikoconfig_t.frame]
 		mov	random_seed, eax
 		call	sub_B3DA
+		call	@t2rpy_diag_post_stage_init$qv
 		nopcall	@t2case_stage_enter$qv
 		les	bx, _resident
 		cmp	es:[bx+mikoconfig_t.demo_num], 0
@@ -1242,7 +1251,9 @@ loc_B88A:
 		les	bx, _resident
 		cmp	es:[bx+mikoconfig_t.demo_num], 0
 		jnz	short loc_B8AF
+		call	@t2rpy_diag_before_story_audio$qv
 		call	_snd_delay_until_volume stdcall, 255
+		call	@t2rpy_diag_after_story_audio$qv
 		pop	cx
 		push	ss
 		lea	ax, [bp+var_C]
@@ -1254,6 +1265,7 @@ loc_B88A:
 loc_B8AF:
 		call	@items_init_and_reset$qv
 		call	@score_extend_init$qv
+		call	@t2rpy_diag_before_vsync_wait$qv
 
 loc_B8B5:
 		cmp	vsync_Count1, 64h	; 'd'

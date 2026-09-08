@@ -53,6 +53,7 @@
 #include "th01/rank.h"
 #include "th02/resident.hpp"
 #include "th02/core/globals.hpp"
+#include "th02/snd/snd.h"
 #include "th02/math/randring.hpp"
 // th02/hardware/input.hpp has no include guard and th02/main/demo.h opens with
 // it, so it must be reached only that way.
@@ -2057,6 +2058,7 @@ typedef char t2rpy_packet_size_check[
 static char T2RPY_CFG_FN[10];
 static char T2RPY_SLOT_FN[11];
 static char T2RPY_PROBE_FN[11];
+static char T2RPY_DIAG_FN[10];
 static bool t2rpy_paths_ready;
 static bool t2rpy_enabled;
 static bool t2rpy_stage_started;
@@ -2069,6 +2071,13 @@ static uint32_t t2rpy_packet_cursor;
 static uint32_t t2rpy_samples_consumed;
 static uint8_t t2rpy_run_remaining;
 static input_t t2rpy_run_input;
+// Startup values must survive the public header apply to distinguish OP's
+// normal Start handoff from its automatic demo handoff in the scratch marker.
+static uint8_t t2rpy_diag_entry_demo_num;
+static uint8_t t2rpy_diag_entry_bgm_mode;
+static bool t2rpy_diag_entry_snd_active;
+static bool t2rpy_diag_entry_snd_midi_active;
+static uint8_t t2rpy_diag_entry_op_main_retval;
 
 static void t2rpy_paths_init(void)
 {
@@ -2092,6 +2101,11 @@ static void t2rpy_paths_init(void)
 	T2RPY_PROBE_FN[6] = '.'; T2RPY_PROBE_FN[7] = 'T';
 	T2RPY_PROBE_FN[8] = 'X'; T2RPY_PROBE_FN[9] = 'T';
 	T2RPY_PROBE_FN[10] = '\0';
+	T2RPY_DIAG_FN[0] = 'T'; T2RPY_DIAG_FN[1] = '2';
+	T2RPY_DIAG_FN[2] = 'R'; T2RPY_DIAG_FN[3] = 'P';
+	T2RPY_DIAG_FN[4] = 'D'; T2RPY_DIAG_FN[5] = '.';
+	T2RPY_DIAG_FN[6] = 'T'; T2RPY_DIAG_FN[7] = 'X';
+	T2RPY_DIAG_FN[8] = 'T'; T2RPY_DIAG_FN[9] = '\0';
 	t2rpy_paths_ready = true;
 }
 
@@ -2173,8 +2187,42 @@ static void t2rpy_probe_write(uint8_t code, uint8_t tag)
 	t2rpy_probe_written = true;
 }
 
+// T2RPD.TXT is a scratch-only last-reached-seam marker for the public
+// startup investigation. It is intentionally not a replay result or schema.
+static void t2rpy_diag_write(uint8_t code)
+{
+	char line[27];
+	int fd;
+
+	t2rpy_paths_init();
+	line[0] = 'D'; line[1] = 'I'; line[2] = 'A'; line[3] = '2';
+	line[4] = ' ';
+	line[5] = t2case_hex(static_cast<uint8_t>(code >> 4));
+	line[6] = t2case_hex(static_cast<uint8_t>(code & 0xF)); line[7] = ' ';
+	line[8] = 'D';
+	line[9] = t2case_hex(static_cast<uint8_t>(t2rpy_diag_entry_demo_num >> 4));
+	line[10] = t2case_hex(static_cast<uint8_t>(t2rpy_diag_entry_demo_num & 0xF));
+	line[11] = ' '; line[12] = 'B';
+	line[13] = t2case_hex(static_cast<uint8_t>(t2rpy_diag_entry_bgm_mode >> 4));
+	line[14] = t2case_hex(static_cast<uint8_t>(t2rpy_diag_entry_bgm_mode & 0xF));
+	line[15] = ' '; line[16] = 'A';
+	line[17] = t2rpy_diag_entry_snd_active ? '1' : '0';
+	line[18] = ' '; line[19] = 'M';
+	line[20] = t2rpy_diag_entry_snd_midi_active ? '1' : '0';
+	line[21] = ' '; line[22] = 'R';
+	line[23] = t2case_hex(static_cast<uint8_t>(t2rpy_diag_entry_op_main_retval >> 4));
+	line[24] = t2case_hex(static_cast<uint8_t>(t2rpy_diag_entry_op_main_retval & 0xF));
+	line[25] = '\r'; line[26] = '\n';
+	fd = t2f_create(T2RPY_DIAG_FN);
+	if(fd >= 0) {
+		t2f_write(fd, line, sizeof(line));
+		close(fd);
+	}
+}
+
 static void t2rpy_stop(uint8_t code, uint8_t tag)
 {
+	t2rpy_diag_write(static_cast<uint8_t>(0x80 | code));
 	t2rpy_probe_write(code, tag);
 	t2rpy_enabled = false;
 	key_det = INPUT_NONE;
@@ -2484,6 +2532,48 @@ bool16 t2rpy_active(void)
 	return (t2rpy_enabled ? true : false);
 }
 
+void t2rpy_diag_pre_stage(void)
+{
+	if(t2rpy_enabled) {
+		t2rpy_diag_write(0x16);
+	}
+}
+
+void t2rpy_diag_post_pre_stage(void)
+{
+	if(t2rpy_enabled) {
+		t2rpy_diag_write(0x17);
+	}
+}
+
+void t2rpy_diag_post_stage_init(void)
+{
+	if(t2rpy_enabled) {
+		t2rpy_diag_write(0x18);
+	}
+}
+
+void t2rpy_diag_before_story_audio(void)
+{
+	if(t2rpy_enabled) {
+		t2rpy_diag_write(0x19);
+	}
+}
+
+void t2rpy_diag_after_story_audio(void)
+{
+	if(t2rpy_enabled) {
+		t2rpy_diag_write(0x1A);
+	}
+}
+
+void t2rpy_diag_before_vsync_wait(void)
+{
+	if(t2rpy_enabled) {
+		t2rpy_diag_write(0x1B);
+	}
+}
+
 void t2rpy_session_start(void)
 {
 	uint8_t header[T2RPY_START_END];
@@ -2492,9 +2582,16 @@ void t2rpy_session_start(void)
 	if(t2case_mode != T2CASE_DISABLED) {
 		return;
 	}
+	t2rpy_diag_entry_demo_num = static_cast<uint8_t>(resident->demo_num);
+	t2rpy_diag_entry_bgm_mode = static_cast<uint8_t>(resident->bgm_mode);
+	t2rpy_diag_entry_snd_active = snd_active;
+	t2rpy_diag_entry_snd_midi_active = snd_midi_active;
+	t2rpy_diag_entry_op_main_retval = resident->op_main_retval;
+	t2rpy_diag_write(0x11);
 	if(!t2rpy_command_load()) {
 		return;
 	}
+	t2rpy_diag_write(0x12);
 	if(!t2rpy_header_load()) {
 		t2rpy_probe_write(T2RPY_CUTOFF_HEADER, 0);
 		return;
@@ -2509,12 +2606,15 @@ void t2rpy_session_start(void)
 		return;
 	}
 	close(fd);
+	t2rpy_diag_write(0x13);
 	t2rpy_start_apply(header);
+	t2rpy_diag_write(0x14);
 	t2rpy_packet_cursor = 0;
 	t2rpy_samples_consumed = 0;
 	t2rpy_run_remaining = 0;
 	t2rpy_stage_started = false;
 	t2rpy_enabled = true;
+	t2rpy_diag_write(0x15);
 }
 
 void t2rpy_stage_enter(void)
@@ -2527,6 +2627,7 @@ void t2rpy_stage_enter(void)
 		overlay_stage_enter_animate();
 		return;
 	}
+	t2rpy_diag_write(0x21);
 	if(
 		(stage_id != 0) || !t2rpy_packet_read(t2rpy_packet_cursor, &packet)
 	) {
@@ -2548,9 +2649,11 @@ void t2rpy_stage_enter(void)
 	}
 	t2rpy_packet_cursor++;
 	t2rpy_stage_started = true;
+	t2rpy_diag_write(0x22);
 	if(!t2rpy_split_write_header() || !t2rpy_split_row(T2SPLIT_EVENT_START)) {
 		t2rpy_stop(T2RPY_CUTOFF_TRACE, packet.tag);
 	}
+	t2rpy_diag_write(0x23);
 	overlay_stage_enter_animate();
 }
 
@@ -2566,6 +2669,7 @@ void t2rpy_input_reset_sense(void)
 	if(!t2rpy_enabled) {
 		return;
 	}
+	t2rpy_diag_write(0x31);
 	if(!t2rpy_stage_started) {
 		t2rpy_stop(T2RPY_CUTOFF_STAGE, 0);
 		return;
