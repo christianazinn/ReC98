@@ -20001,6 +20001,8 @@ word_23F01	dw ?
 		db ?
 byte_23F04	db ?
 		db ?
+public _tile_ring_row_filled
+_tile_ring_row_filled label word
 word_23F06	dw ?
 include th04/formats/std[bss].asm
 include th04/main/tile/inv[bss].asm

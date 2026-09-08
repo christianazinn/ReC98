@@ -671,18 +671,28 @@ typedef char oracle_circle_layout_must_match_frozen[
 // sub_1DA1B seeds and items_add() advances that byte.
 static const unsigned int ORACLE_ENEMY_DROP_RING_P_FROM_DREAM_SCORE = 2;
 #endif
-// The scroll BSS run is explicit: `word_25100 dw ?` precedes the randring
-// include by twelve bytes, and the scroll code is its only writer/reader.
+#if (GAME == 4)
+// TH04's `word_25100 dw ?` precedes the randring include by twelve bytes.
 // Later source names it `tile_ring_row_filled`; this frozen source does not
 // export it.
 static const unsigned int ORACLE_TILE_ROW_FILLED_BEFORE_RANDRING = 12;
+#else
+// TH05's equivalent slot is `word_23F06 dw ?`, but its intervening STD and
+// tile-invalidation storage changes that relative distance. A zero-byte root
+// alias binds it directly; do not reuse TH04's relative anchor.
+extern int tile_ring_row_filled;
+#endif
 typedef char oracle_unexported_binding_layout_must_match_frozen[
 	#if (GAME == 4)
 	(sizeof(dream_score) == ORACLE_ENEMY_DROP_RING_P_FROM_DREAM_SCORE) &&
+	(ORACLE_TILE_ROW_FILLED_BEFORE_RANDRING == 12) &&
 	#endif
 	(sizeof(randring) == ORACLE_RANDRING_SIZE) &&
 	(sizeof(int) == 2) &&
-	(ORACLE_TILE_ROW_FILLED_BEFORE_RANDRING == 12)
+	#if (GAME == 5)
+	(sizeof(tile_ring_row_filled) == sizeof(int)) &&
+	#endif
+	1
 	? 1 : -1
 ];
 
@@ -702,10 +712,14 @@ static uint8_t oracle_enemy_drop_ring_p_get(void)
 
 static int oracle_tile_ring_row_filled_get(void)
 {
+	#if (GAME == 5)
+	return tile_ring_row_filled;
+	#else
 	return *(
 		reinterpret_cast<const int near *>(randring) -
 		(ORACLE_TILE_ROW_FILLED_BEFORE_RANDRING / sizeof(int))
 	);
+	#endif
 }
 
 // `playfld[bss].asm` publishes `_scroll_line dw ?` and immediately follows it
