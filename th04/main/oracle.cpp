@@ -53,7 +53,7 @@
 //                                <- th04/main/enemy/enemy.hpp
 #include "platform.h"
 
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 // The public input wire is deliberately a local reader view. Importing the
 // current replay providers would couple this frozen build to non-historical
 // gameplay code, while a guessed packed layout would merely make a
@@ -186,7 +186,7 @@
 	#include "th04/resident.hpp"
 #endif
 
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 // This local view must follow the frozen gameplay headers: Turbo C++ 4.02
 // leaks member names from a prior structure into a later declaration lookup.
 // The ordinary headers therefore establish their original global owners
@@ -1297,7 +1297,7 @@ static char ORACLE_BIN_FN[11];
 static char ORACLE_SPLIT_FN[12];
 static char ORACLE_DONE_FN[11];
 static char ORACLE_DIAG_FN[11];
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 	static char ORACLE_PUBLIC_REPLAY_FN[10];
 	static char ORACLE_PUBLIC_START_FN[10];
 #endif
@@ -1352,7 +1352,7 @@ static uint32_t oracle_diag_size;
 static bool oracle_started;
 static bool oracle_done_written;
 static bool oracle_finished;
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 	// This state has no relation to TxCASE's record/play mode. The two input
 	// sources are mutually exclusive at entry, but a separate latch keeps a
 	// malformed public source from being mistaken for an ordinary demo.
@@ -1610,13 +1610,13 @@ static void oracle_paths_init(void)
 	ORACLE_DIAG_FN[2] = 'D'; ORACLE_DIAG_FN[3] = 'I'; ORACLE_DIAG_FN[4] = 'A';
 	ORACLE_DIAG_FN[5] = 'G'; ORACLE_DIAG_FN[6] = '.'; ORACLE_DIAG_FN[7] = 'T';
 	ORACLE_DIAG_FN[8] = 'X'; ORACLE_DIAG_FN[9] = 'T'; ORACLE_DIAG_FN[10] = '\0';
-	#if (GAME == 4)
-		ORACLE_PUBLIC_REPLAY_FN[0] = 'T'; ORACLE_PUBLIC_REPLAY_FN[1] = '4';
+	#if ((GAME == 4) || (GAME == 5))
+		ORACLE_PUBLIC_REPLAY_FN[0] = 'T'; ORACLE_PUBLIC_REPLAY_FN[1] = ('0' + GAME);
 		ORACLE_PUBLIC_REPLAY_FN[2] = 'P'; ORACLE_PUBLIC_REPLAY_FN[3] = 'U';
 		ORACLE_PUBLIC_REPLAY_FN[4] = 'B'; ORACLE_PUBLIC_REPLAY_FN[5] = '.';
 		ORACLE_PUBLIC_REPLAY_FN[6] = 'R'; ORACLE_PUBLIC_REPLAY_FN[7] = 'P';
 		ORACLE_PUBLIC_REPLAY_FN[8] = 'Y'; ORACLE_PUBLIC_REPLAY_FN[9] = '\0';
-		ORACLE_PUBLIC_START_FN[0] = 'T'; ORACLE_PUBLIC_START_FN[1] = '4';
+		ORACLE_PUBLIC_START_FN[0] = 'T'; ORACLE_PUBLIC_START_FN[1] = ('0' + GAME);
 		ORACLE_PUBLIC_START_FN[2] = 'P'; ORACLE_PUBLIC_START_FN[3] = 'U';
 		ORACLE_PUBLIC_START_FN[4] = 'B'; ORACLE_PUBLIC_START_FN[5] = '.';
 		ORACLE_PUBLIC_START_FN[6] = 'S'; ORACLE_PUBLIC_START_FN[7] = 'T';
@@ -3244,14 +3244,14 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 	unsigned written;
 	int fh;
 	int i;
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 	bool public_trace = oracle_public_trace_active;
 #endif
 
 	if(
 		(oracle_mode == ORACLE_ERROR) ||
 		(oracle_mode == ORACLE_DISABLED)
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 		&& !public_trace
 #endif
 	) {
@@ -3263,11 +3263,11 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 	row.stage_id = stage_id;
 	row.rank = rank;
 	row.global_frame =
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 		(public_trace ? oracle_public_sample_count :
 #endif
 		oracle_global_frame
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 		)
 #endif
 	;
@@ -3285,11 +3285,11 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 		row.score[i] = score.digits[i];
 	}
 	row.samples_consumed =
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 		(public_trace ? oracle_public_sample_count :
 #endif
 		oracle_sample_count
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 		)
 #endif
 	;
@@ -4128,9 +4128,9 @@ static void oracle_finish(oracle_text_id_t status)
 }
 /// -------
 
-/// Direct public Story-prefix reader (TH04 only)
+/// Direct public Story-prefix reader (TH04/TH05)
 /// ----------------------------------------------
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 // This accepts the exact source and first-start sidecar staged by the host
 // helper. It is deliberately not a second implementation of the current
 // replay system: no interstitial packet is consumed, no progressed stage state
@@ -4167,6 +4167,15 @@ static bool oracle_public_playperf_valid(uint8_t rank_value, uint8_t value)
 	uint8_t min;
 	uint8_t max;
 
+	#if (GAME == 5)
+		switch(rank_value) {
+		case RANK_EASY:    min = 16; max = 32; break;
+		case RANK_NORMAL:  min = 24; max = 40; break;
+		case RANK_HARD:    min = 44; max = 54; break;
+		case RANK_LUNATIC: min = 48; max = 58; break;
+		default:            min = 32; max = 36; break;
+		}
+	#else
 	switch(rank_value) {
 	case RANK_EASY:    min = 4;  max = 16; break;
 	case RANK_NORMAL:  min = 11; max = 24; break;
@@ -4174,6 +4183,7 @@ static bool oracle_public_playperf_valid(uint8_t rank_value, uint8_t value)
 	case RANK_LUNATIC: min = 22; max = 34; break;
 	default:            min = 16; max = 20; break;
 	}
+	#endif
 	return ((value >= min) && (value <= max));
 }
 
@@ -4185,7 +4195,9 @@ static bool oracle_public_start_valid(
 )
 {
 	uint8_t credit_lives_max = (stage_entry ? 15 : 6);
-	uint8_t credit_bombs_max = (stage_entry ? 15 : 2);
+	uint8_t credit_bombs_max = (
+		stage_entry ? 15 : ((GAME == 5) ? 3 : 2)
+	);
 	uint8_t lives_max = (stage_entry ? 15 : 9);
 
 	if(
@@ -4199,10 +4211,9 @@ static bool oracle_public_start_valid(
 		(start->rank > ORACLE_PUBLIC_RANK_EXTRA) ||
 		((start->stage == ORACLE_PUBLIC_STAGE_EXTRA) !=
 		 (start->rank == ORACLE_PUBLIC_RANK_EXTRA)) ||
-		(start->playchar > 1) || (start->shottype > 1) ||
 		(start->lives > lives_max) || (start->bombs > lives_max) ||
 		(start->power < 1) || (start->power > 128) ||
-		(start->dream > 7) || (start->continues_used > 9) ||
+		(start->continues_used > 9) ||
 		(start->extends_gained > 10) || (start->turbo_mode > 1) ||
 		((start->stage == ORACLE_PUBLIC_STAGE_EXTRA) && !start->turbo_mode) ||
 		(start->score > ORACLE_PUBLIC_SCORE_MAX) ||
@@ -4226,12 +4237,29 @@ static bool oracle_public_start_valid(
 	) {
 		return false;
 	}
+	#if (GAME == 5)
+		if(
+			(start->playchar > 3) || (start->shottype != 0) ||
+			(start->dream < 1) || (start->dream > 128) ||
+			(start->stage_point_items_collected > 999)
+		) {
+			return false;
+		}
+	#else
+		if(
+			(start->playchar > 1) || (start->shottype > 1) ||
+			(start->dream > 7)
+		) {
+			return false;
+		}
+	#endif
 	if(!stage_entry && (
 		((start->stage != 0) &&
 		 (start->stage != ORACLE_PUBLIC_STAGE_EXTRA)) ||
 		start->score || (start->lives != start->credit_lives) ||
 		(start->bombs != start->credit_bombs) || (start->power != 1) ||
-		start->dream || start->continues_used || start->extends_gained ||
+		(start->dream != ((GAME == 5) ? 1 : 0)) ||
+		start->continues_used || start->extends_gained ||
 		start->graze || start->std_frames || start->items_spawned ||
 		start->items_collected || start->point_items_collected ||
 		start->max_valued_point_items_collected || start->enemies_gone ||
@@ -4239,8 +4267,15 @@ static bool oracle_public_start_valid(
 		start->stage_point_items_collected || start->stage_graze ||
 		start->power_overflow || start->score_delta ||
 		start->score_delta_frame || start->hiscore_popup_shown ||
-		(start->playperf != ((start->rank == RANK_HARD)
-			? 20 : ((start->rank == RANK_LUNATIC) ? 22 : 16)))
+		(start->playperf !=
+		#if (GAME == 5)
+			((start->rank == RANK_HARD)
+				? 44 : ((start->rank == RANK_LUNATIC) ? 48 : 32))
+		#else
+			((start->rank == RANK_HARD)
+				? 20 : ((start->rank == RANK_LUNATIC) ? 22 : 16))
+		#endif
+		)
 	)) {
 		return false;
 	}
@@ -4373,7 +4408,7 @@ static bool oracle_public_header_read(void)
 	);
 	if(
 		(oracle_public_header.magic[0] != 'T') ||
-		(oracle_public_header.magic[1] != '4') ||
+		(oracle_public_header.magic[1] != ('0' + GAME)) ||
 		(oracle_public_header.magic[2] != 'R') ||
 		(oracle_public_header.magic[3] != 'P') ||
 		(oracle_public_header.magic[4] != 'Y') ||
@@ -4395,7 +4430,7 @@ static bool oracle_public_header_read(void)
 		((oracle_public_header.flags &
 		 (ORACLE_PUBLIC_FLAG_PRACTICE | ORACLE_PUBLIC_FLAG_CHECKPOINT)) != 0) ||
 		(oracle_public_header.status != ORACLE_PUBLIC_STATUS_FINALIZED) ||
-		(oracle_public_header.game_id != 4) ||
+		(oracle_public_header.game_id != GAME) ||
 		(oracle_public_header.ruleset != 0) ||
 		(oracle_public_header.mode != ORACLE_PUBLIC_MODE_STORY) ||
 		(oracle_public_header.input_semantics != ORACLE_PUBLIC_INPUT_SEMANTICS) ||
@@ -4541,7 +4576,8 @@ static void oracle_public_start_apply(void)
 
 	resident->rand = start->resident_rand;
 	// This is the same relation as MAIN's original entry assignment at
-	// `th04_main.asm@9fb19248163fd343549740281cfcaf0ae95d882e:300-304`,
+// `th04_main.asm@9fb19248163fd343549740281cfcaf0ae95d882e:300-304` /
+// `th05_main.asm@9fb19248163fd343549740281cfcaf0ae95d882e:346-350`,
 	// repeated because this sidecar is applied after
 	// that instruction but before `randring_fill()`. The initial-header
 	// validation above requires the serialized random_seed to equal this actual
@@ -4558,9 +4594,15 @@ static void oracle_public_start_apply(void)
 	resident->turbo_mode = (start->turbo_mode != 0);
 	resident->demo_num = 0;
 	resident->debug = false;
-	resident->playchar_ascii = ('0' + start->playchar);
-	resident->stage_ascii = ('0' + start->stage);
-	resident->shottype = start->shottype;
+	#if (GAME == 5)
+		resident->playchar = start->playchar;
+		resident->debug_stage = 0;
+		resident->debug_power = 0;
+	#else
+		resident->playchar_ascii = ('0' + start->playchar);
+		resident->stage_ascii = ('0' + start->stage);
+		resident->shottype = start->shottype;
+	#endif
 }
 
 static void oracle_public_story_entry(void)
@@ -4855,7 +4897,7 @@ void oracle_entry(void)
 	}
 	oracle_mode = oracle_cfg_mode();
 	if(oracle_mode == ORACLE_DISABLED) {
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 		// The optional public-story sidecar is deliberately independent from the
 		// private TxCASE mode. It restores only the pre-derivation startup view;
 		// MAIN still derives stage-local state after this EMS hook returns.

@@ -58,7 +58,7 @@ void near DemoPlay(void)
 		demo_end();
 		return;
 	}
-	#if (GAME == 4)
+	#if ((GAME == 4) || (GAME == 5))
 		// The public Story-prefix reader reuses the historical callback slot, but
 		// owns no DemoBuf. Its cutoff is therefore a process handoff without the
 		// stock buffer free. A successful GameExecl() replaces MAIN; only its
@@ -68,7 +68,7 @@ void near DemoPlay(void)
 				return;
 			}
 			oracle_public_story_finish();
-			palette_black_out(10);
+			palette_black_out((GAME == 5) ? 8 : 10);
 			_asm {
 				push	ds;
 				push	offset BINARY_OP;

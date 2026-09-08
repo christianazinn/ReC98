@@ -446,7 +446,7 @@ bool oracle_frame(uint16_t shift_offset);
 // its original MAIN_01 frame; public ingress intentionally changes its size.
 bool oracle_or_demo_frame(uint16_t shift_offset);
 
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 	// Direct public replay ingress is intentionally separate from TxCASE. The
 	// public source is accepted only at its native first-start boundary, then the
 	// historical stage loop consumes its initial gameplay prefix through DemoPlay.
