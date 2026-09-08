@@ -3976,6 +3976,12 @@ void far t1case_session_start(void)
 		}
 		if(!resumed) {
 			t1case_startup_apply();
+			// The public startup preserves the user's BGM field for identity,
+			// but the historical oracle's session guard deliberately disables
+			// MDRV2 before every process. Applying a public start must not undo
+			// that guard: audio is outside the split schema and the driver is
+			// not guaranteed to survive REIIDEN's self-exec handoff.
+			resident->bgm_mode = BGM_MODE_OFF;
 		}
 	} else if(!resumed) {
 		// RECORD, first process: the scenario start.
