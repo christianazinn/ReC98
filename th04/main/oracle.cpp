@@ -53,6 +53,56 @@
 //                                <- th04/main/enemy/enemy.hpp
 #include "platform.h"
 
+#if (GAME == 4)
+// The public input wire is deliberately a local reader view. Importing the
+// current replay providers would couple this frozen build to non-historical
+// gameplay code, while a guessed packed layout would merely make a
+// self-consistent reader. These assertions pin the exact public wire used by
+// the host preparation helper before any byte is applied to resident state.
+#define ORACLE_PUBLIC_HEADER_SIZE        192
+#define ORACLE_PUBLIC_HEADER_WIRE_SIZE   320
+#define ORACLE_PUBLIC_START_SIZE         64
+#define ORACLE_PUBLIC_PACKET_SIZE        4
+#define ORACLE_PUBLIC_STAGE_COUNT        7
+#define ORACLE_PUBLIC_STAGE_ENTRY_SIZE   76
+#define ORACLE_PUBLIC_STAGE_DIRECTORY_SIZE \
+	(ORACLE_PUBLIC_STAGE_COUNT * ORACLE_PUBLIC_STAGE_ENTRY_SIZE)
+#define ORACLE_PUBLIC_INPUT_OFFSET       \
+	(ORACLE_PUBLIC_HEADER_WIRE_SIZE + ORACLE_PUBLIC_STAGE_DIRECTORY_SIZE)
+#define ORACLE_PUBLIC_INPUT_OFFSET_LEGACY \
+	(ORACLE_PUBLIC_HEADER_SIZE + ORACLE_PUBLIC_STAGE_DIRECTORY_SIZE)
+#define ORACLE_PUBLIC_INPUT_SIZE_MAX     0x00400000UL
+#define ORACLE_PUBLIC_FNV_BASIS          0x811C9DC5UL
+#define ORACLE_PUBLIC_FLAG_RLE           0x0001
+#define ORACLE_PUBLIC_FLAG_SHIFT         0x0002
+#define ORACLE_PUBLIC_FLAG_PRACTICE      0x0004
+#define ORACLE_PUBLIC_FLAG_CHECKPOINT    0x0008
+#define ORACLE_PUBLIC_KNOWN_FLAGS ( \
+	ORACLE_PUBLIC_FLAG_RLE | ORACLE_PUBLIC_FLAG_SHIFT | \
+	ORACLE_PUBLIC_FLAG_PRACTICE | ORACLE_PUBLIC_FLAG_CHECKPOINT \
+)
+#define ORACLE_PUBLIC_STATUS_FINALIZED   2
+#define ORACLE_PUBLIC_MODE_STORY         0
+#define ORACLE_PUBLIC_INPUT_SEMANTICS    1
+#define ORACLE_PUBLIC_START_NATIVE       0
+#define ORACLE_PUBLIC_START_STAGE        1
+#define ORACLE_PUBLIC_START_SCHEMA_1     1
+#define ORACLE_PUBLIC_START_SCHEMA_2     2
+#define ORACLE_PUBLIC_VERSION_LEGACY     4
+#define ORACLE_PUBLIC_VERSION_TIMING     5
+#define ORACLE_PUBLIC_VERSION_PREVIOUS   6
+#define ORACLE_PUBLIC_VERSION             7
+#define ORACLE_PUBLIC_PACKET_GAMEPLAY    0
+#define ORACLE_PUBLIC_PACKET_CONTROL     2
+#define ORACLE_PUBLIC_PACKET_PHASE_SHIFT 6
+#define ORACLE_PUBLIC_PACKET_RUN_MASK    0x3F
+#define ORACLE_PUBLIC_CONTROL_STAGE_START 1
+#define ORACLE_PUBLIC_RANK_EXTRA         4
+#define ORACLE_PUBLIC_STAGE_EXTRA        6
+#define ORACLE_PUBLIC_SCORE_MAX          2559999990UL
+
+#endif
+
 #if (GAME == 5)
 	// These are imported as far symbols. The reader compares their low words to
 	// the stored near callback slots, keeping every original code group intact.
@@ -134,6 +184,132 @@
 	#include "th04/main/enemy/enemy.hpp"
 	#include "th04/playchar.h"
 	#include "th04/resident.hpp"
+#endif
+
+#if (GAME == 4)
+// This local view must follow the frozen gameplay headers: Turbo C++ 4.02
+// leaks member names from a prior structure into a later declaration lookup.
+// The ordinary headers therefore establish their original global owners
+// first; this reader view then asserts the host wire without importing its
+// current replay providers.
+struct oracle_public_start_t {
+	uint8_t schema;
+	uint8_t kind;
+	uint8_t stage;
+	uint8_t section;
+	uint8_t phase;
+	uint8_t rank;
+	uint8_t playchar;
+	uint8_t shottype;
+	uint8_t lives;
+	uint8_t bombs;
+	uint8_t power;
+	uint8_t dream;
+	uint8_t playperf;
+	uint8_t continues_used;
+	uint8_t extends_gained;
+	uint8_t turbo_mode;
+	uint32_t score;
+	int32_t resident_rand;
+	int32_t random_seed;
+	uint16_t graze;
+	uint16_t std_frames;
+	uint16_t items_spawned;
+	uint16_t items_collected;
+	uint16_t point_items_collected;
+	uint16_t max_valued_point_items_collected;
+	uint16_t enemies_gone;
+	uint16_t enemies_killed;
+	uint8_t miss_count;
+	uint8_t bombs_used;
+	uint8_t credit_lives;
+	uint8_t credit_bombs;
+	uint16_t stage_point_items_collected;
+	uint16_t stage_graze;
+	uint16_t power_overflow;
+	uint8_t seed_mode;
+	uint32_t score_delta;
+	uint32_t score_delta_frame;
+	uint8_t hiscore_popup_shown;
+};
+
+struct oracle_public_header_t {
+	char magic[8];
+	uint16_t version;
+	uint16_t header_size;
+	uint16_t packet_size;
+	uint16_t flags;
+	uint8_t status;
+	uint8_t end_reason;
+	uint8_t game_id;
+	uint8_t ruleset;
+	uint8_t mode;
+	uint8_t input_semantics;
+	uint8_t stage_reached;
+	uint8_t checkpoint_schema;
+	uint32_t sample_count;
+	uint32_t packet_count;
+	uint32_t input_offset;
+	uint32_t input_size;
+	uint32_t checkpoint_offset;
+	uint32_t checkpoint_size;
+	uint32_t payload_checksum;
+	uint32_t checkpoint_checksum;
+	uint32_t header_checksum;
+	uint32_t score_final;
+	uint16_t dos_date;
+	uint16_t dos_time;
+	char name[8];
+	uint32_t stage_scores[ORACLE_PUBLIC_STAGE_COUNT];
+	oracle_public_start_t start;
+	uint32_t source_fingerprint;
+	uint32_t state_digest;
+	uint8_t lives_final;
+	uint8_t bombs_final;
+	uint8_t power_final;
+	uint8_t dream_final;
+	uint32_t stage_directory_checksum;
+	uint32_t timed_frames;
+	uint32_t slow_frames;
+};
+
+struct oracle_public_stage_t {
+	oracle_public_start_t start;
+	uint32_t sample_index;
+	uint32_t packet_index;
+	uint32_t payload_checksum;
+};
+
+struct oracle_public_packet_t {
+	uint8_t tag;
+	uint8_t input_low;
+	uint8_t input_high;
+	uint8_t shift;
+};
+
+typedef char oracle_public_start_size_must_match_wire[
+	(sizeof(oracle_public_start_t) == ORACLE_PUBLIC_START_SIZE) ? 1 : -1
+];
+typedef char oracle_public_header_size_must_match_wire[
+	(sizeof(oracle_public_header_t) == ORACLE_PUBLIC_HEADER_SIZE) ? 1 : -1
+];
+typedef char oracle_public_stage_size_must_match_wire[
+	(sizeof(oracle_public_stage_t) == ORACLE_PUBLIC_STAGE_ENTRY_SIZE) ? 1 : -1
+];
+typedef char oracle_public_packet_size_must_match_wire[
+	(sizeof(oracle_public_packet_t) == ORACLE_PUBLIC_PACKET_SIZE) ? 1 : -1
+];
+typedef char oracle_public_header_offsets_must_match_wire[
+	(offsetof(oracle_public_header_t, header_checksum) == 0x38) &&
+	(offsetof(oracle_public_header_t, start) == 0x68) &&
+	(offsetof(oracle_public_header_t, stage_directory_checksum) == 0xB4) &&
+	(offsetof(oracle_public_header_t, timed_frames) == 0xB8) &&
+	(offsetof(oracle_public_header_t, slow_frames) == 0xBC) &&
+	(offsetof(oracle_public_start_t, score) == 0x10) &&
+	(offsetof(oracle_public_start_t, stage_point_items_collected) == 0x30) &&
+	(offsetof(oracle_public_start_t, stage_graze) == 0x32)
+		? 1 : -1
+];
 #endif
 
 #if (GAME == 5)
@@ -1121,6 +1297,10 @@ static char ORACLE_BIN_FN[11];
 static char ORACLE_SPLIT_FN[12];
 static char ORACLE_DONE_FN[11];
 static char ORACLE_DIAG_FN[11];
+#if (GAME == 4)
+	static char ORACLE_PUBLIC_REPLAY_FN[10];
+	static char ORACLE_PUBLIC_START_FN[10];
+#endif
 static bool oracle_paths_ready;
 
 enum oracle_text_id_t {
@@ -1134,7 +1314,10 @@ enum oracle_text_id_t {
 	ORT_ERR_DESYNC,
 	ORT_ERR_STARTUP,
 	ORT_ERR_SPLIT_OPEN,
-	ORT_ERR_UNSUPPORTED
+	ORT_ERR_UNSUPPORTED,
+	ORT_OK_PUBLIC_PREFIX,
+	ORT_ERR_PUBLIC_SOURCE,
+	ORT_ERR_PUBLIC_EXEC
 };
 
 enum oracle_mode_t {
@@ -1169,6 +1352,25 @@ static uint32_t oracle_diag_size;
 static bool oracle_started;
 static bool oracle_done_written;
 static bool oracle_finished;
+#if (GAME == 4)
+	// This state has no relation to TxCASE's record/play mode. The two input
+	// sources are mutually exclusive at entry, but a separate latch keeps a
+	// malformed public source from being mistaken for an ordinary demo.
+	static oracle_public_header_t oracle_public_header;
+	static oracle_public_packet_t oracle_public_pending;
+	static uint32_t oracle_public_packet_cursor;
+	static uint16_t oracle_public_packet_buf_len;
+	static uint16_t oracle_public_packet_buf_pos;
+	static uint8_t oracle_public_run_left;
+	static uint32_t oracle_public_sample_count;
+	static uint16_t oracle_public_last_input;
+	static bool oracle_public_active;
+	static bool oracle_public_finished;
+	static bool oracle_public_source_error;
+	// Remains true through the prefix-end row, after input admission itself has
+	// stopped. This is intentionally distinct from [oracle_public_active].
+	static bool oracle_public_trace_active;
+#endif
 /// ------------
 
 /// Raw INT 21h file I/O
@@ -1315,6 +1517,31 @@ static bool oracle_dos_seek(int fh, uint32_t pos)
 	return (failed == 0);
 }
 
+static bool oracle_dos_size(int fh, uint32_t far *size)
+{
+	unsigned pos_hi;
+	unsigned pos_lo;
+	unsigned failed;
+
+	_asm {
+		mov	bx, fh
+		xor	cx, cx
+		xor	dx, dx
+		mov	ax, 4202h
+		int	21h
+		mov	pos_lo, ax
+		mov	pos_hi, dx
+		sbb	ax, ax
+		neg	ax
+		mov	failed, ax
+	}
+	*size = (
+		(static_cast<uint32_t>(pos_hi) << 16) |
+		static_cast<uint32_t>(pos_lo)
+	);
+	return (failed == 0);
+}
+
 // Opens for read/write, creating the file when it does not exist. The position
 // is left at zero, so a caller that wants to rewrite a header simply writes,
 // and a caller that wants to append seeks to a size it tracks itself.
@@ -1382,6 +1609,18 @@ static void oracle_paths_init(void)
 	ORACLE_DIAG_FN[2] = 'D'; ORACLE_DIAG_FN[3] = 'I'; ORACLE_DIAG_FN[4] = 'A';
 	ORACLE_DIAG_FN[5] = 'G'; ORACLE_DIAG_FN[6] = '.'; ORACLE_DIAG_FN[7] = 'T';
 	ORACLE_DIAG_FN[8] = 'X'; ORACLE_DIAG_FN[9] = 'T'; ORACLE_DIAG_FN[10] = '\0';
+	#if (GAME == 4)
+		ORACLE_PUBLIC_REPLAY_FN[0] = 'T'; ORACLE_PUBLIC_REPLAY_FN[1] = '4';
+		ORACLE_PUBLIC_REPLAY_FN[2] = 'P'; ORACLE_PUBLIC_REPLAY_FN[3] = 'U';
+		ORACLE_PUBLIC_REPLAY_FN[4] = 'B'; ORACLE_PUBLIC_REPLAY_FN[5] = '.';
+		ORACLE_PUBLIC_REPLAY_FN[6] = 'R'; ORACLE_PUBLIC_REPLAY_FN[7] = 'P';
+		ORACLE_PUBLIC_REPLAY_FN[8] = 'Y'; ORACLE_PUBLIC_REPLAY_FN[9] = '\0';
+		ORACLE_PUBLIC_START_FN[0] = 'T'; ORACLE_PUBLIC_START_FN[1] = '4';
+		ORACLE_PUBLIC_START_FN[2] = 'P'; ORACLE_PUBLIC_START_FN[3] = 'U';
+		ORACLE_PUBLIC_START_FN[4] = 'B'; ORACLE_PUBLIC_START_FN[5] = '.';
+		ORACLE_PUBLIC_START_FN[6] = 'S'; ORACLE_PUBLIC_START_FN[7] = 'T';
+		ORACLE_PUBLIC_START_FN[8] = 'A'; ORACLE_PUBLIC_START_FN[9] = '\0';
+	#endif
 	oracle_paths_ready = true;
 }
 
@@ -2882,6 +3121,19 @@ static void oracle_write_text(int fh, oracle_text_id_t text)
 		W('e'); W('r'); W('r'); W('o'); W('r'); W(':'); W('u'); W('n'); W('s');
 		W('u'); W('p'); W('p'); W('o'); W('r'); W('t'); W('e'); W('d');
 		break;
+	case ORT_OK_PUBLIC_PREFIX:
+		W('o'); W('k'); W(':'); W('p'); W('u'); W('b'); W('l'); W('i'); W('c');
+		W('-'); W('p'); W('r'); W('e'); W('f'); W('i'); W('x');
+		break;
+	case ORT_ERR_PUBLIC_SOURCE:
+		W('e'); W('r'); W('r'); W('o'); W('r'); W(':'); W('p'); W('u'); W('b');
+		W('l'); W('i'); W('c'); W('-'); W('s'); W('o'); W('u'); W('r'); W('c');
+		W('e');
+		break;
+	case ORT_ERR_PUBLIC_EXEC:
+		W('e'); W('r'); W('r'); W('o'); W('r'); W(':'); W('p'); W('u'); W('b');
+		W('l'); W('i'); W('c'); W('-'); W('e'); W('x'); W('e'); W('c');
+		break;
 	}
 #undef W
 }
@@ -2984,8 +3236,17 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 	unsigned written;
 	int fh;
 	int i;
+#if (GAME == 4)
+	bool public_trace = oracle_public_trace_active;
+#endif
 
-	if((oracle_mode == ORACLE_DISABLED) || (oracle_mode == ORACLE_ERROR)) {
+	if(
+		(oracle_mode == ORACLE_ERROR) ||
+		(oracle_mode == ORACLE_DISABLED)
+#if (GAME == 4)
+		&& !public_trace
+#endif
+	) {
 		return;
 	}
 	oracle_memclear(&row, sizeof(row));
@@ -2993,7 +3254,15 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 	row.process = ORACLE_PROCESS_MAIN;
 	row.stage_id = stage_id;
 	row.rank = rank;
-	row.global_frame = oracle_global_frame;
+	row.global_frame =
+#if (GAME == 4)
+		(public_trace ? oracle_public_sample_count :
+#endif
+		oracle_global_frame
+#if (GAME == 4)
+		)
+#endif
+	;
 	// Not monotonic: TH05's Extra splice resets `stage_frame`
 	// (`th05/main/dialog/dialog.cpp:271`). A comparator must never sort, diff
 	// or interpolate on this column.
@@ -3007,7 +3276,15 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 	for(i = 0; i < ORACLE_SCORE_DIGITS; i++) {
 		row.score[i] = score.digits[i];
 	}
-	row.samples_consumed = oracle_sample_count;
+	row.samples_consumed =
+#if (GAME == 4)
+		(public_trace ? oracle_public_sample_count :
+#endif
+		oracle_sample_count
+#if (GAME == 4)
+		)
+#endif
+	;
 #if (GAME == 5)
 	row.rem_lives = lives;
 	row.rem_bombs = bombs;
@@ -3837,6 +4114,612 @@ static void oracle_finish(oracle_text_id_t status)
 }
 /// -------
 
+/// Direct public Story-prefix reader (TH04 only)
+/// ----------------------------------------------
+#if (GAME == 4)
+// This accepts the exact source and first-start sidecar staged by the host
+// helper. It is deliberately not a second implementation of the current
+// replay system: no interstitial packet is consumed, no progressed stage state
+// is restored, and a cutoff has no terminal-verification meaning.
+
+extern void (near *near oracle_stage_input_callback)(void);
+
+static bool oracle_public_bytes_zero(const uint8_t far *p, unsigned size)
+{
+	while(size != 0) {
+		if(*p++ != 0) {
+			return false;
+		}
+		size--;
+	}
+	return true;
+}
+
+static bool oracle_public_bytes_equal(
+	const uint8_t far *a, const uint8_t far *b, unsigned size
+)
+{
+	while(size != 0) {
+		if(*a++ != *b++) {
+			return false;
+		}
+		size--;
+	}
+	return true;
+}
+
+static bool oracle_public_playperf_valid(uint8_t rank_value, uint8_t value)
+{
+	uint8_t min;
+	uint8_t max;
+
+	switch(rank_value) {
+	case RANK_EASY:    min = 4;  max = 16; break;
+	case RANK_NORMAL:  min = 11; max = 24; break;
+	case RANK_HARD:    min = 20; max = 32; break;
+	case RANK_LUNATIC: min = 22; max = 34; break;
+	default:            min = 16; max = 20; break;
+	}
+	return ((value >= min) && (value <= max));
+}
+
+// [stage_entry] means the source's recorded stage directory state, which has
+// progressed counters and is therefore intentionally not required to be a
+// native first start. The header's own start remains strict below.
+static bool oracle_public_start_valid(
+	const oracle_public_start_t far *start, bool stage_entry
+)
+{
+	uint8_t credit_lives_max = (stage_entry ? 15 : 6);
+	uint8_t credit_bombs_max = (stage_entry ? 15 : 2);
+	uint8_t lives_max = (stage_entry ? 15 : 9);
+
+	if(
+		((start->schema != ORACLE_PUBLIC_START_SCHEMA_1) &&
+		 (start->schema != ORACLE_PUBLIC_START_SCHEMA_2)) ||
+		(start->kind != (
+			stage_entry ? ORACLE_PUBLIC_START_STAGE : ORACLE_PUBLIC_START_NATIVE
+		)) ||
+		(start->stage > ORACLE_PUBLIC_STAGE_EXTRA) ||
+		(start->section != 0) || (start->phase != 0) ||
+		(start->rank > ORACLE_PUBLIC_RANK_EXTRA) ||
+		((start->stage == ORACLE_PUBLIC_STAGE_EXTRA) !=
+		 (start->rank == ORACLE_PUBLIC_RANK_EXTRA)) ||
+		(start->playchar > 1) || (start->shottype > 1) ||
+		(start->lives > lives_max) || (start->bombs > lives_max) ||
+		(start->power < 1) || (start->power > 128) ||
+		(start->dream > 7) || (start->continues_used > 9) ||
+		(start->extends_gained > 10) || (start->turbo_mode > 1) ||
+		((start->stage == ORACLE_PUBLIC_STAGE_EXTRA) && !start->turbo_mode) ||
+		(start->score > ORACLE_PUBLIC_SCORE_MAX) ||
+		((start->score % 10UL) != 0) ||
+		(start->credit_lives < 1) || (start->credit_lives > credit_lives_max) ||
+		(start->credit_bombs > credit_bombs_max) ||
+		(start->stage_graze > 999) || (start->power_overflow > 42) ||
+		!oracle_public_playperf_valid(start->rank, start->playperf) ||
+		// The public Story entry has only ZUN's normal, random-seed path.
+		// A fixed-seed value belongs to the later practice owner and must not be
+		// accepted merely because its bytes are well-formed. At this EMS seam
+		// MAIN has already copied the old resident seed, so the accepted pair
+		// must agree before this reader restores the real owner below.
+		(start->seed_mode != 0) ||
+		(start->random_seed != start->resident_rand) ||
+		((start->schema == ORACLE_PUBLIC_START_SCHEMA_1) &&
+		 (start->score_delta || start->score_delta_frame ||
+		  start->hiscore_popup_shown)) ||
+		(start->hiscore_popup_shown > 1)
+	) {
+		return false;
+	}
+	if(!stage_entry && (
+		((start->stage != 0) &&
+		 (start->stage != ORACLE_PUBLIC_STAGE_EXTRA)) ||
+		start->score || (start->lives != start->credit_lives) ||
+		(start->bombs != start->credit_bombs) || (start->power != 1) ||
+		start->dream || start->continues_used || start->extends_gained ||
+		start->graze || start->std_frames || start->items_spawned ||
+		start->items_collected || start->point_items_collected ||
+		start->max_valued_point_items_collected || start->enemies_gone ||
+		start->enemies_killed || start->miss_count || start->bombs_used ||
+		start->stage_point_items_collected || start->stage_graze ||
+		start->power_overflow || start->score_delta ||
+		start->score_delta_frame || start->hiscore_popup_shown ||
+		(start->playperf != ((start->rank == RANK_HARD)
+			? 20 : ((start->rank == RANK_LUNATIC) ? 22 : 16)))
+	)) {
+		return false;
+	}
+	return true;
+}
+
+static bool oracle_public_payload_hash(uint32_t far *hash_out)
+{
+	uint32_t remaining = oracle_public_header.input_size;
+	uint32_t hash = ORACLE_PUBLIC_FNV_BASIS;
+	unsigned len;
+	int fh;
+
+	fh = oracle_dos_open(ORACLE_PUBLIC_REPLAY_FN, ORACLE_ACCESS_READ);
+	if((fh < 0) || !oracle_dos_seek(fh, oracle_public_header.input_offset)) {
+		if(fh >= 0) {
+			oracle_dos_close(fh);
+		}
+		return false;
+	}
+	while(remaining != 0) {
+		len = ((remaining > sizeof(oracle_recbuf))
+			? sizeof(oracle_recbuf) : static_cast<unsigned>(remaining)
+		);
+		if(oracle_dos_read(fh, oracle_recbuf, len) != len) {
+			oracle_dos_close(fh);
+			return false;
+		}
+		hash = oracle_fnv1a(hash, oracle_recbuf, len);
+		remaining -= len;
+	}
+	oracle_dos_close(fh);
+	*hash_out = hash;
+	return true;
+}
+
+static bool oracle_public_stage_directory_valid(void)
+{
+	oracle_public_stage_t far *entries;
+	oracle_public_stage_t far *entry;
+	uint32_t hash;
+	uint32_t previous_sample = 0;
+	uint32_t previous_packet = 0;
+	uint8_t stage;
+	bool expected;
+	int fh;
+
+	fh = oracle_dos_open(ORACLE_PUBLIC_REPLAY_FN, ORACLE_ACCESS_READ);
+	if(
+		(fh < 0) ||
+		!oracle_dos_seek(fh, oracle_public_header.header_size) ||
+		(oracle_dos_read(
+			fh, oracle_recbuf, ORACLE_PUBLIC_STAGE_DIRECTORY_SIZE
+		) != ORACLE_PUBLIC_STAGE_DIRECTORY_SIZE)
+	) {
+		if(fh >= 0) {
+			oracle_dos_close(fh);
+		}
+		return false;
+	}
+	oracle_dos_close(fh);
+	hash = oracle_fnv1a(
+		ORACLE_PUBLIC_FNV_BASIS, oracle_recbuf,
+		ORACLE_PUBLIC_STAGE_DIRECTORY_SIZE
+	);
+	if(hash != oracle_public_header.stage_directory_checksum) {
+		return false;
+	}
+	entries = reinterpret_cast<oracle_public_stage_t far *>(oracle_recbuf);
+	for(stage = 0; stage < ORACLE_PUBLIC_STAGE_COUNT; stage++) {
+		entry = &entries[stage];
+		expected = (
+			(stage >= oracle_public_header.start.stage) &&
+			(stage <= oracle_public_header.stage_reached)
+		);
+		if(!expected) {
+			if(!oracle_public_bytes_zero(
+				reinterpret_cast<const uint8_t far *>(entry), sizeof(*entry)
+			)) {
+				return false;
+			}
+			continue;
+		}
+		if(
+			(entry->start.stage != stage) ||
+			(entry->start.schema != oracle_public_header.start.schema) ||
+			!oracle_public_start_valid(&entry->start, true) ||
+			(entry->sample_index > oracle_public_header.sample_count) ||
+			(entry->packet_index >= oracle_public_header.packet_count) ||
+			(entry->payload_checksum == 0) ||
+			((stage != oracle_public_header.start.stage) &&
+			 ((entry->sample_index < previous_sample) ||
+			  (entry->packet_index <= previous_packet)))
+		) {
+			return false;
+		}
+		previous_sample = entry->sample_index;
+		previous_packet = entry->packet_index;
+	}
+	entry = &entries[oracle_public_header.start.stage];
+	return (
+		(entry->sample_index == 0) && (entry->packet_index == 0) &&
+		(entry->payload_checksum == ORACLE_PUBLIC_FNV_BASIS)
+	);
+}
+
+static bool oracle_public_header_read(void)
+{
+	uint32_t file_size;
+	uint32_t expected_file_size;
+	uint32_t stored;
+	uint32_t computed;
+	int fh;
+
+	fh = oracle_dos_open(ORACLE_PUBLIC_REPLAY_FN, ORACLE_ACCESS_READ);
+	if(
+		(fh < 0) ||
+		(oracle_dos_read(fh, &oracle_public_header,
+		 sizeof(oracle_public_header)) != sizeof(oracle_public_header)) ||
+		!oracle_dos_size(fh, &file_size)
+	) {
+		if(fh >= 0) {
+			oracle_dos_close(fh);
+		}
+		return false;
+	}
+	oracle_dos_close(fh);
+	expected_file_size = (
+		oracle_public_header.input_offset + oracle_public_header.input_size
+	);
+	if(
+		(oracle_public_header.magic[0] != 'T') ||
+		(oracle_public_header.magic[1] != '4') ||
+		(oracle_public_header.magic[2] != 'R') ||
+		(oracle_public_header.magic[3] != 'P') ||
+		(oracle_public_header.magic[4] != 'Y') ||
+		(oracle_public_header.magic[5] != ('0' + oracle_public_header.version)) ||
+		(oracle_public_header.magic[6] != '\0') ||
+		(oracle_public_header.magic[7] != '\0') ||
+		((oracle_public_header.version != ORACLE_PUBLIC_VERSION_LEGACY) &&
+		 (oracle_public_header.version != ORACLE_PUBLIC_VERSION_TIMING) &&
+		 (oracle_public_header.version != ORACLE_PUBLIC_VERSION_PREVIOUS) &&
+		 (oracle_public_header.version != ORACLE_PUBLIC_VERSION)) ||
+		(oracle_public_header.header_size !=
+			((oracle_public_header.version == ORACLE_PUBLIC_VERSION)
+				? ORACLE_PUBLIC_HEADER_WIRE_SIZE : ORACLE_PUBLIC_HEADER_SIZE)) ||
+		(oracle_public_header.packet_size != ORACLE_PUBLIC_PACKET_SIZE) ||
+		((oracle_public_header.flags & ~ORACLE_PUBLIC_KNOWN_FLAGS) != 0) ||
+		((oracle_public_header.flags &
+		 (ORACLE_PUBLIC_FLAG_RLE | ORACLE_PUBLIC_FLAG_SHIFT)) !=
+		 (ORACLE_PUBLIC_FLAG_RLE | ORACLE_PUBLIC_FLAG_SHIFT)) ||
+		((oracle_public_header.flags &
+		 (ORACLE_PUBLIC_FLAG_PRACTICE | ORACLE_PUBLIC_FLAG_CHECKPOINT)) != 0) ||
+		(oracle_public_header.status != ORACLE_PUBLIC_STATUS_FINALIZED) ||
+		(oracle_public_header.game_id != 4) ||
+		(oracle_public_header.ruleset != 0) ||
+		(oracle_public_header.mode != ORACLE_PUBLIC_MODE_STORY) ||
+		(oracle_public_header.input_semantics != ORACLE_PUBLIC_INPUT_SEMANTICS) ||
+		(oracle_public_header.stage_reached > ORACLE_PUBLIC_STAGE_EXTRA) ||
+		(oracle_public_header.input_offset !=
+			((oracle_public_header.version == ORACLE_PUBLIC_VERSION)
+				? ORACLE_PUBLIC_INPUT_OFFSET : ORACLE_PUBLIC_INPUT_OFFSET_LEGACY)) ||
+		(oracle_public_header.input_size > ORACLE_PUBLIC_INPUT_SIZE_MAX) ||
+		(oracle_public_header.packet_count >
+		 (ORACLE_PUBLIC_INPUT_SIZE_MAX / ORACLE_PUBLIC_PACKET_SIZE)) ||
+		(oracle_public_header.input_size !=
+		 (oracle_public_header.packet_count * ORACLE_PUBLIC_PACKET_SIZE)) ||
+		(file_size != expected_file_size) ||
+		(oracle_public_header.stage_directory_checksum == 0) ||
+		((oracle_public_header.checkpoint_schema != 0) ||
+		 (oracle_public_header.checkpoint_offset != 0) ||
+		 (oracle_public_header.checkpoint_size != 0) ||
+		 (oracle_public_header.checkpoint_checksum != 0) ||
+		 (oracle_public_header.source_fingerprint != 0) ||
+		 (oracle_public_header.state_digest != 0)) ||
+		(((oracle_public_header.version == ORACLE_PUBLIC_VERSION) ||
+		  (oracle_public_header.version == ORACLE_PUBLIC_VERSION_PREVIOUS)) !=
+		 (oracle_public_header.start.schema == ORACLE_PUBLIC_START_SCHEMA_2)) ||
+		!oracle_public_start_valid(&oracle_public_header.start, false) ||
+		((oracle_public_header.version == ORACLE_PUBLIC_VERSION_LEGACY) &&
+		 (oracle_public_header.timed_frames || oracle_public_header.slow_frames)) ||
+		((oracle_public_header.version != ORACLE_PUBLIC_VERSION_LEGACY) &&
+		 (oracle_public_header.slow_frames > oracle_public_header.timed_frames))
+	) {
+		return false;
+	}
+	stored = oracle_public_header.header_checksum;
+	oracle_public_header.header_checksum = 0;
+	computed = oracle_fnv1a(
+		ORACLE_PUBLIC_FNV_BASIS, &oracle_public_header,
+		sizeof(oracle_public_header)
+	);
+	oracle_public_header.header_checksum = stored;
+	if(stored != computed) {
+		return false;
+	}
+	fh = oracle_dos_open(ORACLE_PUBLIC_START_FN, ORACLE_ACCESS_READ);
+	if(
+		(fh < 0) || !oracle_dos_size(fh, &file_size) ||
+		(file_size != ORACLE_PUBLIC_START_SIZE) ||
+		!oracle_dos_seek(fh, 0) ||
+		(oracle_dos_read(fh, oracle_recbuf, ORACLE_PUBLIC_START_SIZE) !=
+		 ORACLE_PUBLIC_START_SIZE)
+	) {
+		if(fh >= 0) {
+			oracle_dos_close(fh);
+		}
+		return false;
+	}
+	oracle_dos_close(fh);
+	if(!oracle_public_bytes_equal(
+		reinterpret_cast<const uint8_t far *>(oracle_recbuf),
+		reinterpret_cast<const uint8_t far *>(&oracle_public_header.start),
+		ORACLE_PUBLIC_START_SIZE
+	)) {
+		return false;
+	}
+	if(
+		!oracle_public_stage_directory_valid() ||
+		!oracle_public_payload_hash(&computed) ||
+		(computed != oracle_public_header.payload_checksum)
+	) {
+		return false;
+	}
+	return true;
+}
+
+static bool oracle_public_packet_read(oracle_public_packet_t far *packet)
+{
+	oracle_public_packet_t far *buf;
+	uint32_t remaining;
+	unsigned want;
+	unsigned len;
+	int fh;
+
+	if(oracle_public_packet_cursor >= oracle_public_header.packet_count) {
+		return false;
+	}
+	if(oracle_public_packet_buf_pos >= oracle_public_packet_buf_len) {
+		remaining = (
+			oracle_public_header.packet_count - oracle_public_packet_cursor
+		);
+		want = static_cast<unsigned>(sizeof(oracle_recbuf) /
+			sizeof(oracle_public_packet_t));
+		if(remaining < want) {
+			want = static_cast<unsigned>(remaining);
+		}
+		len = (want * ORACLE_PUBLIC_PACKET_SIZE);
+		fh = oracle_dos_open(ORACLE_PUBLIC_REPLAY_FN, ORACLE_ACCESS_READ);
+		if(
+			(fh < 0) ||
+			!oracle_dos_seek(fh, (
+				oracle_public_header.input_offset +
+				(oracle_public_packet_cursor * ORACLE_PUBLIC_PACKET_SIZE)
+			)) ||
+			(oracle_dos_read(fh, oracle_recbuf, len) != len)
+		) {
+			if(fh >= 0) {
+				oracle_dos_close(fh);
+			}
+			return false;
+		}
+		oracle_dos_close(fh);
+		oracle_public_packet_buf_len = want;
+		oracle_public_packet_buf_pos = 0;
+	}
+	buf = reinterpret_cast<oracle_public_packet_t far *>(oracle_recbuf);
+	packet->tag = buf[oracle_public_packet_buf_pos].tag;
+	packet->input_low = buf[oracle_public_packet_buf_pos].input_low;
+	packet->input_high = buf[oracle_public_packet_buf_pos].input_high;
+	packet->shift = buf[oracle_public_packet_buf_pos].shift;
+	oracle_public_packet_buf_pos++;
+	oracle_public_packet_cursor++;
+	if(
+		((packet->tag >> ORACLE_PUBLIC_PACKET_PHASE_SHIFT) == 3) ||
+		(
+			((packet->tag >> ORACLE_PUBLIC_PACKET_PHASE_SHIFT) !=
+			 ORACLE_PUBLIC_PACKET_CONTROL) &&
+			(packet->shift > 1)
+		)
+	) {
+		return false;
+	}
+	return true;
+}
+
+static void oracle_public_fail(char t0, char t1, char t2)
+{
+	oracle_public_source_error = true;
+	oracle_public_active = true;
+	oracle_diag(t0, t1, t2, oracle_public_packet_cursor, 0);
+	oracle_done_write(ORT_ERR_PUBLIC_SOURCE);
+}
+
+static void oracle_public_start_apply(void)
+{
+	const oracle_public_start_t far *start = &oracle_public_header.start;
+
+	resident->rand = start->resident_rand;
+	// This is the same relation as MAIN's original entry assignment at
+	// `th04_main.asm:301-304`, repeated because this sidecar is applied after
+	// that instruction but before `randring_fill()`. Validation above requires
+	// the serialized random_seed to equal this actual value.
+	random_seed = start->resident_rand;
+	if(start->stage != ORACLE_PUBLIC_STAGE_EXTRA) {
+		resident->rank = start->rank;
+	}
+	resident->stage = start->stage;
+	resident->credit_lives = start->credit_lives;
+	resident->credit_bombs = start->credit_bombs;
+	resident->cfg_lives = start->credit_lives;
+	resident->cfg_bombs = start->credit_bombs;
+	resident->turbo_mode = (start->turbo_mode != 0);
+	resident->demo_num = 0;
+	resident->debug = false;
+	resident->playchar_ascii = ('0' + start->playchar);
+	resident->stage_ascii = ('0' + start->stage);
+	resident->shottype = start->shottype;
+}
+
+static void oracle_public_story_entry(void)
+{
+	int fh;
+	uint16_t control_stage;
+
+	oracle_paths_init();
+	// T4DONE is intentionally shared with TxCASE. A stale completion latch is
+	// a host staging error, never permission to consume an old public source.
+	fh = oracle_dos_open(ORACLE_DONE_FN, ORACLE_ACCESS_READ);
+	if(fh >= 0) {
+		oracle_dos_close(fh);
+		return;
+	}
+	fh = oracle_dos_open(ORACLE_PUBLIC_REPLAY_FN, ORACLE_ACCESS_READ);
+	if(fh < 0) {
+		return;
+	}
+	oracle_dos_close(fh);
+	if(!oracle_public_header_read()) {
+		oracle_public_fail('P', 'H', 'D');
+		return;
+	}
+	oracle_public_packet_cursor = 0;
+	oracle_public_packet_buf_len = 0;
+	oracle_public_packet_buf_pos = 0;
+	oracle_public_run_left = 0;
+	oracle_public_sample_count = 0;
+	oracle_public_last_input = 0;
+	oracle_public_trace_active = false;
+	if(
+		!oracle_public_packet_read(&oracle_public_pending) ||
+		((oracle_public_pending.tag >> ORACLE_PUBLIC_PACKET_PHASE_SHIFT) !=
+		 ORACLE_PUBLIC_PACKET_CONTROL) ||
+		((oracle_public_pending.tag & ORACLE_PUBLIC_PACKET_RUN_MASK) !=
+		 ORACLE_PUBLIC_CONTROL_STAGE_START) ||
+		(oracle_public_pending.shift != 0)
+	) {
+		oracle_public_fail('P', 'C', '0');
+		return;
+	}
+	control_stage = static_cast<uint16_t>(
+		oracle_public_pending.input_low |
+		(static_cast<uint16_t>(oracle_public_pending.input_high) << 8)
+	);
+	if(control_stage != oracle_public_header.start.stage) {
+		oracle_public_fail('P', 'C', 'S');
+		return;
+	}
+	oracle_public_start_apply();
+	oracle_public_active = true;
+	oracle_public_finished = false;
+	oracle_public_source_error = false;
+	oracle_diag(
+		'P', 'U', 'B', oracle_public_header.packet_count,
+		oracle_public_header.sample_count
+	);
+}
+
+void oracle_public_story_install(void)
+{
+	if(oracle_public_active) {
+		oracle_stage_input_callback = DemoPlay;
+	}
+}
+
+bool oracle_public_story_active(void)
+{
+	return oracle_public_active;
+}
+
+bool oracle_public_story_frame(void)
+{
+	uint8_t phase;
+	input_t input;
+
+	if(oracle_public_source_error) {
+		return false;
+	}
+	if(!oracle_public_trace_active) {
+		// Same boundary as the private reader's session-start rows: the game has
+		// completed all startup derivation, but no supplied gameplay sample has
+		// yet reached its update pass. This writer never aliases [oracle_recbuf],
+		// which remains owned by the RLE packet reader.
+		oracle_public_trace_active = true;
+		oracle_split_write_header();
+		oracle_split_row(ORACLE_EVENT_START, 0);
+		oracle_split_row(ORACLE_EVENT_ROUND_START, 0);
+	}
+	if(oracle_public_run_left == 0) {
+		if(!oracle_public_packet_read(&oracle_public_pending)) {
+			oracle_public_fail('P', 'I', 'O');
+			return false;
+		}
+		phase = (
+			oracle_public_pending.tag >> ORACLE_PUBLIC_PACKET_PHASE_SHIFT
+		);
+		input = static_cast<input_t>(
+			oracle_public_pending.input_low |
+			(static_cast<uint16_t>(oracle_public_pending.input_high) << 8)
+		);
+		if((phase != ORACLE_PUBLIC_PACKET_GAMEPLAY) || (input & INPUT_CANCEL)) {
+			if(oracle_public_sample_count == 0) {
+				oracle_public_fail('P', '0', '0');
+			} else {
+				oracle_diag(
+					'C', 'U', 'T', (oracle_public_packet_cursor - 1),
+					(static_cast<uint32_t>(phase) << 16) | input
+				);
+			}
+			return false;
+		}
+		oracle_public_run_left = static_cast<uint8_t>(
+			(oracle_public_pending.tag & ORACLE_PUBLIC_PACKET_RUN_MASK) + 1
+		);
+	}
+	key_det = static_cast<input_t>(
+		oracle_public_pending.input_low |
+		(static_cast<uint16_t>(oracle_public_pending.input_high) << 8)
+	);
+	shiftkey = (oracle_public_pending.shift != 0);
+	oracle_public_run_left--;
+	oracle_public_sample_count++;
+	oracle_public_last_input = key_det;
+	// This is the private reader's existing post-admission/pre-update cadence.
+	// The raw public packet still carries the independent shift byte; this
+	// fixed schema's uint16 input column records the complete key word.
+	if(
+		((oracle_public_sample_count &
+		  (ORACLE_SPLIT_INTERVAL_SAMPLES - 1)) == 0)
+	) {
+		oracle_split_row(ORACLE_EVENT_CHECKPOINT, oracle_public_last_input);
+	}
+	return true;
+}
+
+void oracle_public_story_finish(void)
+{
+	if(!oracle_public_active || oracle_public_source_error ||
+		oracle_public_finished) {
+		return;
+	}
+	oracle_public_finished = true;
+	// This callback is at the next input boundary, after the last admitted
+	// sample's complete update/render pass. It records a prefix boundary, not a
+	// terminal event, and deliberately leaves its following packet unconsumed.
+	oracle_split_row(ORACLE_EVENT_INPUT_END, oracle_public_last_input);
+	oracle_diag(
+		'P', 'F', 'X', oracle_public_sample_count,
+		(oracle_public_packet_cursor - 1)
+	);
+	// This only certifies that the guest stopped before the first unconsumed
+	// public boundary. It is never a terminal replay verdict.
+	oracle_done_write(ORT_OK_PUBLIC_PREFIX);
+	oracle_public_active = false;
+	oracle_public_trace_active = false;
+}
+
+void oracle_public_story_exec_failed(void)
+{
+	// GameExecl() returns only when DOS could not replace MAIN. The stage loop
+	// will complete its current iteration before observing quit, so mark it as
+	// an explicit failure rather than silently describing that tick as a prefix.
+	oracle_public_active = false;
+	oracle_diag('E', 'X', 'F', oracle_public_sample_count, 0);
+	// The prefix marker was written immediately before the non-returning call
+	// so the success path can leave evidence. A returning execl has to replace
+	// it; the marker is progress evidence only, never a terminal verdict.
+	oracle_done_written = false;
+	oracle_done_write(ORT_ERR_PUBLIC_EXEC);
+	quit = Q_QUIT_TO_OP;
+}
+#endif
+/// ----------------------------------------------
+
 /// Hooks
 /// -----
 
@@ -3913,6 +4796,12 @@ void oracle_entry(void)
 	}
 	oracle_mode = oracle_cfg_mode();
 	if(oracle_mode == ORACLE_DISABLED) {
+#if (GAME == 4)
+		// The optional public-story sidecar is deliberately independent from the
+		// private TxCASE mode. It restores only the pre-derivation startup view;
+		// MAIN still derives stage-local state after this EMS hook returns.
+		oracle_public_story_entry();
+#endif
 		return;
 	}
 	// UNCONDITIONAL since the start-stage digit was added, and that is a

@@ -441,6 +441,18 @@ bool oracle_frame(uint16_t shift_offset);
 // frame to consume. Keeping this policy in ORACLE_TEXT leaves DemoPlay() at
 // its original position and size.
 bool oracle_or_demo_frame(uint16_t shift_offset);
+
+#if (GAME == 4)
+	// Direct public replay ingress is intentionally separate from TxCASE. The
+	// public source is accepted only at its native first-start boundary, then the
+	// historical stage loop consumes its initial gameplay prefix through DemoPlay.
+	// It never supplies interstitial or terminal policy.
+	void oracle_public_story_install(void);
+	bool oracle_public_story_active(void);
+	bool oracle_public_story_frame(void);
+	void oracle_public_story_finish(void);
+	void oracle_public_story_exec_failed(void);
+#endif
 /// --------------------------------------
 
 #endif /* TH04_MAIN_ORACLE_HPP */

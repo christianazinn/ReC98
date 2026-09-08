@@ -58,6 +58,28 @@ void near DemoPlay(void)
 		demo_end();
 		return;
 	}
+	#if (GAME == 4)
+		// The public Story-prefix reader reuses the historical callback slot, but
+		// owns no DemoBuf. Its cutoff is therefore a process handoff without the
+		// stock buffer free. A successful GameExecl() replaces MAIN; only its
+		// returning error path reaches the explicit diagnostic below.
+		if(oracle_public_story_active()) {
+			if(oracle_public_story_frame()) {
+				return;
+			}
+			oracle_public_story_finish();
+			palette_black_out(10);
+			_asm {
+				push	ds;
+				push	offset BINARY_OP;
+				nop;
+				push	cs;
+				call	near ptr GameExecl;
+			}
+			oracle_public_story_exec_failed();
+			return;
+		}
+	#endif
 
 	// In TH04, replay playback ends by pressing anything. In TH05, only the
 	// non-movement inputs (shot, bomb, cancel, OK, and Q) work.
