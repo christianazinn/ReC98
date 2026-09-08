@@ -1,9 +1,9 @@
-// Select a source-complete oracle schema per historical game. The current
-// schema-5 declarations are exact for TH04; TH05 retains its 9fb schema-2
-// declarations until its missing actor-state bindings are separately proven.
+// Select a source-complete oracle schema per historical game. Schema 5 is
+// active for TH04 and TH05; TH05's private actor aliases are verified in the
+// reader against the frozen root's original storage layout.
 #ifndef TH04_MAIN_ORACLE_BACKPORT_SELECT_HPP
 #define TH04_MAIN_ORACLE_BACKPORT_SELECT_HPP
-#if (GAME == 4)
+#if ((GAME == 4) || (GAME == 5))
 #ifndef TH04_MAIN_ORACLE_HPP
 #define TH04_MAIN_ORACLE_HPP
 
