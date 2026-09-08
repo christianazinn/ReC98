@@ -3206,6 +3206,7 @@ static void oracle_diag(char t0, char t1, char t2, uint32_t a, uint32_t b)
 static void oracle_split_write_header(void)
 {
 	oracle_split_header_t header;
+	unsigned written;
 	int fh;
 
 	oracle_memclear(&header, sizeof(header));
@@ -3226,8 +3227,14 @@ static void oracle_split_write_header(void)
 		oracle_done_write(ORT_ERR_SPLIT_OPEN);
 		return;
 	}
-	oracle_dos_write(fh, &header, sizeof(header));
+	written = oracle_dos_write(fh, &header, sizeof(header));
 	oracle_dos_close(fh);
+	if(written != sizeof(header)) {
+		oracle_diag('S', 'P', 'H', 0, written);
+		oracle_mode = ORACLE_ERROR;
+		oracle_done_write(ORT_ERR_SPLIT_OPEN);
+		return;
+	}
 	oracle_split_size = sizeof(header);
 }
 
@@ -3328,7 +3335,13 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 		oracle_done_write(ORT_ERR_SPLIT_OPEN);
 		return;
 	}
-	oracle_dos_seek(fh, oracle_split_size);
+	if(!oracle_dos_seek(fh, oracle_split_size)) {
+		oracle_dos_close(fh);
+		oracle_diag('S', 'P', 'S', oracle_split_size, 0xFFFFFFFFUL);
+		oracle_mode = ORACLE_ERROR;
+		oracle_done_write(ORT_ERR_SPLIT_OPEN);
+		return;
+	}
 	written = oracle_dos_write(fh, &row, sizeof(row));
 	if(written != sizeof(row)) {
 		oracle_dos_close(fh);
