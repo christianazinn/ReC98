@@ -231,8 +231,32 @@ enum t1case_mode_t {
 	// Not a recording mode: `T1CASE.CFG` = "g" runs the savestate detector's
 	// verdict selftest and exits. Shipped rather than debug-only, because it is
 	// the negative control the human runs before trusting a savestate result.
-	T1CASE_SELFTEST = 4
+	T1CASE_SELFTEST = 4,
+
+	// Public T1RPY ingress. This is deliberately not T1CASE_PLAYBACK: public
+	// packets have no T1CASE phase tag and must not weaken the strict decoder.
+	T1CASE_T1RPY_PLAYBACK = 5
 };
+
+#define T1CASE_RPY_PACKET_SIZE       8
+#define T1CASE_RPY_START_OFFSET      50
+#define T1CASE_RPY_HEADER_CHECKSUM_OFFSET 46
+#define T1CASE_RPY_HEADER_SIZE_V4    258
+#define T1CASE_RPY_HEADER_SIZE_V5    266
+#define T1CASE_RPY_HEADER_SIZE_V6    270
+#define T1CASE_RPY_HEADER_SIZE_V8    384
+#define T1CASE_RPY_INPUT_MAX         0x00400000UL
+#define T1CASE_RPY_FLAG_RLE          0x0001
+#define T1CASE_RPY_FLAG_KEY_LATCH    0x0002
+#define T1CASE_RPY_STATUS_FINALIZED  2
+#define T1CASE_RPY_PACKET_CONTROL    0x80
+#define T1CASE_RPY_PACKET_RUN_MASK   0x7F
+#define T1CASE_RPY_CONTROL_PROCESS_END 1
+#define T1CASE_RPY_CONTROL_TERMINAL  2
+#define T1CASE_RPY_END_MENU          1
+#define T1CASE_RPY_END_GAME_OVER     3
+#define T1CASE_RPY_INPUT_SEMANTICS   1
+#define T1CASE_RPY_PROCESS_REIIDEN   1
 
 enum t1case_text_id_t {
 	T1T_OK_RECORD = 0,
@@ -291,6 +315,8 @@ enum t1case_text_id_t {
 
 static char T1CASE_CFG_FN[11];
 static char T1CASE_BIN_FN[11];
+static char T1CASE_RPY_FN[11];
+static char T1CASE_RPY_START_FN[11];
 static char T1CASE_SPLIT_FN[12];
 static char T1CASE_DONE_FN[11];
 static char T1CASE_DIAG_FN[11];
@@ -321,6 +347,25 @@ static t1case_res_t far *t1case_res;
 
 static uint8_t t1case_mode;
 static bool t1case_started;
+
+// Direct public T1RPY source state. These are process-local; the existing
+// T1CaseState carrier persists the byte/sample/record/checksum cursors at the
+// only legal handoff point, after a public control packet.
+static uint8_t t1case_rpy_header[384];
+static uint8_t t1case_rpy_io[256];
+static uint32_t t1case_rpy_input_offset;
+static uint32_t t1case_rpy_input_size;
+static uint32_t t1case_rpy_packet_count;
+static uint32_t t1case_rpy_target_sample_count;
+static uint32_t t1case_rpy_target_record_count;
+static uint32_t t1case_rpy_target_payload_checksum;
+static uint32_t t1case_rpy_target_start_checksum;
+static uint32_t t1case_rpy_packet_cursor;
+static uint8_t t1case_rpy_decode_run;
+static uint8_t t1case_rpy_process_seq;
+static uint8_t t1case_rpy_terminal_reason;
+static bool t1case_rpy_terminal_seen;
+static uint16_t t1case_rpy_header_size;
 
 // Checkpoints (REPLAY_CORE_CONTRACT.md 5). One scratch slot, reused by the
 // capture, the restore and the array reservation - never more than one is in
@@ -562,6 +607,31 @@ static void t1case_paths_init(void)
 	T1CASE_BIN_FN[8] = 'I';
 	T1CASE_BIN_FN[9] = 'N';
 	T1CASE_BIN_FN[10] = '\0';
+
+	// "T1RPY.RPY" and its host-converted 64-byte startup block. The source
+	// packet stream is public T1RPY; the startup sidecar is raw bytes, not an
+	// envelope or a translated event stream.
+	T1CASE_RPY_FN[0] = 'T';
+	T1CASE_RPY_FN[1] = '1';
+	T1CASE_RPY_FN[2] = 'R';
+	T1CASE_RPY_FN[3] = 'P';
+	T1CASE_RPY_FN[4] = 'Y';
+	T1CASE_RPY_FN[5] = '.';
+	T1CASE_RPY_FN[6] = 'R';
+	T1CASE_RPY_FN[7] = 'P';
+	T1CASE_RPY_FN[8] = 'Y';
+	T1CASE_RPY_FN[9] = '\0';
+
+	T1CASE_RPY_START_FN[0] = 'T';
+	T1CASE_RPY_START_FN[1] = '1';
+	T1CASE_RPY_START_FN[2] = 'R';
+	T1CASE_RPY_START_FN[3] = 'P';
+	T1CASE_RPY_START_FN[4] = 'Y';
+	T1CASE_RPY_START_FN[5] = '.';
+	T1CASE_RPY_START_FN[6] = 'S';
+	T1CASE_RPY_START_FN[7] = 'T';
+	T1CASE_RPY_START_FN[8] = 'A';
+	T1CASE_RPY_START_FN[9] = '\0';
 
 	T1CASE_SPLIT_FN[0] = 'T';
 	T1CASE_SPLIT_FN[1] = '1';
@@ -1560,7 +1630,11 @@ static void t1case_diag(char t0, char t1, char t2, uint32_t a, uint32_t b)
 
 bool16 far t1case_active(void)
 {
-	return ((t1case_mode == T1CASE_RECORD) || (t1case_mode == T1CASE_PLAYBACK));
+	return (
+		(t1case_mode == T1CASE_RECORD) ||
+		(t1case_mode == T1CASE_PLAYBACK) ||
+		(t1case_mode == T1CASE_T1RPY_PLAYBACK)
+	);
 }
 
 void far t1case_reset_note(void)
@@ -1734,6 +1808,11 @@ static uint8_t t1case_cfg_mode(void)
 	if((mode == 'p') || (mode == 'P')) {
 		return T1CASE_PLAYBACK;
 	}
+	if((mode == 'u') || (mode == 'U')) {
+		// Public T1RPY ingress has its own wire reader. It must never fall
+		// through to the phase-tagged T1CASE decoder selected by `p`.
+		return T1CASE_T1RPY_PLAYBACK;
+	}
 	if((mode == 'g') || (mode == 'G')) {
 		return T1CASE_SELFTEST;
 	}
@@ -1871,6 +1950,12 @@ static void t1case_handoff_load(void)
 	t1case_split_rows = t1case_res->split_rows;
 	t1case_checkpoint_checksum = t1case_res->checkpoint_checksum;
 	t1case_started = ((t1case_res->flags & T1CASE_RES_FLAG_STARTED) != 0);
+	if(t1case_mode == T1CASE_T1RPY_PLAYBACK) {
+		t1case_rpy_packet_cursor =
+			t1case_input_byte_count / T1CASE_RPY_PACKET_SIZE;
+		t1case_rpy_decode_run = 0;
+		t1case_rpy_terminal_seen = false;
+	}
 }
 
 static void t1case_handoff_store(void)
@@ -1921,6 +2006,8 @@ static void t1case_handoff_clear(void)
 	}
 }
 
+static bool t1case_rpy_prefix_verify(void);
+
 // Cross-checks the resumed carrier against the case file's own header. This is
 // the HDR/FIN equality that T1DIAG.TXT has always exposed to a human reader,
 // enforced by the game instead: on a record resume the header on disk is the
@@ -1942,6 +2029,18 @@ static bool t1case_handoff_verify(void)
 	}
 	if(t1case_res->process_id != T1CASE_PROCESS_REIIDEN) {
 		return false;
+	}
+	if(t1case_mode == T1CASE_T1RPY_PLAYBACK) {
+		return (
+			(t1case_input_byte_count <= t1case_rpy_input_size) &&
+			((t1case_input_byte_count & (T1CASE_RPY_PACKET_SIZE - 1)) == 0) &&
+			(t1case_sample_count <= t1case_rpy_target_sample_count) &&
+			(t1case_record_count <= t1case_rpy_target_record_count) &&
+			(t1case_rpy_packet_cursor <= t1case_rpy_packet_count) &&
+			(t1case_res->process_seq != 0) &&
+			(t1case_res->process_seq <= 256) &&
+			t1case_rpy_prefix_verify()
+		);
 	}
 	if(t1case_mode == T1CASE_RECORD) {
 		return (
@@ -2487,6 +2586,470 @@ static bool t1case_playback_final(void)
 		// of bytes, so the byte cursor is an independent witness.
 		(t1case_input_byte_count == t1case_header.payload_size) &&
 		(t1case_payload_checksum == t1case_header.payload_checksum)
+	);
+}
+
+/// Direct public T1RPY source
+/// --------------------------
+/// This reader deliberately stays beside, rather than inside, the strict
+/// T1CASE codec above. T1RPY's eight-byte packets carry full key values and no
+/// GAMEPLAY/INTERSTITIAL tag. The source mode therefore validates only the
+/// public wire format and leaves the historical phase-tagged decoder alone.
+
+static uint16_t t1case_rpy_u16(const uint8_t *p)
+{
+	return static_cast<uint16_t>(
+		static_cast<uint16_t>(p[0]) |
+		(static_cast<uint16_t>(p[1]) << 8)
+	);
+}
+
+static uint32_t t1case_rpy_u32(const uint8_t *p)
+{
+	return (
+		static_cast<uint32_t>(p[0]) |
+		(static_cast<uint32_t>(p[1]) << 8) |
+		(static_cast<uint32_t>(p[2]) << 16) |
+		(static_cast<uint32_t>(p[3]) << 24)
+	);
+}
+
+static bool t1case_rpy_magic_ok(
+	const uint8_t *magic, uint16_t version
+)
+{
+	return (
+		((version == 4) &&
+			(magic[0] == 'T') &&
+			(magic[1] == '1') &&
+			(magic[2] == 'R') &&
+			(magic[3] == 'P') &&
+			(magic[4] == 'Y') &&
+			(magic[5] == '4') &&
+			(magic[6] == '\0') &&
+			(magic[7] == '\0')) ||
+		((version == 5) && (magic[5] == '5') &&
+			(magic[6] == '\0') && (magic[7] == '\0')) ||
+		((version == 6) && (magic[5] == '6') &&
+			(magic[6] == '\0') && (magic[7] == '\0')) ||
+		((version == 7) && (magic[5] == '7') &&
+			(magic[6] == '\0') && (magic[7] == '\0')) ||
+		((version == 8) && (magic[5] == '8') &&
+			(magic[6] == '\0') && (magic[7] == '\0'))
+	);
+}
+
+static uint16_t t1case_rpy_wire_size(uint16_t version)
+{
+	switch(version) {
+	case 4: return T1CASE_RPY_HEADER_SIZE_V4;
+	case 5: return T1CASE_RPY_HEADER_SIZE_V5;
+	case 6:
+	case 7: return T1CASE_RPY_HEADER_SIZE_V6;
+	case 8: return T1CASE_RPY_HEADER_SIZE_V8;
+	}
+	return 0;
+}
+
+static bool t1case_rpy_zero(const uint8_t *p, unsigned size)
+{
+	while(size != 0) {
+		if(*p++ != 0) {
+			return false;
+		}
+		size--;
+	}
+	return true;
+}
+
+static bool t1case_rpy_startup_read(void)
+{
+	int fd;
+	long physical_size;
+
+	fd = t1f_read_open(T1CASE_RPY_START_FN);
+	if(fd < 0) {
+		return false;
+	}
+	physical_size = lseek(fd, 0L, SEEK_END);
+	if(
+		(physical_size != static_cast<long>(T1CASE_STARTUP_SIZE)) ||
+		(lseek(fd, 0L, SEEK_SET) < 0) ||
+		(read(fd, &t1case_startup, sizeof(t1case_startup)) !=
+			static_cast<int>(sizeof(t1case_startup)))
+	) {
+		close(fd);
+		return false;
+	}
+	close(fd);
+	return true;
+}
+
+static bool t1case_rpy_header_read(void)
+{
+	uint8_t probe[10];
+	uint16_t version;
+	uint16_t checksum_size;
+	uint32_t stored;
+	uint32_t computed;
+	uint32_t input_end;
+	uint32_t process_count;
+	long physical_size;
+	int fd;
+	unsigned i;
+
+	t1case_paths_init();
+	fd = t1f_read_open(T1CASE_RPY_FN);
+	if(fd < 0) {
+		return false;
+	}
+	physical_size = lseek(fd, 0L, SEEK_END);
+	if((physical_size < 10) || (lseek(fd, 0L, SEEK_SET) < 0)) {
+		close(fd);
+		return false;
+	}
+	if(read(fd, probe, sizeof(probe)) != static_cast<int>(sizeof(probe))) {
+		close(fd);
+		return false;
+	}
+	version = t1case_rpy_u16(&probe[8]);
+	t1case_rpy_header_size = t1case_rpy_wire_size(version);
+	if(
+		(t1case_rpy_header_size == 0) ||
+		(probe[0] != 'T') || (probe[1] != '1') ||
+		(probe[2] != 'R') || (probe[3] != 'P') ||
+		(probe[4] != 'Y') ||
+		!t1case_rpy_magic_ok(probe, version) ||
+		(physical_size < static_cast<long>(t1case_rpy_header_size)) ||
+		(lseek(fd, 0L, SEEK_SET) < 0) ||
+		(read(fd, t1case_rpy_header, t1case_rpy_header_size) !=
+			static_cast<int>(t1case_rpy_header_size))
+	) {
+		close(fd);
+		return false;
+	}
+	close(fd);
+
+	if(
+		(t1case_rpy_u16(&t1case_rpy_header[8]) != version) ||
+		(t1case_rpy_u16(&t1case_rpy_header[10]) !=
+			 t1case_rpy_header_size) ||
+		(t1case_rpy_u16(&t1case_rpy_header[12]) !=
+			 T1CASE_RPY_PACKET_SIZE) ||
+		(t1case_rpy_header[16] != T1CASE_RPY_STATUS_FINALIZED) ||
+		(t1case_rpy_header[18] != 1) ||
+		(t1case_rpy_header[19] != T1CASE_RPY_INPUT_SEMANTICS) ||
+		(t1case_rpy_header[21] != 0) ||
+		((t1case_rpy_u16(&t1case_rpy_header[14]) &
+			(T1CASE_RPY_FLAG_RLE | T1CASE_RPY_FLAG_KEY_LATCH)) !=
+			(T1CASE_RPY_FLAG_RLE | T1CASE_RPY_FLAG_KEY_LATCH)) ||
+		(t1case_rpy_u16(&t1case_rpy_header[14]) & ~static_cast<uint16_t>(
+			T1CASE_RPY_FLAG_RLE | T1CASE_RPY_FLAG_KEY_LATCH)) ||
+		((t1case_rpy_header[17] != T1CASE_RPY_END_MENU) &&
+			(t1case_rpy_header[17] != T1CASE_RPY_END_GAME_OVER))
+	) {
+		return false;
+	}
+
+	t1case_rpy_input_offset = t1case_rpy_u32(&t1case_rpy_header[30]);
+	t1case_rpy_input_size = t1case_rpy_u32(&t1case_rpy_header[34]);
+	t1case_rpy_target_payload_checksum =
+		t1case_rpy_u32(&t1case_rpy_header[38]);
+	t1case_rpy_target_start_checksum =
+		t1case_rpy_u32(&t1case_rpy_header[42]);
+	t1case_rpy_packet_count = t1case_rpy_u32(&t1case_rpy_header[26]);
+	t1case_rpy_target_sample_count =
+		t1case_rpy_u32(&t1case_rpy_header[22]);
+	process_count = static_cast<uint32_t>(t1case_rpy_header[20]);
+	if(
+		(t1case_rpy_input_offset !=
+			static_cast<uint32_t>(t1case_rpy_header_size)) ||
+		(t1case_rpy_input_size > T1CASE_RPY_INPUT_MAX) ||
+		(t1case_rpy_packet_count >
+			(T1CASE_RPY_INPUT_MAX / T1CASE_RPY_PACKET_SIZE)) ||
+		(t1case_rpy_input_size !=
+			(t1case_rpy_packet_count * T1CASE_RPY_PACKET_SIZE)) ||
+		(t1case_rpy_input_offset + t1case_rpy_input_size <
+			t1case_rpy_input_offset) ||
+		(t1case_rpy_target_sample_count >
+			(0xFFFFFFFFUL - process_count)) ||
+		(process_count == 0) ||
+		(t1case_rpy_target_sample_count == 0 &&
+			t1case_rpy_packet_count == 0)
+	) {
+		return false;
+	}
+	input_end = t1case_rpy_input_offset + t1case_rpy_input_size;
+	fd = t1f_read_open(T1CASE_RPY_FN);
+	if(fd < 0) {
+		return false;
+	}
+	physical_size = lseek(fd, 0L, SEEK_END);
+	close(fd);
+	if(physical_size < static_cast<long>(input_end)) {
+		return false;
+	}
+	// T1RPY7/8 may carry a private accelerator tail after the public payload;
+	// the direct source consumes only the checked public packet extent.
+	if((version <= 6) &&
+		(static_cast<uint32_t>(physical_size) != input_end)) {
+		return false;
+	}
+
+	checksum_size = (version == 8) ? T1CASE_RPY_HEADER_SIZE_V6 :
+		t1case_rpy_header_size;
+	stored = t1case_rpy_u32(
+		&t1case_rpy_header[T1CASE_RPY_HEADER_CHECKSUM_OFFSET]
+	);
+	for(i = 0; i < 4; i++) {
+		t1case_rpy_header[T1CASE_RPY_HEADER_CHECKSUM_OFFSET + i] = 0;
+	}
+	computed = t1case_fnv1a(
+		T1CASE_FNV1A_BASIS, t1case_rpy_header, checksum_size
+	);
+	for(i = 0; i < 4; i++) {
+		t1case_rpy_header[T1CASE_RPY_HEADER_CHECKSUM_OFFSET + i] =
+			static_cast<uint8_t>(stored >> (i * 8));
+	}
+	if(stored != computed) {
+		return false;
+	}
+
+	// The public start blob and the host-converted sidecar are deliberately
+	// byte-identical for a supported non-practice start. The practice byte and
+	// both public reserved bytes must be zero before the 64-byte historical
+	// startup can be applied.
+	if(
+		!t1case_rpy_zero(&t1case_rpy_header[T1CASE_RPY_START_OFFSET + 61], 3) ||
+		!t1case_rpy_startup_read() ||
+		(t1case_fnv1a(
+			T1CASE_FNV1A_BASIS, &t1case_startup,
+			sizeof(t1case_startup)
+		) != t1case_rpy_target_start_checksum)
+	) {
+		return false;
+	}
+	for(i = 0; i < T1CASE_STARTUP_SIZE; i++) {
+		if(reinterpret_cast<const uint8_t *>(&t1case_startup)[i] !=
+			t1case_rpy_header[T1CASE_RPY_START_OFFSET + i]) {
+			return false;
+		}
+	}
+	if(
+		(t1case_startup.mode_test != 0) ||
+		(t1case_startup.debug_mode != 0) ||
+		(t1case_startup.start_binary != T1CASE_PROCESS_REIIDEN)
+	) {
+		return false;
+	}
+
+	t1case_rpy_target_record_count =
+		t1case_rpy_target_sample_count + process_count;
+	return true;
+}
+
+static bool t1case_rpy_prefix_verify(void)
+{
+	uint32_t checksum = T1CASE_FNV1A_BASIS;
+	uint32_t remaining = t1case_input_byte_count;
+	unsigned want;
+	int fd;
+
+	if((remaining & (T1CASE_RPY_PACKET_SIZE - 1)) != 0) {
+		return false;
+	}
+	fd = t1f_read_open(T1CASE_RPY_FN);
+	if(fd < 0) {
+		return false;
+	}
+	if(lseek(fd, static_cast<long>(t1case_rpy_input_offset), SEEK_SET) < 0) {
+		close(fd);
+		return false;
+	}
+	while(remaining != 0) {
+		want = (remaining > sizeof(t1case_rpy_io)) ?
+			static_cast<unsigned>(sizeof(t1case_rpy_io)) :
+			static_cast<unsigned>(remaining);
+		if(read(fd, t1case_rpy_io, want) != static_cast<int>(want)) {
+			close(fd);
+			return false;
+		}
+		checksum = t1case_fnv1a(checksum, t1case_rpy_io, want);
+		remaining -= want;
+	}
+	close(fd);
+	return (checksum == t1case_payload_checksum);
+}
+
+static bool t1case_rpy_packet_fetch(uint8_t *packet)
+{
+	uint32_t offset;
+	int fd;
+	unsigned i;
+
+	if(
+		(t1case_rpy_packet_cursor >= t1case_rpy_packet_count) ||
+		(t1case_input_byte_count >
+			(t1case_rpy_input_size - T1CASE_RPY_PACKET_SIZE))
+	) {
+		return false;
+	}
+	offset = t1case_rpy_input_offset + t1case_input_byte_count;
+	fd = t1f_read_open(T1CASE_RPY_FN);
+	if(fd < 0) {
+		t1case_stream_io_error = true;
+		return false;
+	}
+	if(
+		(lseek(fd, static_cast<long>(offset), SEEK_SET) < 0) ||
+		(read(fd, packet, T1CASE_RPY_PACKET_SIZE) !=
+			T1CASE_RPY_PACKET_SIZE)
+	) {
+		close(fd);
+		t1case_stream_io_error = true;
+		return false;
+	}
+	close(fd);
+	for(i = 0; i < T1CASE_RPY_PACKET_SIZE; i++) {
+		t1case_payload_checksum = (
+			(t1case_payload_checksum ^ static_cast<uint32_t>(packet[i])) *
+			T1CASE_FNV1A_PRIME
+		);
+	}
+	t1case_input_byte_count += T1CASE_RPY_PACKET_SIZE;
+	t1case_rpy_packet_cursor++;
+	return true;
+}
+
+static uint8_t t1case_rpy_input_mask(int index)
+{
+	switch(index) {
+	case 0: return 0x01;
+	case 1: return 0x10;
+	case 2: return 0x06;
+	case 3: return 0xC0;
+	case 4: return 0x3C;
+	case 5: return 0x48;
+	case 6: return 0x09;
+	}
+	return 0;
+}
+
+static bool t1case_rpy_decode_sample(void)
+{
+	uint8_t packet[T1CASE_RPY_PACKET_SIZE];
+	int i;
+
+	if(t1case_rpy_decode_run == 0) {
+		if(!t1case_rpy_packet_fetch(packet)) {
+			return false;
+		}
+		if(packet[0] & T1CASE_RPY_PACKET_CONTROL) {
+			t1case_control_pending = true;
+			return false;
+		}
+		for(i = 0; i < T1CASE_GROUP_COUNT; i++) {
+			if(packet[1 + i] & ~t1case_rpy_input_mask(i)) {
+				return false;
+			}
+			t1case_keys[i] = packet[1 + i];
+		}
+		t1case_rpy_decode_run = static_cast<uint8_t>(
+			(packet[0] & T1CASE_RPY_PACKET_RUN_MASK) + 1
+		);
+	}
+	t1case_rpy_decode_run--;
+	return true;
+}
+
+static bool t1case_rpy_decode_control(uint8_t control)
+{
+	uint8_t packet[T1CASE_RPY_PACKET_SIZE];
+	uint8_t packet_control;
+	int i;
+
+	if(t1case_rpy_decode_run != 0) {
+		return false;
+	}
+	if(!t1case_rpy_packet_fetch(packet)) {
+		return false;
+	}
+	if(!(packet[0] & T1CASE_RPY_PACKET_CONTROL)) {
+		return false;
+	}
+	packet_control = static_cast<uint8_t>(
+		packet[0] & T1CASE_RPY_PACKET_RUN_MASK
+	);
+	if(packet_control != control) {
+		return false;
+	}
+	if(
+		(packet[1] != T1CASE_RPY_PROCESS_REIIDEN) ||
+		(packet[2] != t1case_rpy_process_seq)
+	) {
+		t1case_process_mismatch = true;
+		return false;
+	}
+	if(control == T1CASE_RPY_CONTROL_PROCESS_END) {
+		if(
+			(packet[3] != T1CASE_RPY_PROCESS_REIIDEN) ||
+			(t1case_rpy_process_seq == 0xFF)
+		) {
+			return false;
+		}
+		for(i = 4; i < T1CASE_RPY_PACKET_SIZE; i++) {
+			if(packet[i] != 0) {
+				return false;
+			}
+		}
+		t1case_rpy_process_seq++;
+		t1case_control_pending = false;
+		return true;
+	}
+	return false;
+}
+
+static bool t1case_rpy_decode_terminal(void)
+{
+	uint8_t packet[T1CASE_RPY_PACKET_SIZE];
+	int i;
+
+	if(t1case_rpy_decode_run != 0 || !t1case_rpy_packet_fetch(packet)) {
+		return false;
+	}
+	if(
+		!(packet[0] & T1CASE_RPY_PACKET_CONTROL) ||
+		((packet[0] & T1CASE_RPY_PACKET_RUN_MASK) !=
+			T1CASE_RPY_CONTROL_TERMINAL) ||
+		(packet[1] != T1CASE_RPY_PROCESS_REIIDEN) ||
+		(packet[2] != t1case_rpy_process_seq) ||
+		((packet[3] != T1CASE_RPY_END_MENU) &&
+			(packet[3] != T1CASE_RPY_END_GAME_OVER))
+	) {
+		return false;
+	}
+	for(i = 4; i < T1CASE_RPY_PACKET_SIZE; i++) {
+		if(packet[i] != 0) {
+			return false;
+		}
+	}
+	t1case_rpy_terminal_reason = packet[3];
+	t1case_rpy_terminal_seen = true;
+	t1case_control_pending = false;
+	return true;
+}
+
+static bool t1case_rpy_playback_final(void)
+{
+	return (
+		t1case_rpy_terminal_seen &&
+		(t1case_rpy_terminal_reason == t1case_rpy_header[17]) &&
+		(t1case_sample_count == t1case_rpy_target_sample_count) &&
+		(t1case_record_count == t1case_rpy_target_record_count) &&
+		(t1case_input_byte_count == t1case_rpy_input_size) &&
+		(t1case_rpy_packet_cursor == t1case_rpy_packet_count) &&
+		(t1case_rpy_decode_run == 0) &&
+		(t1case_payload_checksum == t1case_rpy_target_payload_checksum)
 	);
 }
 
@@ -3124,7 +3687,7 @@ void far t1case_frame_io(uint8_t near *prev)
 		}
 		t1case_record_count++;
 		t1case_sample_count++;
-	} else {
+	} else if(t1case_mode == T1CASE_PLAYBACK) {
 		if(t1case_record_count >= t1case_header.record_count) {
 			t1case_split_row(T1SPLIT_EVENT_INPUT_END);
 			t1case_mode = T1CASE_DISABLED;
@@ -3138,6 +3701,27 @@ void far t1case_frame_io(uint8_t near *prev)
 			t1case_input_error(
 				t1case_stream_io_error ? T1T_ERR_FRAME_IO :
 				(t1case_control_pending ? T1T_ERR_CONTROL_EARLY : T1T_ERR_DESYNC)
+			);
+			return;
+		}
+		t1case_record_count++;
+		t1case_sample_count++;
+	} else {
+		if(
+			(t1case_sample_count >= t1case_rpy_target_sample_count) ||
+			t1case_rpy_terminal_seen
+		) {
+			t1case_control_pending = true;
+			t1case_input_error(T1T_ERR_CONTROL_EARLY);
+			return;
+		}
+		t1case_stream_io_error = false;
+		t1case_control_pending = false;
+		if(!t1case_rpy_decode_sample()) {
+			t1case_input_error(
+				t1case_stream_io_error ? T1T_ERR_FRAME_IO :
+				(t1case_control_pending ? T1T_ERR_CONTROL_EARLY :
+				 T1T_ERR_DESYNC)
 			);
 			return;
 		}
@@ -3206,6 +3790,12 @@ void far t1case_session_start(void)
 	t1case_stream_io_error = false;
 	t1case_control_pending = false;
 	t1case_process_mismatch = false;
+	t1case_rpy_packet_cursor = 0;
+	t1case_rpy_decode_run = 0;
+	t1case_rpy_process_seq = 0;
+	t1case_rpy_terminal_reason = 0;
+	t1case_rpy_terminal_seen = false;
+	t1case_rpy_header_size = 0;
 	t1case_ckpt_index = 0;
 	t1case_ckpt_verify_pending = false;
 
@@ -3229,7 +3819,8 @@ void far t1case_session_start(void)
 			t1case_mode = t1case_res->mode;
 			if(
 				(t1case_mode != T1CASE_RECORD) &&
-				(t1case_mode != T1CASE_PLAYBACK)
+				(t1case_mode != T1CASE_PLAYBACK) &&
+				(t1case_mode != T1CASE_T1RPY_PLAYBACK)
 			) {
 				t1case_mode = T1CASE_DISABLED;
 			}
@@ -3375,6 +3966,16 @@ void far t1case_session_start(void)
 				t1case_done_write(T1T_ERR_SESSION);
 				return;
 			}
+		}
+	} else if(t1case_mode == T1CASE_T1RPY_PLAYBACK) {
+		if(!t1case_rpy_header_read()) {
+			t1case_mode = T1CASE_ERROR;
+			t1case_handoff_clear();
+			t1case_done_write(T1T_ERR_CASE_HEADER);
+			return;
+		}
+		if(!resumed) {
+			t1case_startup_apply();
 		}
 	} else if(!resumed) {
 		// RECORD, first process: the scenario start.
@@ -3538,9 +4139,25 @@ void far t1case_session_start(void)
 	}
 	if(t1case_res) {
 		t1case_res->process_seq++;
+		if(t1case_mode == T1CASE_T1RPY_PLAYBACK) {
+			if(t1case_res->process_seq > 256) {
+				t1case_mode = T1CASE_ERROR;
+				t1case_handoff_clear();
+				t1case_done_write(T1T_ERR_HANDOFF);
+				return;
+			}
+			t1case_rpy_process_seq = static_cast<uint8_t>(
+				t1case_res->process_seq - 1
+			);
+		}
 	}
 	t1case_handoff_store();
-	t1case_diag('H', 'D', 'R', t1case_header.record_count, t1case_global_frame);
+	t1case_diag(
+		'H', 'D', 'R',
+		(t1case_mode == T1CASE_T1RPY_PLAYBACK) ?
+			t1case_rpy_target_record_count : t1case_header.record_count,
+		t1case_global_frame
+	);
 }
 
 void far t1case_round_start(void)
@@ -3556,7 +4173,8 @@ void far t1case_round_start(void)
 	// played into. Letting `started` gate both would skip exactly the check
 	// that covers the restore.
 	if(
-		(t1case_mode == T1CASE_PLAYBACK) &&
+		((t1case_mode == T1CASE_PLAYBACK) ||
+			(t1case_mode == T1CASE_T1RPY_PLAYBACK)) &&
 		(!t1case_started || t1case_ckpt_verify_pending) &&
 		!t1case_startup_verify()
 	) {
@@ -3620,7 +4238,7 @@ void far t1case_finish(bool16 terminal)
 			t1case_input_error(T1T_ERR_FRAME_IO);
 			return;
 		}
-	} else {
+	} else if(t1case_mode == T1CASE_PLAYBACK) {
 		t1case_stream_io_error = false;
 
 		// A run that still owes samples is the LATE half of §7.2: the game
@@ -3637,6 +4255,27 @@ void far t1case_finish(bool16 terminal)
 			return;
 		}
 		t1case_record_count++;
+	} else {
+		t1case_stream_io_error = false;
+		late = (t1case_rpy_decode_run != 0);
+		t1case_process_mismatch = false;
+		if(
+			(terminal != false) ?
+			!t1case_rpy_decode_terminal() :
+			!t1case_rpy_decode_control(T1CASE_RPY_CONTROL_PROCESS_END)
+		) {
+			t1case_input_error(
+				t1case_stream_io_error ? T1T_ERR_FRAME_IO :
+				(t1case_process_mismatch ? T1T_ERR_PROCESS :
+					(late ? T1T_ERR_CONTROL_LATE : T1T_ERR_DESYNC))
+			);
+			return;
+		}
+		t1case_record_count++;
+		if(terminal && !t1case_rpy_playback_final()) {
+			t1case_input_error(T1T_ERR_DESYNC);
+			return;
+		}
 	}
 
 	t1case_split_row(T1SPLIT_EVENT_FINISH);
@@ -3666,11 +4305,21 @@ void far t1case_finish(bool16 terminal)
 	}
 
 	final_case = (
-		(terminal != false) ||
-		((t1case_mode == T1CASE_PLAYBACK) && t1case_playback_final())
+		((t1case_mode == T1CASE_RECORD) && (terminal != false)) ||
+		((t1case_mode == T1CASE_PLAYBACK) &&
+			((terminal != false) || t1case_playback_final())) ||
+		((t1case_mode == T1CASE_T1RPY_PLAYBACK) &&
+			t1case_rpy_playback_final())
 	);
 	if(final_case) {
 		if((t1case_mode == T1CASE_PLAYBACK) && !t1case_playback_final()) {
+			t1case_input_error(T1T_ERR_DESYNC);
+			return;
+		}
+		if(
+			(t1case_mode == T1CASE_T1RPY_PLAYBACK) &&
+			!t1case_rpy_playback_final()
+		) {
 			t1case_input_error(T1T_ERR_DESYNC);
 			return;
 		}
