@@ -171,6 +171,38 @@ struct Explosion {
 extern Explosion explosions_small[EXPLOSION_SMALL_COUNT];
 extern Explosion explosions_big;
 
+// The frozen header models the four-byte BSS hole after [origin] as one byte.
+// This validation-only view is anchored to th04_main.asm's 24-byte
+// `thicklaser_t struc`; it corrects only oracle reads and does not alter the
+// gameplay-facing historical declaration.
+struct oracle_thicklaser_t {
+	uint8_t flag;
+	int8_t unused_1;
+	SPPoint origin;
+	int8_t unused_2[4];
+	int cur_flag_frame;
+	int line_frames;
+	int static_frames;
+	vc_t col_outline;
+	int8_t unused_3;
+	pixel_t radius_max;
+	pixel_t radius_cur;
+	pixel_t radius_speed;
+};
+typedef char oracle_thicklaser_layout_must_match_frozen[
+	(sizeof(oracle_thicklaser_t) == 24) &&
+	(offsetof(oracle_thicklaser_t, flag) == 0) &&
+	(offsetof(oracle_thicklaser_t, origin) == 2) &&
+	(offsetof(oracle_thicklaser_t, cur_flag_frame) == 10) &&
+	(offsetof(oracle_thicklaser_t, line_frames) == 12) &&
+	(offsetof(oracle_thicklaser_t, static_frames) == 14) &&
+	(offsetof(oracle_thicklaser_t, col_outline) == 16) &&
+	(offsetof(oracle_thicklaser_t, radius_max) == 18) &&
+	(offsetof(oracle_thicklaser_t, radius_cur) == 20) &&
+	(offsetof(oracle_thicklaser_t, radius_speed) == 22)
+	? 1 : -1
+];
+
 // `gather.hpp` and `enemy.hpp` both include frozen, unguarded `bullet.hpp`.
 // Keep `enemy.hpp` as the single provider because its complete state is
 // observed below. This exact TH04 layout mirror replaces only the otherwise
@@ -1244,7 +1276,7 @@ static void oracle_hash_cheeto_trail(const cheeto_trail_t near *trail)
 	}
 }
 #else
-static void oracle_hash_thicklaser(const thicklaser_t near *laser)
+static void oracle_hash_thicklaser(const oracle_thicklaser_t near *laser)
 {
 	oracle_hash_u8(static_cast<uint8_t>(laser->flag));
 	oracle_hash_sppoint(&laser->origin);
@@ -1376,9 +1408,14 @@ static uint16_t oracle_hash_group_bullets(oracle_split_hash_t far *out)
 		oracle_hash_cheeto_trail(&cheeto_trails[i]);
 	}
 #else
-	oracle_hash_thicklaser(&thicklaser_template);
+	const oracle_thicklaser_t near *oracle_thicklasers =
+		reinterpret_cast<const oracle_thicklaser_t near *>(thicklasers);
+
+	oracle_hash_thicklaser(
+		reinterpret_cast<const oracle_thicklaser_t near *>(&thicklaser_template)
+	);
 	for(i = 0; i < THICKLASER_COUNT; i++) {
-		oracle_hash_thicklaser(&thicklasers[i]);
+		oracle_hash_thicklaser(&oracle_thicklasers[i]);
 	}
 #endif
 	oracle_hash_store(out);
