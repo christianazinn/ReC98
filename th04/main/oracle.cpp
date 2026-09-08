@@ -1364,6 +1364,7 @@ static bool oracle_finished;
 	static uint8_t oracle_public_run_left;
 	static uint32_t oracle_public_sample_count;
 	static uint16_t oracle_public_last_input;
+	static uint8_t oracle_public_last_shift;
 	static bool oracle_public_active;
 	static bool oracle_public_finished;
 	static bool oracle_public_source_error;
@@ -4526,7 +4527,8 @@ static void oracle_public_start_apply(void)
 
 	resident->rand = start->resident_rand;
 	// This is the same relation as MAIN's original entry assignment at
-	// `th04_main.asm:301-304`, repeated because this sidecar is applied after
+	// `th04_main.asm@9fb19248163fd343549740281cfcaf0ae95d882e:300-304`,
+	// repeated because this sidecar is applied after
 	// that instruction but before `randring_fill()`. Validation above requires
 	// the serialized random_seed to equal this actual value.
 	random_seed = start->resident_rand;
@@ -4574,6 +4576,7 @@ static void oracle_public_story_entry(void)
 	oracle_public_run_left = 0;
 	oracle_public_sample_count = 0;
 	oracle_public_last_input = 0;
+	oracle_public_last_shift = 0;
 	oracle_public_trace_active = false;
 	if(
 		!oracle_public_packet_read(&oracle_public_pending) ||
@@ -4633,6 +4636,12 @@ bool oracle_public_story_frame(void)
 		oracle_split_write_header();
 		oracle_split_row(ORACLE_EVENT_START, 0);
 		oracle_split_row(ORACLE_EVENT_ROUND_START, 0);
+		if(oracle_mode == ORACLE_ERROR) {
+			// Split I/O already wrote its specific failure marker. Do not let a
+			// later prefix finish or failed execl relabel that error as success.
+			oracle_public_source_error = true;
+			return false;
+		}
 	}
 	if(oracle_public_run_left == 0) {
 		if(!oracle_public_packet_read(&oracle_public_pending)) {
@@ -4669,6 +4678,7 @@ bool oracle_public_story_frame(void)
 	oracle_public_run_left--;
 	oracle_public_sample_count++;
 	oracle_public_last_input = key_det;
+	oracle_public_last_shift = static_cast<uint8_t>(shiftkey);
 	// This is the private reader's existing post-admission/pre-update cadence.
 	// The raw public packet still carries the independent shift byte; this
 	// fixed schema's uint16 input column records the complete key word.
@@ -4677,6 +4687,24 @@ bool oracle_public_story_frame(void)
 		  (ORACLE_SPLIT_INTERVAL_SAMPLES - 1)) == 0)
 	) {
 		oracle_split_row(ORACLE_EVENT_CHECKPOINT, oracle_public_last_input);
+		oracle_diag(
+			'P', 'I', 'N',
+			(static_cast<uint32_t>(oracle_public_last_shift) << 16) |
+			oracle_public_last_input,
+			oracle_public_sample_count
+		);
+		if(oracle_mode == ORACLE_ERROR) {
+			oracle_public_source_error = true;
+			return false;
+		}
+	}
+	if(oracle_public_sample_count == 1) {
+		oracle_diag(
+			'P', 'I', 'N',
+			(static_cast<uint32_t>(oracle_public_last_shift) << 16) |
+			oracle_public_last_input,
+			oracle_public_sample_count
+		);
 	}
 	return true;
 }
@@ -4692,6 +4720,18 @@ void oracle_public_story_finish(void)
 	// sample's complete update/render pass. It records a prefix boundary, not a
 	// terminal event, and deliberately leaves its following packet unconsumed.
 	oracle_split_row(ORACLE_EVENT_INPUT_END, oracle_public_last_input);
+	if(oracle_mode == ORACLE_ERROR) {
+		oracle_public_active = false;
+		oracle_public_source_error = true;
+		oracle_public_trace_active = false;
+		return;
+	}
+	oracle_diag(
+		'I', 'E', 'N',
+		(static_cast<uint32_t>(oracle_public_last_shift) << 16) |
+		oracle_public_last_input,
+		oracle_public_sample_count
+	);
 	oracle_diag(
 		'P', 'F', 'X', oracle_public_sample_count,
 		(oracle_public_packet_cursor - 1)
@@ -4709,6 +4749,10 @@ void oracle_public_story_exec_failed(void)
 	// will complete its current iteration before observing quit, so mark it as
 	// an explicit failure rather than silently describing that tick as a prefix.
 	oracle_public_active = false;
+	if(oracle_mode == ORACLE_ERROR) {
+		quit = Q_QUIT_TO_OP;
+		return;
+	}
 	oracle_diag('E', 'X', 'F', oracle_public_sample_count, 0);
 	// The prefix marker was written immediately before the non-returning call
 	// so the success path can leave evidence. A returning execl has to replace

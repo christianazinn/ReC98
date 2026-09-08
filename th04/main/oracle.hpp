@@ -361,7 +361,10 @@ struct oracle_split_row_t {
 	uint8_t rank;
 	uint32_t global_frame;
 	uint32_t scenario_cursor;
-	uint16_t input; // (shiftkey << 8) | key_det_replay
+	// Full sampled `key_det` word. TxCASE supplies an 8-bit replay key and
+	// packs its independent shift flag at bit 8; public ingress preserves its
+	// full word and writes its shift state to the separate PIN/IEN diagnostics.
+	uint16_t input;
 	uint8_t schema;
 	uint8_t reserved0;
 
@@ -408,7 +411,8 @@ typedef char oracle_split_row_size_check[
 // Called as the very first statement of `ems_allocate_and_preload_eyecatch()`
 // (`th04/main/ems.cpp:57`), which MAIN runs immediately after
 // `game_init_main()` and `random_seed = resident->rand`
-// (`th04_main.asm:301-304`, `th05_main.asm:342-345`) and well before the demo
+// (`th04_main.asm@9fb19248163fd343549740281cfcaf0ae95d882e:300-304`,
+// `th05_main.asm@9fb19248163fd343549740281cfcaf0ae95d882e:342-345`) and well before the demo
 // gate in the original setup routine. This is the earliest point at which the packfile is open
 // (so `file_ropen()` works), the resident structure exists, and NOTHING has yet
 // been derived from it — `ems_allocate_and_preload_eyecatch()` itself reads
@@ -438,8 +442,8 @@ bool oracle_active(void);
 bool oracle_frame(uint16_t shift_offset);
 
 // Returns true while either the validation oracle or the stock demo has a
-// frame to consume. Keeping this policy in ORACLE_TEXT leaves DemoPlay() at
-// its original position and size.
+// frame to consume. Keeping this policy in ORACLE_TEXT leaves DemoPlay() in
+// its original MAIN_01 frame; public ingress intentionally changes its size.
 bool oracle_or_demo_frame(uint16_t shift_offset);
 
 #if (GAME == 4)
@@ -836,7 +840,8 @@ typedef char oracle_split_row_size_check[
 // Called as the very first statement of `ems_allocate_and_preload_eyecatch()`
 // (`th04/main/ems.cpp:57`), which MAIN runs immediately after
 // `game_init_main()` and `random_seed = resident->rand`
-// (`th04_main.asm:301-304`, `th05_main.asm:342-345`) and well before the demo
+// (`th04_main.asm@9fb19248163fd343549740281cfcaf0ae95d882e:300-304`,
+// `th05_main.asm@9fb19248163fd343549740281cfcaf0ae95d882e:342-345`) and well before the demo
 // gate in `sub_AED0`. That is the earliest point at which the packfile is open
 // (so `file_ropen()` works), the resident structure exists, and NOTHING has yet
 // been derived from it — `ems_allocate_and_preload_eyecatch()` itself reads
