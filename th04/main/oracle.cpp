@@ -222,6 +222,7 @@ extern uint16_t items_spawned;
 extern uint16_t items_collected;
 extern uint16_t total_point_items_collected;
 extern bool items_pull_to_player;
+extern uint8_t enemy_drop_ring_p;
 
 struct oracle_laser_coords_t {
 	PlayfieldPoint origin;
@@ -691,6 +692,7 @@ typedef char oracle_unexported_binding_layout_must_match_frozen[
 	(sizeof(int) == 2) &&
 	#if (GAME == 5)
 	(sizeof(tile_ring_row_filled) == sizeof(int)) &&
+	(sizeof(enemy_drop_ring_p) == 1) &&
 	#endif
 	1
 	? 1 : -1
@@ -699,9 +701,7 @@ typedef char oracle_unexported_binding_layout_must_match_frozen[
 static uint8_t oracle_enemy_drop_ring_p_get(void)
 {
 	#if (GAME == 5)
-	// TH05's historical item BSS has no drop-ring cursor. Keep the schema's
-	// field position without inventing source state or an address.
-	return 0;
+	return enemy_drop_ring_p;
 	#else
 	return *(
 		reinterpret_cast<const uint8_t near *>(&dream_score) +

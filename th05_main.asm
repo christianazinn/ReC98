@@ -20228,8 +20228,9 @@ include th04/main/bullet/update[bss].asm
 include th04/main/bullet/pellet_r[bss].asm
 		db 6 dup(?)
 word_2C986	dw ?
-public _item_point_score_at_full_dream
+public _item_point_score_at_full_dream, _enemy_drop_ring_p
 _item_point_score_at_full_dream	dw ?
+_enemy_drop_ring_p label byte
 byte_2C98A	db ?
 		db ?
 include th04/main/midboss/funcs[bss].asm
