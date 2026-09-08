@@ -3104,7 +3104,7 @@ static void oracle_split_row(uint8_t event, uint16_t input)
 // corresponding TH02 recorder bound.
 //
 // [verified-by-emulator 2026-08-15] Why it is needed: the oracle's only
-// injection seam is the indirect `_demo_update` call inside the gameplay frame
+// injection seam is the indirect demo-input callback inside the gameplay frame
 // loop (`th04_main.asm:352-353`). ZUN's demo tape was recorded against a
 // different stage, so on an overridden stage the substituted input loses the
 // run; the final miss takes the game OUT of that loop into the
@@ -4579,8 +4579,8 @@ static void oracle_memclear(void far *buf, unsigned size)
 }
 
 // Explicit, rather than a struct assignment. `*a = *b` on a struct emits a
-// call to Turbo C++'s `F_SCOPY@` helper, which TH04's MAIN already links but
-// TH05's does not — pulling it in would grow TH05's original `_TEXT`
+// call to Turbo C++'s far-struct-copy helper, which TH04's MAIN already links
+// but TH05's does not — pulling it in would grow TH05's original text
 // contribution, which the layout gate rightly rejects.
 static void oracle_record_copy(oracle_record_t far *dst, const oracle_record_t far *src)
 {
@@ -4655,7 +4655,7 @@ static uint32_t oracle_fnv1a(uint32_t hash, const void far *buf, unsigned size)
 // two far stores. Version 2 serializes ~13 KB per row instead of ~300 bytes,
 // which makes that overhead the difference between a slow frame and several.
 // Only the storage location changes: the construction below is byte-for-byte
-// the one in `TXSPLIT_CONTRACT.md` §7, so v1 and v2 agree on groups 0 and 1.
+// the one in the split-format contract §7, so v1 and v2 agree on groups 0 and 1.
 static uint32_t oracle_h_a;
 static uint32_t oracle_h_b;
 static uint8_t oracle_h_i;
@@ -4696,7 +4696,8 @@ static void oracle_hash_u32(uint32_t value)
 // the schema survives the alignment pragmas that the debloated lineage removes
 // (`th04/main/player/move.cpp`, `th04/main/bullet/update.cpp`).
 // Far parameters, like every other helper in this module: this is the large
-// data model, so `&some_global` is a far pointer unless the global itself was
+// data model, so taking an ordinary global's address yields a far pointer unless
+// the global itself was
 // declared `near` (as `shots[]` is and `player_pos` is not). Near-to-far
 // conversion is implicit and lossless, the reverse is not.
 static void oracle_hash_motion(const PlayfieldMotion far *m)
@@ -4716,7 +4717,7 @@ static void oracle_hash_sppoint(const SPPoint far *p)
 }
 
 // A near function pointer is pointer-shaped state and is NEVER hashed as an
-// address (`TXSPLIT_CONTRACT.md` §7, `DETERMINISTIC_STATE_TH04.md` §6). None of
+// address (the split-format contract §7 and TH04 state inventory §6). None of
 // these slots has a stable cross-lineage enum -- the debloated lineage relinks
 // every one of them at a different offset -- so the honest serialization is the
 // only lineage-independent fact about them: whether a handler is installed.
@@ -4818,7 +4819,7 @@ static void oracle_hash_group_run(oracle_split_hash_t far *out)
 	oracle_hash_store(out);
 }
 
-// Group 2 -- player. `DETERMINISTIC_STATE_TH04.md` §5 names the owners
+// Group 2 -- player. The TH04 state inventory §5 names the owners
 // (`player.hpp`, `move.hpp`, `shot.hpp`, `bomb.hpp`); this is their field-level
 // inventory, which that file listed as `[open]`.
 //
@@ -4914,8 +4915,8 @@ static void oracle_hash_group_player(oracle_split_hash_t far *out)
 //
 // `bullet_t` is 26 bytes in TH04 and 32 in TH05 with an inverted
 // pellet/bullet16 split (`th04/main/bullet/bullet.hpp:133-199`), so element
-// index `i` does not denote the same thing in the two games. That is fine --
-// `T4SPLT` and `T5SPLT` are unrelated schemas and are never compared to each
+// position is not comparable between the two games. That is fine --
+// their split schemas are unrelated and are never compared to each
 // other. What IS compared is one game across lineages, and for that the
 // field-by-field serialization below matters: the debloated lineage deletes
 // `#pragma option -a2` from `th04/main/bullet/update.cpp` and
@@ -5008,7 +5009,7 @@ static uint16_t oracle_hash_group_bullets(oracle_split_hash_t far *out)
 	oracle_hash_u8(bullet_zap.frame);
 	oracle_hash_u8(bullet_clear_time);
 
-	// The custom-entity block. `DETERMINISTIC_STATE_TH05.md` §4 files TH05's
+	// The custom-entity block. The TH05 state inventory §4 files TH05's
 	// cheetos, swords, b4balls and b6balls under this group; all four are
 	// `reinterpret_cast` views of the SAME `custom_entities[]` storage
 	// (`th05/main/bullet/{cheeto,sword,b4ball,b6ball}.hpp`), as are the stage-2
@@ -5511,14 +5512,14 @@ static bool oracle_header_read(void)
 		}
 	}
 	// An oracle case must not carry a debug flag, and it is REFUSED here
-	// rather than coerced into `resident` further down. `TXCASE_CONTRACT.md`
-	// requires this of every game; TH01's `t1case_header_read()` already did
-	// it and TH02's `t2case_header_read()` already did it, and this closes the
+	// rather than coerced into resident state further down. The case-format
+	// contract requires this of every game; the TH01 and TH02 header readers
+	// already did it, and this closes the
 	// TH04/TH05 half.
 	//
 	// It is not a formality in either game:
 	//
-	// * TH05's `debug` is live, and playback would apply it *before* the game
+	// * TH05's debug flag is live, and the replay path would apply it before the game
 	//   reads it. `oracle_entry()` runs from
 	//   `ems_allocate_and_preload_eyecatch()` (`th05_main.asm:344`), while
 	//   `th05_main.asm:748-763` overrides `resident->stage` from `debug_stage`

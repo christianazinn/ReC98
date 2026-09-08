@@ -466,9 +466,9 @@ bool oracle_or_demo_frame(uint16_t shift_offset);
 //   offset 64 + startup_size     payload, record_count * 12 bytes
 //
 // TH04 and TH05 share this implementation the same way they already share
-// `th04/main/demo.cpp`, but they emphatically do NOT share a startup block:
-// `HUMAConfig` (`th04/resident.hpp:6-61`) and `KSOConfig`
-// (`th05/resident.hpp:4-51`) are different layouts with different field sets.
+// the shared demo implementation, but they emphatically do NOT share a startup
+// block: their resident configuration structures have different layouts and
+// field sets.
 // A shared name does not imply a shared body.
 
 #include "platform.h"
@@ -491,7 +491,7 @@ bool oracle_or_demo_frame(uint16_t shift_offset);
 #define ORACLE_RANDRING_SIZE 256
 
 // [source_kind]: where the logical input stream originally came from. There is
-// deliberately no value 3: `T3CASE1` reserves it for a snapshot-bearing
+// deliberately no value 3: TH03 reserves it for a snapshot-bearing
 // normalized case, and TxCASE has no snapshot concept at all.
 #define ORACLE_SOURCE_DIRECT     1
 #define ORACLE_SOURCE_NORMALIZED 2
@@ -704,25 +704,26 @@ typedef char oracle_record_size_check[
 /// Trace container — `state/port/TXSPLIT_CONTRACT.md`
 /// -------------------------------------------------
 
-// Per-game row schema version. `T4SPLT` version N and `T5SPLT` version N are
+// Per-game row schema version. TH04 and TH05 version N values are
 // unrelated numbers; bump this on every field, order or normalization change.
 //
 //   version 1  groups 0 (RNG) and 1 (run/scenario counters). row_size 64.
 //   version 2  adds groups 2 (player) and 3 (bullets).       row_size 80.
-//              The two `reserved1` bytes of the v1 critical block become
+//              Two v1 critical-block reserve bytes become
 //              `bullets_alive`, which is free: the writer is already walking
 //              the bullet array for group 3's hash.
 //
 // The prefix and the first 30 bytes of the critical block are unchanged, so a
 // v1 artifact stays readable forever. A reader keyed on the version REJECTS a
 // file whose `row_size` disagrees rather than reinterpreting fields under a
-// schema that does not describe them (`TXSPLIT_CONTRACT.md` §1).
+// schema that does not describe them (the split-format contract §1).
 #define ORACLE_SPLIT_VERSION       2
 #define ORACLE_SPLIT_HEADER_SIZE   16
 #define ORACLE_SPLIT_PREFIX_SIZE   16
 #define ORACLE_SPLIT_CRITICAL_SIZE 32
 
-// `TXSPLIT_CONTRACT.md` §"Growing a schema": start at groups 0-1, then "do not
+// The split-format contract's "Growing a schema" section starts at groups 0-1,
+// then says not to
 // repeat TH03's mistake of deferring entities, bullets and enemies
 // indefinitely -- those groups are exactly the ones whose absence forced
 // separate diagnostics later."
@@ -802,7 +803,7 @@ struct oracle_split_row_t {
 	// `flag != F_FREE`. Plain rather than hashed, because when the group 3
 	// hash goes red this is the first number a human needs, and the writer
 	// counts it for free while serializing the array. Zero in a v1 file, where
-	// these two bytes were `reserved1`.
+	// these two bytes were v1 reserve storage.
 	uint16_t bullets_alive;
 
 	// Subsystem hashes, group 0 first.
