@@ -4576,8 +4576,8 @@ static void oracle_public_start_apply(void)
 
 	resident->rand = start->resident_rand;
 	// This is the same relation as MAIN's original entry assignment at
-// `th04_main.asm@9fb19248163fd343549740281cfcaf0ae95d882e:300-304` /
-// `th05_main.asm@9fb19248163fd343549740281cfcaf0ae95d882e:346-350`,
+	// `th04_main.asm@9fb19248163fd343549740281cfcaf0ae95d882e:300-304` /
+	// `th05_main.asm@9fb19248163fd343549740281cfcaf0ae95d882e:342-344`,
 	// repeated because this sidecar is applied after
 	// that instruction but before `randring_fill()`. The initial-header
 	// validation above requires the serialized random_seed to equal this actual
