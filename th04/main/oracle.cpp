@@ -4213,11 +4213,12 @@ static bool oracle_public_start_valid(
 		!oracle_public_playperf_valid(start->rank, start->playperf) ||
 		// The public Story entry has only ZUN's normal, random-seed path.
 		// A fixed-seed value belongs to the later practice owner and must not be
-		// accepted merely because its bytes are well-formed. At this EMS seam
-		// MAIN has already copied the old resident seed, so the accepted pair
-		// must agree before this reader restores the real owner below.
+		// accepted merely because its bytes are well-formed. The initial header
+		// start is restored before randring_fill(), so its seed pair must agree.
+		// Stage-directory entries are captured after that fill and are examined
+		// for integrity only, not restored at this first-prefix seam.
 		(start->seed_mode != 0) ||
-		(start->random_seed != start->resident_rand) ||
+		(!stage_entry && (start->random_seed != start->resident_rand)) ||
 		((start->schema == ORACLE_PUBLIC_START_SCHEMA_1) &&
 		 (start->score_delta || start->score_delta_frame ||
 		  start->hiscore_popup_shown)) ||
@@ -4542,8 +4543,9 @@ static void oracle_public_start_apply(void)
 	// This is the same relation as MAIN's original entry assignment at
 	// `th04_main.asm@9fb19248163fd343549740281cfcaf0ae95d882e:300-304`,
 	// repeated because this sidecar is applied after
-	// that instruction but before `randring_fill()`. Validation above requires
-	// the serialized random_seed to equal this actual value.
+	// that instruction but before `randring_fill()`. The initial-header
+	// validation above requires the serialized random_seed to equal this actual
+	// value; stage-directory snapshots are post-fill and are not restored here.
 	random_seed = start->resident_rand;
 	if(start->stage != ORACLE_PUBLIC_STAGE_EXTRA) {
 		resident->rank = start->rank;
