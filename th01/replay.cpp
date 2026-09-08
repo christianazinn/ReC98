@@ -4688,6 +4688,18 @@ static bool t1replay_stage_complete_apply(uint8_t stage_id, score_t stage_score)
 void far t1replay_stage_complete(uint8_t stage_id, score_t stage_score)
 {
 	t1replay_fast_forward_boundary_reset();
+	if(t1replay_no_record_practice ||
+		(t1replay_header.flags & T1REPLAY_FLAG_PRACTICE)) {
+		// The caller has already advanced its stage ID after the clear bonus.
+		resident->stage_id = stage_id;
+#if T1REPLAY_EXACT_TRACE
+		t1replay_exact_terminal_capture(T1REPLAY_END_MENU);
+#endif
+		t1replay_terminal(T1REPLAY_END_MENU);
+		t1replay_terminal_save_request();
+		t1replay_abort_to_op();
+		return;
+	}
 	if(t1replay_mode == T1RM_DISABLED) {
 		return;
 	}

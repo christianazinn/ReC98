@@ -1203,12 +1203,7 @@ static bool replay_op_header_valid(
 		(replay_op_header.magic[6] != '\0') ||
 		(replay_op_header.magic[7] != '\0') ||
 		(replay_op_header.magic[5] != ('0' + replay_op_header.version)) ||
-		(
-			(replay_op_header.version != REPLAY_USER_VERSION) &&
-			(replay_op_header.version != REPLAY_USER_VERSION_V6) &&
-			(replay_op_header.version != REPLAY_USER_VERSION_V5) &&
-			(replay_op_header.version != REPLAY_USER_VERSION_LEGACY)
-		) ||
+		(replay_op_header.version != REPLAY_USER_VERSION) ||
 		(replay_op_header.header_size !=
 			((replay_op_header.version == REPLAY_USER_VERSION)
 				? REPLAY_USER_HEADER_WIRE_SIZE : REPLAY_USER_HEADER_SIZE)) ||
@@ -1331,41 +1326,22 @@ static bool replay_op_stage_entry_read(
 
 static bool replay_op_stage_directory_valid(int fh)
 {
-	replay_stage_entry_t far *entries;
-	replay_stage_entry_t far *entry;
-	uint8_t far *buffer;
-	uint32_t hash;
+	replay_stage_entry_t storage;
+	replay_stage_entry_t far *entry = &storage;
+	uint32_t hash = REPLAY_FNV1A_BASIS;
 	uint32_t previous_sample = 0;
 	uint32_t previous_packet = 0;
 	uint8_t stage;
 	bool expected;
-	bool ok = false;
 
-	buffer = reinterpret_cast<uint8_t far *>(
-		hmem_allocbyte(REPLAY_STAGE_DIRECTORY_SIZE)
-	);
-	if(buffer == 0) {
+	if(!replay_op_dos_seek(fh, replay_op_header.header_size)) {
 		return false;
 	}
-	if(
-		!replay_op_dos_seek(fh, replay_op_header.header_size) ||
-		(replay_op_dos_read(
-			fh, buffer, REPLAY_STAGE_DIRECTORY_SIZE
-		) != REPLAY_STAGE_DIRECTORY_SIZE)
-	) {
-		hmem_free(reinterpret_cast<void __seg *>(buffer));
-		return false;
-	}
-	hash = replay_op_fnv1a(
-		REPLAY_FNV1A_BASIS, buffer, REPLAY_STAGE_DIRECTORY_SIZE
-	);
-	if(hash != replay_op_header.stage_directory_checksum) {
-		hmem_free(reinterpret_cast<void __seg *>(buffer));
-		return false;
-	}
-	entries = reinterpret_cast<replay_stage_entry_t far *>(buffer);
 	for(stage = 0; stage < REPLAY_USER_STAGE_COUNT; stage++) {
-		entry = &entries[stage];
+		if(replay_op_dos_read(fh, entry, sizeof(*entry)) != sizeof(*entry)) {
+			return false;
+		}
+		hash = replay_op_fnv1a(hash, entry, sizeof(*entry));
 		expected = (
 			(replay_op_header.mode == RUM_STORY)
 				? (
@@ -1392,6 +1368,7 @@ static bool replay_op_stage_directory_valid(int fh)
 			(entry->sample_index > replay_op_header.sample_count) ||
 			(entry->packet_index >= replay_op_header.packet_count) ||
 			(entry->payload_checksum == 0) ||
+			!replay_stage_carry_envelope_valid(&entry->carry) ||
 			((stage != replay_op_header.start.stage) &&
 			 ((entry->sample_index < previous_sample) ||
 			  (entry->packet_index <= previous_packet)))
@@ -1401,11 +1378,8 @@ static bool replay_op_stage_directory_valid(int fh)
 		previous_sample = entry->sample_index;
 		previous_packet = entry->packet_index;
 	}
-	if(stage == REPLAY_USER_STAGE_COUNT) {
-		ok = true;
-	}
-	hmem_free(reinterpret_cast<void __seg *>(buffer));
-	return ok;
+	return ((stage == REPLAY_USER_STAGE_COUNT) &&
+		(hash == replay_op_header.stage_directory_checksum));
 }
 
 static bool replay_op_file_header_read(

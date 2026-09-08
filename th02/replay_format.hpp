@@ -15,7 +15,7 @@
 #define T2REPLAY_VERSION_PREVIOUS 2
 #define T2REPLAY_VERSION_TELEMETRY 3
 #define T2REPLAY_VERSION_EMBEDDED_ACCELERATOR 4
-#define T2REPLAY_VERSION 5
+#define T2REPLAY_VERSION 6
 #define T2REPLAY_HEADER_SIZE_LEGACY 128
 // The in-memory structure is the public prefix. The current wire format
 // reserves the remaining bytes as an opaque extension for external metadata.
@@ -178,8 +178,9 @@
 // binds a replay stream boundary to the carried state from which stage_init()
 // deterministically reconstructs the next stage.
 #define T2REPLAY_STAGE_SEEK_VERSION 2
-#define T2REPLAY_STAGE_SEEK_SCHEMA 1
-#define T2REPLAY_STAGE_SEEK_FORMAT_FINGERPRINT 0xD29A5401UL
+#define T2REPLAY_STAGE_SEEK_SCHEMA 2
+#define T2REPLAY_STAGE_SEEK_FORMAT_FINGERPRINT 0xD29A5402UL
+#define T2REPLAY_STAGE_START_SIZE 64
 #define T2REPLAY_STAGE_SEEK_CAPTURE_GENERATION 1
 
 #if T2REPLAY_EXACT_APPLY
@@ -488,6 +489,20 @@ struct t2replay_start_t {
 	uint8_t debug;
 	uint8_t reserved[5];
 };
+
+struct t2replay_stage_start_t {
+	t2replay_start_t start;
+	uint8_t carry[28];
+};
+
+inline bool t2replay_stage_carry_valid(const t2replay_stage_start_t far *state) {
+	// [shot_level] indexes the ten-entry native power tables.
+	return (state->carry[18] < 10);
+}
+
+typedef char t2replay_stage_start_size_check[
+	(sizeof(t2replay_stage_start_t) == T2REPLAY_STAGE_START_SIZE) ? 1 : -1
+];
 
 struct t2replay_header_t {
 	char magic[8];

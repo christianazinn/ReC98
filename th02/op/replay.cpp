@@ -662,7 +662,7 @@ static uint16_t t2op_header_wire_size(void)
 		return T2REPLAY_HEADER_SIZE;
 	}
 	if(
-		(t2op_header.magic[5] == '5') &&
+		(t2op_header.magic[5] == '6') &&
 		(t2op_header.version == T2REPLAY_VERSION) &&
 		(t2op_header.header_size == T2REPLAY_HEADER_WIRE_SIZE)
 	) {
@@ -1124,7 +1124,7 @@ static bool t2op_seek_sidecar_rebind(
 		(header.total_size != file_size) ||
 		(header.total_size != (T2REPLAY_PUBLIC_SEEK_HEADER_SIZE +
 		 (static_cast<uint32_t>(header.entry_count) *
-		  (T2REPLAY_PUBLIC_SEEK_ENTRY_SIZE + T2REPLAY_START_SIZE)))) ||
+		  (T2REPLAY_PUBLIC_SEEK_ENTRY_SIZE + T2REPLAY_STAGE_START_SIZE)))) ||
 		(header.replay_header_checksum != source_header_checksum) ||
 		(header.replay_payload_checksum != t2op_header.payload_checksum) ||
 		(header.replay_sample_count != t2op_header.sample_count) ||
@@ -1445,8 +1445,8 @@ static bool t2op_stage_seek_entry_valid(
 		(entry->checkpoint_schema == T2REPLAY_STAGE_SEEK_SCHEMA) &&
 		(entry->group_count == 1) && (entry->reserved_0 == 0) &&
 		(entry->checkpoint_offset ==
-		 (checkpoint_base + (static_cast<uint32_t>(index) * T2REPLAY_START_SIZE))) &&
-		(entry->checkpoint_size == T2REPLAY_START_SIZE) &&
+		 (checkpoint_base + (static_cast<uint32_t>(index) * T2REPLAY_STAGE_START_SIZE))) &&
+		(entry->checkpoint_size == T2REPLAY_STAGE_START_SIZE) &&
 		(entry->semantic_digest ==
 		 (t2op_header.input_offset +
 		  (entry->packet_anchor * T2REPLAY_PACKET_SIZE))) &&
@@ -1587,7 +1587,7 @@ static bool t2op_embedded_accelerator_valid(void)
 {
 	t2replay_accelerator_header_t header;
 	t2replay_accelerator_entry_t entries[T2REPLAY_STAGE_COUNT];
-	t2replay_start_t start;
+	t2replay_stage_start_t start;
 	uint32_t file_size;
 	uint32_t checksum;
 	uint32_t tail_offset = t2op_header.input_offset + t2op_header.input_size;
@@ -1614,7 +1614,7 @@ static bool t2op_embedded_accelerator_valid(void)
 		)) ||
 		(header.total_size != (T2REPLAY_ACCELERATOR_HEADER_SIZE +
 			(static_cast<uint32_t>(header.entry_count) *
-			 (T2REPLAY_ACCELERATOR_ENTRY_SIZE + T2REPLAY_START_SIZE)))) ||
+			 (T2REPLAY_ACCELERATOR_ENTRY_SIZE + T2REPLAY_STAGE_START_SIZE)))) ||
 		(file_size != (tail_offset + header.total_size)) ||
 		(header.replay_header_checksum != t2op_header.header_checksum) ||
 		!t2op_accelerator_checksum(
@@ -1646,7 +1646,7 @@ static bool t2op_embedded_accelerator_valid(void)
 		directory_checksum = t2op_fnv1a(
 			directory_checksum, &entries[i], sizeof(entries[i])
 		);
-		expected_start_offset += T2REPLAY_START_SIZE;
+		expected_start_offset += T2REPLAY_STAGE_START_SIZE;
 	}
 	if(directory_checksum != header.directory_checksum) {
 		t2op_dos_close(fd);
@@ -1663,13 +1663,13 @@ static bool t2op_embedded_accelerator_valid(void)
 		if((t2op_dos_read(fd, &start, sizeof(start)) != sizeof(start)) ||
 			(entries[i].start_checksum != t2op_fnv1a(
 				T2REPLAY_FNV1A_BASIS, &start, sizeof(start)
-			)) || !t2op_stage_seek_start_valid(
-				&start, entries[i].stage_id
+			)) || !t2replay_stage_carry_valid(&start) || !t2op_stage_seek_start_valid(
+				&start.start, entries[i].stage_id
 			) ||
 			!t2op_dos_seek(
 				fd, tail_offset + header.header_size +
 				(static_cast<uint32_t>(header.entry_count) * header.entry_size) +
-				(static_cast<uint32_t>(i + 1) * T2REPLAY_START_SIZE)
+				(static_cast<uint32_t>(i + 1) * T2REPLAY_STAGE_START_SIZE)
 			)) {
 			t2op_dos_close(fd);
 			return false;
@@ -1687,7 +1687,7 @@ static bool t2op_stage_seek_valid(uint8_t slot)
 {
 	t2replay_public_seek_header_t header;
 	t2replay_public_seek_entry_t entry;
-	t2replay_start_t start;
+	t2replay_stage_start_t start;
 	uint32_t file_size;
 	uint32_t checksum;
 	uint32_t directory_checksum = T2REPLAY_FNV1A_BASIS;
@@ -1705,7 +1705,7 @@ static bool t2op_stage_seek_valid(uint8_t slot)
 		((t2op_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
 		 (t2op_header.magic[5] == '4')) ||
 		((t2op_header.version == T2REPLAY_VERSION) &&
-		 (t2op_header.magic[5] == '5') && (slot != T2REPLAY_TEMP_SLOT))
+		 (t2op_header.magic[5] == '6') && (slot != T2REPLAY_TEMP_SLOT))
 	) {
 		return t2op_embedded_accelerator_valid();
 	}
@@ -1713,7 +1713,7 @@ static bool t2op_stage_seek_valid(uint8_t slot)
 		((t2op_header.version == T2REPLAY_VERSION_TELEMETRY) &&
 		 (t2op_header.magic[5] == '3')) ||
 		((t2op_header.version == T2REPLAY_VERSION) &&
-		 (t2op_header.magic[5] == '5') && (slot == T2REPLAY_TEMP_SLOT))
+		 (t2op_header.magic[5] == '6') && (slot == T2REPLAY_TEMP_SLOT))
 	) ||
 		!t2op_pending_replay_validate(t2op_slot_fn)) {
 		return false;
@@ -1753,7 +1753,7 @@ static bool t2op_stage_seek_valid(uint8_t slot)
 		(static_cast<uint32_t>(header.entry_count) * header.entry_size)
 	);
 	if((checkpoint_base +
-		(static_cast<uint32_t>(header.entry_count) * T2REPLAY_START_SIZE)) !=
+		(static_cast<uint32_t>(header.entry_count) * T2REPLAY_STAGE_START_SIZE)) !=
 		header.total_size || !t2op_dos_seek(fd, header.header_size)) {
 		t2op_dos_close(fd);
 		return false;
@@ -1781,7 +1781,8 @@ static bool t2op_stage_seek_valid(uint8_t slot)
 			(t2op_dos_read(fd, &start, sizeof(start)) != sizeof(start)) ||
 			(entry.checkpoint_checksum != t2op_fnv1a(
 				T2REPLAY_FNV1A_BASIS, &start, sizeof(start)
-			)) || !t2op_stage_seek_start_valid(&start, entry.stage_id)) {
+			)) || !t2replay_stage_carry_valid(&start) ||
+			!t2op_stage_seek_start_valid(&start.start, entry.stage_id)) {
 			t2op_dos_close(fd);
 			return false;
 		}
@@ -1803,7 +1804,7 @@ static bool t2op_accelerator_candidate_build(char *candidate_fn)
 	t2replay_public_seek_entry_t seek_entry;
 	t2replay_accelerator_header_t accelerator_header;
 	t2replay_accelerator_entry_t accelerator_entries[T2REPLAY_STAGE_COUNT];
-	t2replay_start_t starts[T2REPLAY_STAGE_COUNT];
+	t2replay_stage_start_t starts[T2REPLAY_STAGE_COUNT];
 	t2replay_header_t final_header;
 	uint8_t copy_buffer[128];
 	uint32_t input_left;
@@ -1851,7 +1852,7 @@ static bool t2op_accelerator_candidate_build(char *candidate_fn)
 		accelerator_entries[i].prefix_checksum = seek_entry.prefix_checksum;
 		accelerator_entries[i].start_offset = start_offset;
 		accelerator_entries[i].start_checksum = seek_entry.checkpoint_checksum;
-		start_offset += T2REPLAY_START_SIZE;
+		start_offset += T2REPLAY_STAGE_START_SIZE;
 	}
 	t2op_dos_close(seek_fd);
 	seek_fd = -1;
@@ -1887,7 +1888,7 @@ static bool t2op_accelerator_candidate_build(char *candidate_fn)
 	);
 	hash = t2op_fnv1a(
 		hash, starts,
-		(static_cast<unsigned>(seek_header.entry_count) * T2REPLAY_START_SIZE)
+		(static_cast<unsigned>(seek_header.entry_count) * T2REPLAY_STAGE_START_SIZE)
 	);
 	accelerator_header.accelerator_checksum = hash;
 
@@ -1938,9 +1939,9 @@ static bool t2op_accelerator_candidate_build(char *candidate_fn)
 			  T2REPLAY_ACCELERATOR_ENTRY_SIZE)) ||
 		(t2op_dos_write(
 			candidate_fd, starts,
-			(static_cast<unsigned>(seek_header.entry_count) * T2REPLAY_START_SIZE)
+			(static_cast<unsigned>(seek_header.entry_count) * T2REPLAY_STAGE_START_SIZE)
 		) != (static_cast<unsigned>(seek_header.entry_count) *
-			  T2REPLAY_START_SIZE))) {
+			  T2REPLAY_STAGE_START_SIZE))) {
 		goto done;
 	}
 	ok = true;

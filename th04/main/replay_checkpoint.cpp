@@ -4055,6 +4055,82 @@ static bool rck_group_bullets(replay_ck_stream_t far *stream)
 	return true;
 }
 
+static bool rck_stage_carry(replay_ck_stream_t far *stream)
+{
+	uint16_t ring_offset = spark_ring_offset;
+	RCK_U8(item_playperf_raise);
+	RCK_U8(item_playperf_lower);
+	if(!rck_sppoint(stream, &homing_target)) {
+		return false;
+	}
+	RCK_U8(bullet_clear_time);
+	if(!rck_u16(stream, &ring_offset) ||
+		(ring_offset >= (SPARK_COUNT * RCK_SPARK_SIZE)) ||
+		((ring_offset % RCK_SPARK_SIZE) != 0)) {
+		return false;
+	}
+	if(rck_applying(stream)) {
+		spark_ring_offset = ring_offset;
+	}
+#if (GAME == 5)
+	RCK_U8(shot_hit_spark_parity);
+	RCK_U16(word_2CE9E);
+#else
+	RCK_U8(byte_25980);
+	RCK_U16(word_2598C);
+	RCK_U8(shot_reimu_cycle);
+#endif
+	// Native stage reset clears active bullets, not these partially written
+	// spawn templates. Preserve fields semantically, never native pointers.
+	RCK_U8(bullet_special.turns_max);
+	RCK_S8(bullet_template_special_angle.v);
+	if(!rck_bullet_template(stream, &bullet_template, true)) {
+		return false;
+	}
+#if (GAME == 5)
+	RCK_BOOL(bullet_zap_drop_point_items);
+	if(!rck_laser(stream, &laser_template)) {
+		return false;
+	}
+#endif
+	return true;
+}
+
+bool replay_ck_stage_carry_capture(replay_stage_carry_t far *carry)
+{
+	replay_ck_stream_t stream;
+	unsigned i;
+
+	carry->schema = REPLAY_STAGE_CARRY_SCHEMA;
+	carry->size = 0;
+	for(i = 0; i < REPLAY_STAGE_CARRY_CAPACITY; i++) {
+		carry->data[i] = 0;
+	}
+	replay_ck_measure_init(&stream);
+	if(!rck_stage_carry(&stream) || !replay_ck_finish(&stream) ||
+		(stream.pos > REPLAY_STAGE_CARRY_CAPACITY)) {
+		return false;
+	}
+	carry->size = static_cast<uint16_t>(stream.pos);
+	replay_ck_encode_init(&stream, carry->data, carry->size);
+	return (rck_stage_carry(&stream) && replay_ck_finish(&stream));
+}
+
+bool replay_ck_stage_carry_restore(const replay_stage_carry_t far *carry)
+{
+	replay_ck_stream_t stream;
+
+	if(!replay_stage_carry_envelope_valid(carry)) {
+		return false;
+	}
+	replay_ck_validate_init(&stream, carry->data, carry->size);
+	if(!rck_stage_carry(&stream) || !replay_ck_finish(&stream)) {
+		return false;
+	}
+	replay_ck_apply_init(&stream, carry->data, carry->size);
+	return (rck_stage_carry(&stream) && replay_ck_finish(&stream));
+}
+
 static bool rck_enemy_flag(
 	replay_ck_stream_t far *stream, unsigned char far *flag
 )

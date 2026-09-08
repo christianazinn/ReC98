@@ -192,7 +192,7 @@ frame:
 #ifdef T2PD
 	t2practice_diag_main_progress(T2PDMP_STAGE_LOOP_CALL, stage_id);
 #endif
-	if(stage_loop_func()) {
+	if(replay_stage_loop_func()) {
 		// The KAJA_SONG_FADE call is the expression, but Turbo
 		// C++ cleans this __cdecl call's single stack word with `add sp, 2`
 		// *here*, while the original uses `pop cx` — as does every other

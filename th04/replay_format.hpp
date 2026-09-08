@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include "platform.h"
 
-#define REPLAY_USER_VERSION 7
+#define REPLAY_USER_VERSION 8
 #define REPLAY_USER_VERSION_V6 6
 #define REPLAY_USER_VERSION_V5 5
 #define REPLAY_USER_VERSION_LEGACY 4
@@ -18,7 +18,9 @@
 #define REPLAY_USER_PACKET_SIZE 4
 #define REPLAY_USER_INPUT_SIZE_MAX 0x00400000UL
 #define REPLAY_USER_STAGE_COUNT 7
-#define REPLAY_STAGE_ENTRY_SIZE 76
+#define REPLAY_STAGE_ENTRY_SIZE 256
+#define REPLAY_STAGE_CARRY_SCHEMA 1
+#define REPLAY_STAGE_CARRY_CAPACITY 176
 #define REPLAY_STAGE_DIRECTORY_SIZE \
 	(REPLAY_USER_STAGE_COUNT * REPLAY_STAGE_ENTRY_SIZE)
 #define REPLAY_USER_INPUT_OFFSET \
@@ -74,7 +76,7 @@
 #define REPLAY_SAVE_TXN_SCHEMA 1
 #define REPLAY_SAVE_TXN_SIZE 20
 
-#define REPLAY_USER_INPUT_SEMANTICS 1
+#define REPLAY_USER_INPUT_SEMANTICS 2
 #define REPLAY_USER_RULESET_STOCK 0
 #define REPLAY_START_SCHEMA 2
 #define REPLAY_START_SCHEMA_LEGACY 1
@@ -268,11 +270,37 @@ struct replay_user_header_t {
 	uint32_t slow_frames;
 };
 
+// Gameplay state which survives native stage initialization. This is a
+// public simulation payload, separate from the opaque header extension.
+struct replay_stage_carry_t {
+	uint16_t schema;
+	uint16_t size;
+	uint8_t data[REPLAY_STAGE_CARRY_CAPACITY];
+};
+
+inline bool replay_stage_carry_envelope_valid(
+	const replay_stage_carry_t far *carry
+)
+{
+	unsigned i;
+	if((carry->schema != REPLAY_STAGE_CARRY_SCHEMA) ||
+		(carry->size == 0) || (carry->size > REPLAY_STAGE_CARRY_CAPACITY)) {
+		return false;
+	}
+	for(i = carry->size; i < REPLAY_STAGE_CARRY_CAPACITY; i++) {
+		if(carry->data[i] != 0) {
+			return false;
+		}
+	}
+	return true;
+}
+
 struct replay_stage_entry_t {
 	replay_start_config_t start;
 	uint32_t sample_index;
 	uint32_t packet_index;
 	uint32_t payload_checksum;
+	replay_stage_carry_t carry;
 };
 
 struct replay_user_packet_t {

@@ -76,6 +76,11 @@ void replay_ck_apply_init(
 );
 bool replay_ck_finish(replay_ck_stream_t far *stream);
 
+// Stage-boundary carry complements the ordinary start configuration. Restore
+// validates the complete payload before changing any live field.
+bool replay_ck_stage_carry_capture(replay_stage_carry_t far *carry);
+bool replay_ck_stage_carry_restore(const replay_stage_carry_t far *carry);
+
 // Groups 0 through 11 are independently available for both games. TH05
 // additionally provides group 12.
 bool replay_ck_group_codec(

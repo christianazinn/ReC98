@@ -68,8 +68,9 @@ void replay_metrics_commit(void);
 
 // Called after input_sense() and demo_update() at the canonical gameplay
 // input seam. Playback replaces the resulting full input_t plus Shift before
-// Pause or gameplay can consume them. Recording is deferred to the frame-tail
-// hook below so it captures the post-Pause input that gameplay actually used.
+// Pause or gameplay can consume them. Recording uses the same seam, before
+// blocking dialogue can append interstitial input. A pause-opening frame is
+// recorded after Pause drains its release input, still before gameplay runs.
 void replay_gameplay_input(void);
 
 // Records the gameplay input after Pause has drained its own controls, then

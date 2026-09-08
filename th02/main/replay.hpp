@@ -12,6 +12,9 @@ void replay_entry(void);
 // consume input. Emits or verifies the stage boundary control packet.
 void replay_stage_start(void);
 
+// Preserves the native stage-loop call while ending Practice after one stage.
+extern bool16 (far *replay_stage_loop_func)(void);
+
 // Applies the one-shot clean-Practice recipe after stage_init() and physical
 // scroll-page initialization. Returns false rather than approximating a
 // malformed or unavailable target.

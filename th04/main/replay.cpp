@@ -159,6 +159,7 @@ static replay_user_packet_t replay_pending;
 static uint8_t replay_pending_run;
 static uint8_t replay_decode_run;
 static bool replay_pending_valid;
+static bool replay_record_after_pause;
 static bool replay_failed;
 static bool replay_finished;
 static bool replay_stage_seen;
@@ -175,6 +176,8 @@ uint16_t replay_ck_failure_field_value;
 static uint8_t replay_last_stage;
 static bool replay_practice_start_pending;
 static bool replay_stage_resume_rng_pending;
+static bool replay_stage_resume_carry_pending;
+static replay_stage_carry_t replay_stage_resume_carry;
 static replay_start_config_t replay_practice_start;
 static bool replay_rank_lock_active;
 static uint8_t replay_rank_lock_value;
@@ -773,6 +776,8 @@ typedef char replay_private_result_size_check[
 	(sizeof(replay_private_result_t) == 32) ? 1 : -1
 ];
 
+static uint32_t replay_score_points(void);
+
 static void replay_private_result_write(uint8_t end_reason)
 {
 	replay_private_result_t result;
@@ -781,6 +786,12 @@ static void replay_private_result_write(uint8_t end_reason)
 
 	if(!replay_private_test && !replay_practice_diagnostic) {
 		return;
+	}
+	if((replay_mode == RRM_PLAYBACK) && !replay_failed &&
+		!replay_private_diagnostic &&
+		(replay_score_points() != replay_header.score_final)) {
+		replay_private_diagnostic = 0xE2000000UL |
+			(replay_score_points() & 0xFFFFFFUL);
 	}
 	replay_memclear(&result, sizeof(result));
 	result.magic[0] = 'T'; result.magic[1] = ('0' + GAME);
@@ -946,25 +957,16 @@ static bool replay_stage_entry_read(
 static bool replay_stage_directory_hash(uint32_t far *hash)
 {
 	int fh;
+	bool ok;
 
 	fh = replay_dos_open(replay_slot_fn, REPLAY_ACCESS_READ);
 	if(fh < 0) {
 		return false;
 	}
-	if(
-		!replay_dos_seek(fh, replay_header.header_size) ||
-		(replay_dos_read(
-			fh, replay_buffer, REPLAY_STAGE_DIRECTORY_SIZE
-		) != REPLAY_STAGE_DIRECTORY_SIZE)
-	) {
-		replay_dos_close(fh);
-		return false;
-	}
+	ok = replay_dos_hash(fh, replay_header.header_size,
+		REPLAY_STAGE_DIRECTORY_SIZE, hash);
 	replay_dos_close(fh);
-	*hash = replay_fnv1a(
-		REPLAY_FNV1A_BASIS, replay_buffer, REPLAY_STAGE_DIRECTORY_SIZE
-	);
-	return true;
+	return ok;
 }
 
 static bool replay_header_write(bool create)
@@ -1437,38 +1439,22 @@ static bool replay_start_config_valid(
 
 static bool replay_stage_directory_valid(void)
 {
-	replay_stage_entry_t far *entries;
-	replay_stage_entry_t far *entry;
+	replay_stage_entry_t storage;
+	replay_stage_entry_t far *entry = &storage;
 	uint32_t hash;
 	uint32_t previous_sample = 0;
 	uint32_t previous_packet = 0;
 	uint8_t stage;
 	bool expected;
-	int fh;
 
-	fh = replay_dos_open(replay_slot_fn, REPLAY_ACCESS_READ);
-	if(fh < 0) {
+	if(!replay_stage_directory_hash(&hash) ||
+		(hash != replay_header.stage_directory_checksum)) {
 		return false;
 	}
-	if(
-		!replay_dos_seek(fh, replay_header.header_size) ||
-		(replay_dos_read(
-			fh, replay_buffer, REPLAY_STAGE_DIRECTORY_SIZE
-		) != REPLAY_STAGE_DIRECTORY_SIZE)
-	) {
-		replay_dos_close(fh);
-		return false;
-	}
-	replay_dos_close(fh);
-	hash = replay_fnv1a(
-		REPLAY_FNV1A_BASIS, replay_buffer, REPLAY_STAGE_DIRECTORY_SIZE
-	);
-	if(hash != replay_header.stage_directory_checksum) {
-		return false;
-	}
-	entries = reinterpret_cast<replay_stage_entry_t far *>(replay_buffer);
 	for(stage = 0; stage < REPLAY_USER_STAGE_COUNT; stage++) {
-		entry = &entries[stage];
+		if(!replay_stage_entry_read(stage, entry)) {
+			return false;
+		}
 		expected = (
 			(replay_header.mode == RUM_STORY)
 				? (
@@ -1495,6 +1481,7 @@ static bool replay_stage_directory_valid(void)
 			(entry->sample_index > replay_header.sample_count) ||
 			(entry->packet_index >= replay_header.packet_count) ||
 			(entry->payload_checksum == 0) ||
+			!replay_stage_carry_envelope_valid(&entry->carry) ||
 			((stage != replay_header.start.stage) &&
 			 ((entry->sample_index < previous_sample) ||
 			  (entry->packet_index <= previous_packet)))
@@ -1539,12 +1526,7 @@ static bool replay_header_read(void)
 		(replay_header.magic[6] != '\0') ||
 		(replay_header.magic[7] != '\0') ||
 		(replay_header.magic[5] != ('0' + replay_header.version)) ||
-		(
-			(replay_header.version != REPLAY_USER_VERSION) &&
-			(replay_header.version != REPLAY_USER_VERSION_V6) &&
-			(replay_header.version != REPLAY_USER_VERSION_V5) &&
-			(replay_header.version != REPLAY_USER_VERSION_LEGACY)
-		)
+		(replay_header.version != REPLAY_USER_VERSION)
 	) {
 		return false;
 	}
@@ -2097,13 +2079,14 @@ static void replay_diagnostic_stage_start_compare(void)
 {
 	replay_stage_entry_t entry;
 	replay_start_config_t live;
+	replay_stage_carry_t carry;
 	const uint8_t far *actual;
 	const uint8_t far *expected;
 	unsigned i;
 
 	if(
 		!replay_practice_diagnostic || (replay_mode != RRM_PLAYBACK) ||
-		replay_stage_seen || (stage_id >= REPLAY_USER_STAGE_COUNT)
+		replay_private_diagnostic || (stage_id >= REPLAY_USER_STAGE_COUNT)
 	) {
 		return;
 	}
@@ -2133,6 +2116,20 @@ static void replay_diagnostic_stage_start_compare(void)
 			return;
 		}
 	}
+	if(!replay_ck_stage_carry_capture(&carry)) {
+		replay_private_diagnostic = 0xE300FFFFUL;
+		return;
+	}
+	actual = reinterpret_cast<const uint8_t far *>(&carry);
+	expected = reinterpret_cast<const uint8_t far *>(&entry.carry);
+	for(i = 0; i < sizeof(carry); i++) {
+		if(actual[i] != expected[i]) {
+			replay_private_diagnostic = (0xE3000000UL |
+				(static_cast<uint32_t>(i) << 16) |
+				(static_cast<uint16_t>(actual[i]) << 8) | expected[i]);
+			return;
+		}
+	}
 }
 
 static bool replay_stage_entry_capture(void)
@@ -2158,6 +2155,9 @@ static bool replay_stage_entry_capture(void)
 	entry.sample_index = replay_header.sample_count;
 	entry.packet_index = replay_header.packet_count;
 	entry.payload_checksum = replay_payload_checksum;
+	if(!replay_ck_stage_carry_capture(&entry.carry)) {
+		return false;
+	}
 	return replay_stage_entry_write(stage_id, &entry);
 }
 
@@ -2863,6 +2863,8 @@ static bool replay_stage_resume_prepare(uint8_t command_flags)
 	replay_copy(&replay_practice_start, &entry.start, sizeof(entry.start));
 	replay_practice_start_pending = true;
 	replay_stage_resume_rng_pending = true;
+	replay_copy(&replay_stage_resume_carry, &entry.carry, sizeof(entry.carry));
+	replay_stage_resume_carry_pending = true;
 	replay_sample_cursor = entry.sample_index;
 	replay_packet_cursor = entry.packet_index;
 	replay_payload_checksum = entry.payload_checksum;
@@ -2916,6 +2918,7 @@ void replay_entry(void)
 	replay_decode_run = 0;
 	replay_pending_valid = false;
 	replay_failed = false;
+	replay_record_after_pause = false;
 	replay_finished = false;
 	replay_stage_seen = false;
 	replay_private_test = (
@@ -2930,6 +2933,7 @@ void replay_entry(void)
 	replay_private_diagnostic = 0;
 	replay_practice_start_pending = false;
 	replay_stage_resume_rng_pending = false;
+	replay_stage_resume_carry_pending = false;
 	replay_preroll_boss_section = REPLAY_CK_BOSS_SECTION_NONE;
 	replay_preroll_boss_phase = 0xFF;
 	replay_preroll_interstitial_cycle = 0;
@@ -3059,6 +3063,14 @@ void replay_stage_start(void)
 	uint16_t arg;
 	uint8_t arg8;
 
+	if(replay_stage_resume_carry_pending) {
+		replay_stage_resume_carry_pending = false;
+		if(!replay_ck_stage_carry_restore(&replay_stage_resume_carry)) {
+			replay_fail();
+			quit = Q_QUIT_TO_OP;
+			return;
+		}
+	}
 	replay_stat_sample();
 	language_main_titles_apply();
 	replay_diagnostic_stage_start_compare();
@@ -3548,6 +3560,10 @@ extern "C" int far replay_pause_menu(void)
 	if(bgm_paused) {
 		snd_bgm_resume();
 	}
+	if(replay_record_after_pause) {
+		replay_record_after_pause = false;
+		replay_sample_current(REPLAY_PACKET_PHASE_GAMEPLAY);
+	}
 	if(selected == 0) {
 		replay_pause_backing_restore();
 		return 0;
@@ -3579,6 +3595,12 @@ void replay_gameplay_input(void)
 		return;
 	}
 	if(replay_mode != RRM_PLAYBACK) {
+		if(replay_mode == RRM_RECORD) {
+			replay_record_after_pause = ((key_det & INPUT_CANCEL) != 0);
+			if(!replay_record_after_pause) {
+				replay_sample_current(REPLAY_PACKET_PHASE_GAMEPLAY);
+			}
+		}
 		return;
 	}
 	host_input = key_det;
@@ -3672,11 +3694,20 @@ static void replay_debug_stage_coordinates_put(void)
 
 void replay_input_reset_sense_tail(void)
 {
+	if((quit == Q_NEXT_STAGE) &&
+		(replay_header.mode == RUM_PRACTICE) &&
+		(replay_mode != RRM_DISABLED)) {
+		// The boss has finished this stage; do not enter the next one.
+		resident->stage = stage_id;
+#if (GAME == 4)
+		resident->stage_ascii = ('1' + stage_id);
+#endif
+		quit = Q_QUIT_TO_OP;
+	}
 	if(replay_stat_entered) {
 		replay_stat_sample();
 	}
 	if(replay_mode == RRM_RECORD) {
-		replay_sample_current(REPLAY_PACKET_PHASE_GAMEPLAY);
 		if(
 			replay_private_test &&
 			(replay_header.sample_count >= REPLAY_PRIVATE_SAMPLE_LIMIT)
