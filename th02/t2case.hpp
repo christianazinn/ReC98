@@ -342,4 +342,14 @@ void t2case_game_exit(void);
 // True once a case is being recorded or played back in this process.
 bool16 t2case_active(void);
 
+// Public T2RPY ingress is deliberately separate from T2CASE. It consumes the
+// existing T2RCFG2 playback command and the selected TH2Rnn.RPY directly, but
+// accepts only the normal-Story initial-stage gameplay prefix. The first
+// pause, dialog, stage, or terminal packet is reported as a cutoff instead of
+// being interpreted by an unproven input consumer.
+void t2rpy_session_start(void);
+void t2rpy_stage_enter(void);
+void t2rpy_input_reset_sense(void);
+bool16 t2rpy_active(void);
+
 #endif /* TH02_T2CASE_HPP */

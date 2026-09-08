@@ -49,6 +49,7 @@
 #include "pc98.h"
 #include "libs/master.lib/master.hpp"
 #include "th02/t2case.hpp"
+#include "th02/common.h"
 #include "th01/rank.h"
 #include "th02/resident.hpp"
 #include "th02/core/globals.hpp"
@@ -1711,6 +1712,10 @@ void t2case_stage_enter(void)
 {
 	t2case_record_t rec;
 
+	if(t2rpy_active()) {
+		t2rpy_stage_enter();
+		return;
+	}
 	if((t2case_mode == T2CASE_DISABLED) || (t2case_mode == T2CASE_ERROR)) {
 		overlay_stage_enter_animate();
 		return;
@@ -1991,6 +1996,627 @@ void t2case_process_exit(void)
 	t2case_state_store();
 }
 
+/// Public T2RPY initial-stage prefix ingress
+/// ------------------------------------------
+///
+/// This intentionally shares the historical T2CASE translation unit and its
+/// MAIN.EXE target, but not its container, carrier, demo pinning, or terminal
+/// semantics.  T2CASE remains the frozen demo oracle.  This additional path
+/// reads the existing public T2RCFG2 command and TH2Rnn.RPY bytes directly.
+///
+/// It is a prefix probe, not a replacement for the current replay system:
+/// only the normal-Story initial-stage control plus consecutive gameplay runs
+/// are consumed.  The first packet outside that vocabulary is written to
+/// T2RPRB.TXT as a cutoff and ends the current gameplay loop.  In particular,
+/// this code neither reads a terminal result nor validates an eventual full
+/// payload checksum; host preflight owns full public-file validation.
+
+#define T2RPY_COMMAND_SIZE 52
+#define T2RPY_HEADER_PREFIX_SIZE 128
+#define T2RPY_HEADER_SIZE 136
+#define T2RPY_HEADER_WIRE_SIZE 256
+#define T2RPY_START_END 84
+#define T2RPY_PACKET_SIZE 4
+#define T2RPY_INPUT_SIZE_MAX 0x00400000UL
+#define T2RPY_PACKET_PHASE_SHIFT 6
+#define T2RPY_PACKET_RUN_MASK 0x3F
+#define T2RPY_PHASE_GAMEPLAY 0
+#define T2RPY_PHASE_CONTROL 3
+#define T2RPY_CONTROL_STAGE_START 1
+#define T2RPY_FLAG_RLE_INPUT 0x0001
+#define T2RPY_FLAG_FULL_INPUT 0x0002
+#define T2RPY_FLAG_PRACTICE 0x0008
+#define T2RPY_FLAG_KNOWN 0x000F
+#define T2RPY_STATUS_FINALIZED 2
+#define T2RPY_INPUT_SEMANTICS_KEY_DET 1
+#define T2RPY_STAGE_COUNT 6
+#define T2RPY_SLOT_COUNT 100
+#define T2RPY_INPUT_KNOWN 0xF1FF
+
+enum t2rpy_cutoff_t {
+	T2RPY_CUTOFF_HEADER = 1,
+	T2RPY_CUTOFF_STAGE = 2,
+	T2RPY_CUTOFF_PHASE = 3,
+	T2RPY_CUTOFF_CANCEL = 4,
+	T2RPY_CUTOFF_EXHAUSTED = 5,
+	T2RPY_CUTOFF_IO = 6,
+	T2RPY_CUTOFF_TRACE = 7
+};
+
+struct t2rpy_packet_t {
+	uint8_t tag;
+	uint8_t input_low;
+	uint8_t input_high;
+	uint8_t arg;
+};
+
+typedef char t2rpy_packet_size_check[
+	(sizeof(t2rpy_packet_t) == T2RPY_PACKET_SIZE) ? 1 : -1
+];
+
+static char T2RPY_CFG_FN[10];
+static char T2RPY_SLOT_FN[11];
+static char T2RPY_PROBE_FN[11];
+static bool t2rpy_paths_ready;
+static bool t2rpy_enabled;
+static bool t2rpy_stage_started;
+static bool t2rpy_probe_written;
+static uint8_t t2rpy_slot;
+static uint16_t t2rpy_header_size;
+static uint32_t t2rpy_input_offset;
+static uint32_t t2rpy_packet_count;
+static uint32_t t2rpy_packet_cursor;
+static uint32_t t2rpy_samples_consumed;
+static uint8_t t2rpy_run_remaining;
+static input_t t2rpy_run_input;
+
+static void t2rpy_paths_init(void)
+{
+	if(t2rpy_paths_ready) {
+		return;
+	}
+	T2RPY_CFG_FN[0] = 'T'; T2RPY_CFG_FN[1] = '2';
+	T2RPY_CFG_FN[2] = 'R'; T2RPY_CFG_FN[3] = 'P';
+	T2RPY_CFG_FN[4] = 'Y'; T2RPY_CFG_FN[5] = '.';
+	T2RPY_CFG_FN[6] = 'C'; T2RPY_CFG_FN[7] = 'F';
+	T2RPY_CFG_FN[8] = 'G'; T2RPY_CFG_FN[9] = '\0';
+	T2RPY_SLOT_FN[0] = 'T'; T2RPY_SLOT_FN[1] = 'H';
+	T2RPY_SLOT_FN[2] = '2'; T2RPY_SLOT_FN[3] = 'R';
+	T2RPY_SLOT_FN[4] = '0'; T2RPY_SLOT_FN[5] = '0';
+	T2RPY_SLOT_FN[6] = '.'; T2RPY_SLOT_FN[7] = 'R';
+	T2RPY_SLOT_FN[8] = 'P'; T2RPY_SLOT_FN[9] = 'Y';
+	T2RPY_SLOT_FN[10] = '\0';
+	T2RPY_PROBE_FN[0] = 'T'; T2RPY_PROBE_FN[1] = '2';
+	T2RPY_PROBE_FN[2] = 'R'; T2RPY_PROBE_FN[3] = 'P';
+	T2RPY_PROBE_FN[4] = 'R'; T2RPY_PROBE_FN[5] = 'B';
+	T2RPY_PROBE_FN[6] = '.'; T2RPY_PROBE_FN[7] = 'T';
+	T2RPY_PROBE_FN[8] = 'X'; T2RPY_PROBE_FN[9] = 'T';
+	T2RPY_PROBE_FN[10] = '\0';
+	t2rpy_paths_ready = true;
+}
+
+static uint16_t t2rpy_u16(const uint8_t far *p, unsigned offset)
+{
+	return static_cast<uint16_t>(
+		static_cast<uint16_t>(p[offset]) |
+		(static_cast<uint16_t>(p[offset + 1]) << 8)
+	);
+}
+
+static uint32_t t2rpy_u32(const uint8_t far *p, unsigned offset)
+{
+	return static_cast<uint32_t>(
+		static_cast<uint32_t>(t2rpy_u16(p, offset)) |
+		(static_cast<uint32_t>(t2rpy_u16(p, offset + 2)) << 16)
+	);
+}
+
+static bool t2rpy_zero(const uint8_t far *p, unsigned offset, unsigned size)
+{
+	while(size != 0) {
+		if(p[offset] != 0) {
+			return false;
+		}
+		offset++;
+		size--;
+	}
+	return true;
+}
+
+static uint32_t t2rpy_header_checksum(const uint8_t far *p, unsigned size)
+{
+	uint32_t hash = T2CASE_FNV1A_BASIS;
+	unsigned i;
+
+	for(i = 0; i < size; i++) {
+		uint8_t byte = ((i >= 44) && (i < 48)) ? 0 : p[i];
+		hash ^= static_cast<uint32_t>(byte);
+		hash *= T2CASE_FNV1A_PRIME;
+	}
+	return hash;
+}
+
+// T2RPRB.TXT has one fixed-width line:
+// PFX1 CUT <packet cursor hex> <packet tag hex> <cutoff code hex>\r\n.
+// The packet is deliberately not consumed on a cutoff, so the report points
+// at the exact unsupported public boundary rather than an inferred successor.
+static void t2rpy_probe_write(uint8_t code, uint8_t tag)
+{
+	char line[30];
+	int fd;
+	int i;
+
+	if(t2rpy_probe_written) {
+		return;
+	}
+	t2rpy_paths_init();
+	line[0] = 'P'; line[1] = 'F'; line[2] = 'X'; line[3] = '1';
+	line[4] = ' '; line[5] = 'C'; line[6] = 'U'; line[7] = 'T';
+	line[8] = ' ';
+	for(i = 0; i < 8; i++) {
+		line[9 + i] = t2case_hex(static_cast<uint8_t>(
+			(t2rpy_packet_cursor >> ((7 - i) * 4)) & 0xF
+		));
+	}
+	line[17] = ' ';
+	line[18] = t2case_hex(static_cast<uint8_t>(tag >> 4));
+	line[19] = t2case_hex(static_cast<uint8_t>(tag & 0xF));
+	line[20] = ' ';
+	line[21] = t2case_hex(static_cast<uint8_t>(code >> 4));
+	line[22] = t2case_hex(static_cast<uint8_t>(code & 0xF));
+	line[23] = '\r'; line[24] = '\n';
+	fd = t2f_create(T2RPY_PROBE_FN);
+	if(fd >= 0) {
+		t2f_write(fd, line, 25);
+		close(fd);
+	}
+	t2rpy_probe_written = true;
+}
+
+static void t2rpy_stop(uint8_t code, uint8_t tag)
+{
+	t2rpy_probe_write(code, tag);
+	t2rpy_enabled = false;
+	key_det = INPUT_NONE;
+	quit = true;
+}
+
+static void t2rpy_slot_set(uint8_t slot)
+{
+	t2rpy_slot = slot;
+	T2RPY_SLOT_FN[4] = static_cast<char>('0' + (slot / 10));
+	T2RPY_SLOT_FN[5] = static_cast<char>('0' + (slot % 10));
+}
+
+static bool t2rpy_command_load(void)
+{
+	uint8_t command[T2RPY_COMMAND_SIZE];
+	long size;
+	int fd;
+
+	t2rpy_paths_init();
+	fd = t2f_read_open(T2RPY_CFG_FN);
+	if(fd < 0) {
+		return false;
+	}
+	size = lseek(fd, 0L, SEEK_END);
+	lseek(fd, 0L, SEEK_SET);
+	if((size != T2RPY_COMMAND_SIZE) ||
+		(read(fd, command, sizeof(command)) != sizeof(command))) {
+		close(fd);
+		unlink(T2RPY_CFG_FN);
+		t2rpy_probe_write(T2RPY_CUTOFF_HEADER, 0);
+		return false;
+	}
+	close(fd);
+	// T2RPY.CFG is one-shot state in the public replay contract. Once it was
+	// observed, malformed content must not trigger another future MAIN start.
+	unlink(T2RPY_CFG_FN);
+	if(
+		(command[0] != 'T') || (command[1] != '2') ||
+		(command[2] != 'R') || (command[3] != 'C') ||
+		(command[4] != 'F') || (command[5] != 'G') ||
+		(command[6] != '2') || (command[7] != '\0') ||
+		(command[8] != 2) || (command[9] >= T2RPY_SLOT_COUNT) ||
+		(command[10] != 0) || (command[11] != 0) ||
+		!t2rpy_zero(command, 12, 40)
+	) {
+		t2rpy_probe_write(T2RPY_CUTOFF_HEADER, 0);
+		return false;
+	}
+	t2rpy_slot_set(command[9]);
+	return true;
+}
+
+static bool t2rpy_start_valid(const uint8_t far *header)
+{
+	int8_t rem_lives = static_cast<int8_t>(header[70]);
+	int8_t rem_bombs = static_cast<int8_t>(header[71]);
+	int8_t start_power = static_cast<int8_t>(header[74]);
+
+	return (
+		(t2rpy_u32(header, 48) == t2rpy_u32(header, 52)) &&
+		(header[68] == 0) &&
+		(header[69] <= RANK_LUNATIC) &&
+		(rem_lives >= 0) && (rem_lives <= LIVES_MAX) &&
+		(rem_bombs >= 0) && (rem_bombs <= BOMBS_MAX) &&
+		(header[72] <= LIVES_MAX) &&
+		(header[73] >= 1) && (header[73] <= BOMBS_MAX) &&
+		(start_power >= 0) && (start_power <= 80) &&
+		(header[75] < SHOTTYPE_COUNT) &&
+		(header[76] <= 2) && (header[77] <= 1) &&
+		(header[78] == 0) && t2rpy_zero(header, 79, 5)
+	);
+}
+
+static bool t2rpy_header_load(void)
+{
+	uint8_t header[T2RPY_HEADER_SIZE];
+	uint32_t input_size;
+	uint32_t input_end;
+	long physical_size;
+	int fd;
+
+	fd = t2f_read_open(T2RPY_SLOT_FN);
+	if(fd < 0) {
+		return false;
+	}
+	physical_size = lseek(fd, 0L, SEEK_END);
+	lseek(fd, 0L, SEEK_SET);
+	if(read(fd, header, T2RPY_HEADER_PREFIX_SIZE) != T2RPY_HEADER_PREFIX_SIZE) {
+		close(fd);
+		return false;
+	}
+	if(
+		(header[0] != 'T') || (header[1] != '2') ||
+		(header[2] != 'R') || (header[3] != 'P') ||
+		(header[4] != 'Y') || (header[7] != '\0') ||
+		(header[5] < '1') || (header[5] > '5') ||
+		(header[6] != '\0') ||
+		(t2rpy_u16(header, 8) != static_cast<uint16_t>(header[5] - '0'))
+	) {
+		close(fd);
+		return false;
+	}
+	t2rpy_header_size = (
+		(header[5] == '1') ? T2RPY_HEADER_PREFIX_SIZE :
+		((header[5] == '5') ? T2RPY_HEADER_WIRE_SIZE : T2RPY_HEADER_SIZE)
+	);
+	if(
+		(t2rpy_u16(header, 10) != t2rpy_header_size) ||
+		((t2rpy_header_size > T2RPY_HEADER_PREFIX_SIZE) &&
+		 (read(fd, header + T2RPY_HEADER_PREFIX_SIZE,
+			T2RPY_HEADER_SIZE - T2RPY_HEADER_PREFIX_SIZE) !=
+		  (T2RPY_HEADER_SIZE - T2RPY_HEADER_PREFIX_SIZE))) ||
+		(physical_size < t2rpy_header_size)
+	) {
+		close(fd);
+		return false;
+	}
+	close(fd);
+	if(
+		(t2rpy_u16(header, 12) != T2RPY_PACKET_SIZE) ||
+		((t2rpy_u16(header, 14) &
+		  (T2RPY_FLAG_RLE_INPUT | T2RPY_FLAG_FULL_INPUT)) !=
+		 (T2RPY_FLAG_RLE_INPUT | T2RPY_FLAG_FULL_INPUT)) ||
+		((t2rpy_u16(header, 14) & ~T2RPY_FLAG_KNOWN) != 0) ||
+		((t2rpy_u16(header, 14) & T2RPY_FLAG_PRACTICE) != 0) ||
+		(header[16] != T2RPY_STATUS_FINALIZED) ||
+		(header[18] != 2) || (header[19] != 0) ||
+		(header[20] != T2RPY_INPUT_SEMANTICS_KEY_DET) ||
+		(header[21] != T2RPY_STAGE_COUNT) ||
+		(header[22] >= T2RPY_STAGE_COUNT) ||
+		(header[23] >= T2RPY_STAGE_COUNT) ||
+		!t2rpy_start_valid(header) ||
+		(t2rpy_header_checksum(header,
+			(t2rpy_header_size == T2RPY_HEADER_PREFIX_SIZE)
+				? T2RPY_HEADER_PREFIX_SIZE : T2RPY_HEADER_SIZE) !=
+		 t2rpy_u32(header, 44))
+	) {
+		return false;
+	}
+	t2rpy_input_offset = t2rpy_u32(header, 32);
+	input_size = t2rpy_u32(header, 36);
+	t2rpy_packet_count = t2rpy_u32(header, 28);
+	if(
+		(t2rpy_input_offset != t2rpy_header_size) ||
+		(input_size > T2RPY_INPUT_SIZE_MAX) ||
+		(t2rpy_packet_count > (T2RPY_INPUT_SIZE_MAX / T2RPY_PACKET_SIZE)) ||
+		(input_size != (t2rpy_packet_count * T2RPY_PACKET_SIZE))
+	) {
+		return false;
+	}
+	input_end = t2rpy_input_offset + input_size;
+	if((input_end < t2rpy_input_offset) || (physical_size < input_end)) {
+		return false;
+	}
+	return true;
+}
+
+static bool t2rpy_packet_read(uint32_t cursor, t2rpy_packet_t far *packet)
+{
+	int fd;
+	long offset;
+
+	if(cursor >= t2rpy_packet_count) {
+		return false;
+	}
+	offset = static_cast<long>(
+		t2rpy_input_offset + (cursor * T2RPY_PACKET_SIZE)
+	);
+	fd = t2f_read_open(T2RPY_SLOT_FN);
+	if(fd < 0) {
+		return false;
+	}
+	if(lseek(fd, offset, SEEK_SET) != offset) {
+		close(fd);
+		return false;
+	}
+	if(read(fd, packet, sizeof(*packet)) != sizeof(*packet)) {
+		close(fd);
+		return false;
+	}
+	close(fd);
+	return true;
+}
+
+static bool t2rpy_split_write_header(void)
+{
+	t2split_header_t header;
+	int fd;
+
+	t2case_paths_init();
+	t2case_memclear(&header, sizeof(header));
+	header.magic[0] = 'T'; header.magic[1] = '2';
+	header.magic[2] = 'S'; header.magic[3] = 'P';
+	header.magic[4] = 'L'; header.magic[5] = 'T';
+	header.magic[6] = '1'; header.magic[7] = '\0';
+	header.version = T2SPLIT_VERSION;
+	header.header_size = T2SPLIT_HEADER_SIZE;
+	header.row_size = T2SPLIT_ROW_SIZE;
+	header.flags = T2SPLIT_VERSION;
+	fd = t2f_create(T2CASE_SPLIT_FN);
+	if(fd < 0) {
+		return false;
+	}
+	if(!t2f_write(fd, &header, sizeof(header))) {
+		close(fd);
+		return false;
+	}
+	close(fd);
+	return true;
+}
+
+static bool t2rpy_split_row(uint8_t event)
+{
+	t2split_row_t row;
+	int fd;
+
+	fd = t2f_update(T2CASE_SPLIT_FN);
+	if(fd < 0) {
+		return false;
+	}
+	lseek(fd, 0L, SEEK_END);
+	t2case_memclear(&row, sizeof(row));
+	row.event = event;
+	row.process = T2CASE_PROCESS_MAIN;
+	row.stage_id = static_cast<uint8_t>(stage_id);
+	row.rank = static_cast<uint8_t>(rank);
+	row.global_frame = t2rpy_samples_consumed;
+	row.scenario_cursor = 0;
+	row.input = key_det;
+	row.schema = T2SPLIT_VERSION;
+	row.score = static_cast<uint32_t>(score);
+	row.random_seed = static_cast<uint32_t>(random_seed);
+	row.samples_consumed = t2rpy_samples_consumed;
+	row.stage_frame = stage_frame;
+	row.resident_frame = static_cast<uint32_t>(resident->frame);
+	row.score_highest = static_cast<int32_t>(resident->score_highest);
+	row.continues_used = static_cast<uint16_t>(resident->continues_used);
+	row.demo_frame = static_cast<uint16_t>(demo_frame);
+	row.playperf = static_cast<int16_t>(playperf);
+	row.item_skill = static_cast<int16_t>(item_skill);
+	row.randring_p = randring_p;
+	row.stage_progression = static_cast<uint8_t>(stage_progression);
+	row.lives = lives;
+	row.bombs = bombs;
+	row.power = power;
+	row.playperf_max = playperf_max;
+	row.total_miss_count = total_miss_count;
+	row.total_bombs_used = total_bombs_used;
+	row.stage_miss_count = stage_miss_count;
+	row.stage_bombs_used = stage_bombs_used;
+	row.slowdown_factor = slowdown_factor;
+	row.quit = static_cast<uint8_t>(quit);
+	t2h_group_rng();      t2h_commit(&row, T2SPLIT_G_RNG);
+	t2h_group_run();      t2h_commit(&row, T2SPLIT_G_RUN);
+	t2h_group_player();   t2h_commit(&row, T2SPLIT_G_PLAYER);
+	t2h_group_bullets();  t2h_commit(&row, T2SPLIT_G_BULLETS);
+	t2h_group_enemies();  t2h_commit(&row, T2SPLIT_G_ENEMIES);
+	t2h_group_items();    t2h_commit(&row, T2SPLIT_G_ITEMS);
+	t2h_group_scoring();  t2h_commit(&row, T2SPLIT_G_SCORING);
+	t2h_group_field();    t2h_commit(&row, T2SPLIT_G_FIELD);
+	t2h_group_sparks();   t2h_commit(&row, T2SPLIT_G_SPARKS);
+	t2h_group_pacing();   t2h_commit(&row, T2SPLIT_G_PACING);
+	if(!t2f_write(fd, &row, sizeof(row))) {
+		close(fd);
+		return false;
+	}
+	close(fd);
+	return true;
+}
+
+static void t2rpy_start_apply(const uint8_t far *header)
+{
+	resident->frame = static_cast<long>(t2rpy_u32(header, 48));
+	resident->score = static_cast<score_t>(
+		static_cast<int32_t>(t2rpy_u32(header, 56))
+	);
+	resident->score_highest = static_cast<long>(t2rpy_u32(header, 60));
+	resident->continues_used = t2rpy_u16(header, 64);
+	resident->skill = static_cast<int16_t>(t2rpy_u16(header, 66));
+	resident->stage = 0;
+	resident->rank = static_cast<char>(header[69]);
+	resident->rem_lives = static_cast<char>(header[70]);
+	resident->rem_bombs = static_cast<char>(header[71]);
+	resident->start_lives = header[72];
+	resident->start_bombs = header[73];
+	resident->start_power = static_cast<char>(header[74]);
+	resident->shottype = header[75];
+	resident->bgm_mode = static_cast<char>(header[76]);
+	resident->reduce_effects = (header[77] != 0);
+	resident->debug = false;
+	resident->demo_num = 0;
+	stage_id = 0;
+	lives = static_cast<int8_t>(resident->start_lives);
+	bombs = static_cast<int8_t>(resident->start_bombs);
+	rank = resident->rank;
+	power = static_cast<uint8_t>(resident->start_power);
+	if(power == 0) {
+		power++;
+	}
+	score = resident->score;
+	playperf = 0;
+}
+
+bool16 t2rpy_active(void)
+{
+	return (t2rpy_enabled ? true : false);
+}
+
+void t2rpy_session_start(void)
+{
+	uint8_t header[T2RPY_START_END];
+	int fd;
+
+	if(t2case_mode != T2CASE_DISABLED) {
+		return;
+	}
+	if(!t2rpy_command_load()) {
+		return;
+	}
+	if(!t2rpy_header_load()) {
+		t2rpy_probe_write(T2RPY_CUTOFF_HEADER, 0);
+		return;
+	}
+	fd = t2f_read_open(T2RPY_SLOT_FN);
+	if((fd < 0) ||
+		(read(fd, header, sizeof(header)) != sizeof(header))) {
+		if(fd >= 0) {
+			close(fd);
+		}
+		t2rpy_probe_write(T2RPY_CUTOFF_HEADER, 0);
+		return;
+	}
+	close(fd);
+	t2rpy_start_apply(header);
+	t2rpy_packet_cursor = 0;
+	t2rpy_samples_consumed = 0;
+	t2rpy_run_remaining = 0;
+	t2rpy_stage_started = false;
+	t2rpy_enabled = true;
+}
+
+void t2rpy_stage_enter(void)
+{
+	t2rpy_packet_t packet;
+	uint8_t phase;
+	uint8_t value;
+
+	if(!t2rpy_enabled) {
+		overlay_stage_enter_animate();
+		return;
+	}
+	if(
+		(stage_id != 0) || !t2rpy_packet_read(t2rpy_packet_cursor, &packet)
+	) {
+		t2rpy_stop(T2RPY_CUTOFF_STAGE, 0);
+		overlay_stage_enter_animate();
+		return;
+	}
+	phase = static_cast<uint8_t>(packet.tag >> T2RPY_PACKET_PHASE_SHIFT);
+	value = static_cast<uint8_t>(packet.tag & T2RPY_PACKET_RUN_MASK);
+	if(
+		(phase != T2RPY_PHASE_CONTROL) ||
+		(value != T2RPY_CONTROL_STAGE_START) ||
+		(packet.input_low != static_cast<uint8_t>(stage_id)) ||
+		(packet.input_high != 0) || (packet.arg != 0)
+	) {
+		t2rpy_stop(T2RPY_CUTOFF_STAGE, packet.tag);
+		overlay_stage_enter_animate();
+		return;
+	}
+	t2rpy_packet_cursor++;
+	t2rpy_stage_started = true;
+	if(!t2rpy_split_write_header() || !t2rpy_split_row(T2SPLIT_EVENT_START)) {
+		t2rpy_stop(T2RPY_CUTOFF_TRACE, packet.tag);
+	}
+	overlay_stage_enter_animate();
+}
+
+void t2rpy_input_reset_sense(void)
+{
+	t2rpy_packet_t packet;
+	uint8_t phase;
+
+	// The reader is still called first. This preserves every ordinary Story and
+	// demo input path; an admitted prefix overwrites only the local gameplay
+	// result, precisely at this one historical call site.
+	input_reset_sense();
+	if(!t2rpy_enabled) {
+		return;
+	}
+	if(!t2rpy_stage_started) {
+		t2rpy_stop(T2RPY_CUTOFF_STAGE, 0);
+		return;
+	}
+	if(t2rpy_run_remaining == 0) {
+		if(t2rpy_packet_cursor >= t2rpy_packet_count) {
+			t2rpy_stop(T2RPY_CUTOFF_EXHAUSTED, 0);
+			return;
+		}
+		if(!t2rpy_packet_read(t2rpy_packet_cursor, &packet)) {
+			t2rpy_stop(T2RPY_CUTOFF_IO, 0);
+			return;
+		}
+		phase = static_cast<uint8_t>(packet.tag >> T2RPY_PACKET_PHASE_SHIFT);
+		if(phase != T2RPY_PHASE_GAMEPLAY) {
+			t2rpy_stop(T2RPY_CUTOFF_PHASE, packet.tag);
+			return;
+		}
+		if(
+			(packet.arg != 0) ||
+			((static_cast<input_t>(packet.input_low) |
+			  (static_cast<input_t>(packet.input_high) << 8)) &
+			 ~static_cast<input_t>(T2RPY_INPUT_KNOWN)) != 0
+		) {
+			t2rpy_stop(T2RPY_CUTOFF_PHASE, packet.tag);
+			return;
+		}
+		t2rpy_run_input = static_cast<input_t>(
+			static_cast<input_t>(packet.input_low) |
+			(static_cast<input_t>(packet.input_high) << 8)
+		);
+		if(t2rpy_run_input & INPUT_CANCEL) {
+			t2rpy_stop(T2RPY_CUTOFF_CANCEL, packet.tag);
+			return;
+		}
+		t2rpy_run_remaining = static_cast<uint8_t>(
+			(packet.tag & T2RPY_PACKET_RUN_MASK) + 1
+		);
+		t2rpy_packet_cursor++;
+	}
+	key_det = t2rpy_run_input;
+	t2rpy_run_remaining--;
+	t2rpy_samples_consumed++;
+	if(
+		((t2rpy_samples_consumed & (T2SPLIT_INTERVAL_SAMPLES - 1)) == 0) &&
+		!t2rpy_split_row(T2SPLIT_EVENT_CHECKPOINT)
+	) {
+		t2rpy_stop(T2RPY_CUTOFF_TRACE, 0);
+	}
+}
+
 /// Lifecycle wrappers
 /// ------------------
 /// Named by th02_main.asm:704 and :2368 in place of the stock symbols. See
@@ -2003,6 +2629,7 @@ int t2case_init_main(void)
 
 	if(ret == 0) {
 		t2case_session_start();
+		t2rpy_session_start();
 	}
 	return ret;
 }

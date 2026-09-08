@@ -42,6 +42,7 @@ include th02/sprites/main_pat.inc
 	extern @t2case_stage_enter$qv:proc
 	extern @t2case_init_main$qv:proc
 	extern @t2case_game_exit$qv:proc
+	extern @t2rpy_input_reset_sense$qv:proc
 
 playperf_min = -6
 
@@ -1653,7 +1654,7 @@ loc_BDA2:
 		mov	dx, _scroll_line
 		mov	bx, ax
 		mov	ss:[bx], dx
-		call	@input_reset_sense$qv
+		call	@t2rpy_input_reset_sense$qv
 		les	bx, _resident
 		cmp	es:[bx+mikoconfig_t.demo_num], 0
 		jz	short loc_BDCC
