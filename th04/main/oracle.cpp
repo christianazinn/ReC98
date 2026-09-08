@@ -5526,7 +5526,7 @@ static bool oracle_header_read(void)
 	//   and `_power` from `debug_power` -- and then clears `debug_mode` --
 	//   before the demo gate at `:765`. So `oracle_startup_apply()` writing a
 	//   set flag back would silently relocate the case to a different stage
-	//   and power level while still reporting `ok:playback`.
+	//   and power level while still reporting a successful completion.
 	// * TH04's `debug` selects a DIFFERENT MAIN BINARY:
 	//   `op_exit_into_main()` execs `BINARY_DEB` rather than `BINARY_MAIN`
 	//   (`th04/op/start.hpp:29-33`). A case carrying it does not describe this
