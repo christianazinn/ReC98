@@ -5050,6 +5050,8 @@ include th05/main/bullet/b4balls_render.asm
 
 ; Attributes: bp-based frame
 
+public B4_SOLO_FG_RENDER
+B4_SOLO_FG_RENDER label near
 sub_10F12	proc near
 
 @@y		= word ptr -2
@@ -11429,6 +11431,8 @@ sub_19A0F	endp
 
 ; Attributes: bp-based frame
 
+public @ALICE_PUPPET_PATTERN_19A84$QP8PUPPET_T
+@ALICE_PUPPET_PATTERN_19A84$QP8PUPPET_T label near
 sub_19A84	proc near
 
 @@puppet		= word ptr  4
@@ -11470,6 +11474,8 @@ sub_19A84	endp
 
 ; Attributes: bp-based frame
 
+public @ALICE_PUPPET_PATTERN_19AE3$QP8PUPPET_T
+@ALICE_PUPPET_PATTERN_19AE3$QP8PUPPET_T label near
 sub_19AE3	proc near
 
 @@puppet		= word ptr  4
@@ -11498,6 +11504,8 @@ sub_19AE3	endp
 
 ; Attributes: bp-based frame
 
+public @ALICE_PUPPET_PATTERN_19AFB$QP8PUPPET_T
+@ALICE_PUPPET_PATTERN_19AFB$QP8PUPPET_T label near
 sub_19AFB	proc near
 		push	bp
 		mov	bp, sp
@@ -12688,6 +12696,8 @@ sub_1A719	endp
 
 ; Attributes: bp-based frame
 
+public @mai_yuki_1A775$qv
+@mai_yuki_1A775$qv label near
 sub_1A775	proc near
 
 var_1		= byte ptr -1
@@ -15856,6 +15866,8 @@ sub_1C34B	endp
 
 ; Attributes: bp-based frame
 
+public @MAI_UPDATE$QV
+@MAI_UPDATE$QV label far
 sub_1C518	proc far
 		push	bp
 		mov	bp, sp
@@ -16359,6 +16371,8 @@ sub_1CAD7	endp
 
 ; Attributes: bp-based frame
 
+public @yumeko_1CB71$qv
+@yumeko_1CB71$qv label near
 sub_1CB71	proc near
 
 @@angle		= byte ptr -1
@@ -16657,6 +16671,8 @@ sub_1CE0D	endp
 
 ; Attributes: bp-based frame
 
+public @yumeko_1CED9$qv
+@yumeko_1CED9$qv label near
 sub_1CED9	proc near
 
 @@angle		= byte ptr -1
@@ -17366,6 +17382,8 @@ sub_1E556	endp
 
 ; Attributes: bp-based frame
 
+public @pattern_wait$qv
+@pattern_wait$qv label near
 sub_1E5FC	proc near
 		push	bp
 		mov	bp, sp
@@ -17798,6 +17816,8 @@ sub_1E978	endp
 
 ; Attributes: bp-based frame
 
+public @pattern_spreads_and_firewaves$qv
+@pattern_spreads_and_firewaves$qv label near
 sub_1EA14	proc near
 		push	bp
 		mov	bp, sp
@@ -18049,6 +18069,8 @@ sub_1EC01	endp
 
 ; Attributes: bp-based frame
 
+public @pattern_bouncing_blue_rings$qv
+@pattern_bouncing_blue_rings$qv label near
 sub_1EC6C	proc near
 		push	bp
 		mov	bp, sp
@@ -18246,6 +18268,8 @@ sub_1EDC1	endp
 
 ; Attributes: bp-based frame
 
+public @pattern_pingpong_lasers$qv
+@pattern_pingpong_lasers$qv label near
 sub_1EE2F	proc near
 		push	bp
 		mov	bp, sp
@@ -18449,6 +18473,8 @@ sub_1EF80	endp
 
 ; Attributes: bp-based frame
 
+public @pattern_mirrored_crosses$qv
+@pattern_mirrored_crosses$qv label near
 sub_1EFED	proc near
 		push	bp
 		mov	bp, sp
@@ -19630,7 +19656,11 @@ _BOMB_SHAPE_YUUKA_FN_2	db 'bomb3.bft',0
 _BOMB_SHAPE_FN_2      	db 'bomb0.bft',0
 	evendata
 include th04/main/boss/explosions_big[data].asm
+public _byte_22274
+_byte_22274 label byte
 byte_22274	db 0
+public _byte_22275
+_byte_22275 label byte
 byte_22275	db 0
 public _STAGE_CLEAR_BONUS_DESC
 _STAGE_CLEAR_BONUS_DESC label word
@@ -19713,10 +19743,14 @@ _SARA_PATTERNS_PHASE_2_3 label word
 		dw offset @pattern_random_red_rings$qv
 		dw offset @pattern_accelerating_spirals_clo$qv
 		dw offset @pattern_accelerating_spirals_cou$qv
+public _ALICE_PUPPET_PATTERNS
+_ALICE_PUPPET_PATTERNS label word
 off_22768	dw offset sub_198B7
 		dw offset sub_19928
 		dw offset sub_1999A
 		dw offset sub_19A0F
+public _off_22770
+_off_22770 label word
 off_22770	dw offset sub_19B9E
 		dw offset sub_19BB8
 		dw offset sub_19C34
@@ -19729,10 +19763,14 @@ off_22770	dw offset sub_19B9E
 		dw offset sub_19E12
 		dw offset sub_19EDA
 		dw offset sub_19F75
+public _MAI_PAIR_PATTERNS_1
+_MAI_PAIR_PATTERNS_1 label word
 off_22788	dw offset sub_1A5EB
 		dw offset sub_1A6AB
 		dw offset sub_1A651
 		dw offset sub_1A719
+public _MAI_PAIR_PATTERNS_3
+_MAI_PAIR_PATTERNS_3 label word
 off_22790	dw offset mai_yuki_1AB76
 		dw offset sub_1A6AB
 		dw offset sub_1A82F
@@ -19741,14 +19779,20 @@ off_22790	dw offset mai_yuki_1AB76
 		dw 0
 		dw 0
 		dw 0
+public _YUKI_PAIR_PATTERNS_1
+_YUKI_PAIR_PATTERNS_1 label word
 off_227A0	dw offset mai_yuki_1A8C9
 		dw offset sub_1A96A
 		dw offset sub_1A921
 		dw offset mai_yuki_1A9B3
+public _YUKI_PAIR_PATTERNS_2
+_YUKI_PAIR_PATTERNS_2 label word
 off_227A8	dw offset sub_1A921
 		dw offset mai_yuki_1AA4C
 		dw offset mai_yuki_1AA03
 		dw offset mai_yuki_1A8C9
+public _YUKI_PAIR_PATTERNS_3
+_YUKI_PAIR_PATTERNS_3 label word
 off_227B0	dw offset mai_yuki_1AB1F
 		dw offset mai_yuki_1AA9B
 		dw offset mai_yuki_1AA9B
@@ -19757,28 +19801,46 @@ a_dm09_tx2	db '_DM09.TX2',0
 aTH05_10	db 'ê^çgÇÃè≠èóÅ@Å` Crimson Dead!!',0
 a_dm08_tx2	db '_DM08.TX2',0
 aTH05_11	db 'ó†êÿÇËÇÃè≠èóÅ@Å` Judas Kiss',0
+public _YUKI_PATTERNS_PHASE_3
+_YUKI_PATTERNS_PHASE_3 label word
 off_22806	dw offset sub_1B557
 		dw offset sub_1B628
+public _YUKI_PATTERNS_PHASE_5
+_YUKI_PATTERNS_PHASE_5 label word
 off_2280A	dw offset sub_1B6C4
 		dw offset sub_1B754
+public _YUKI_PATTERNS_PHASE_9
+_YUKI_PATTERNS_PHASE_9 label word
 off_2280E	dw offset sub_1B832
 		dw offset sub_1B8C8
 		dw offset sub_1B8C8
 		dw offset sub_1B8C8
 		dw offset sub_1B8C8
+public _MAI_LASER_BULLET_PATTERNS
+_MAI_LASER_BULLET_PATTERNS label word
 off_22818	dw offset sub_1BE96
 		dw offset sub_1BEF4
 		dw offset sub_1BF4D
+public _MAI_PATTERNS_PHASE_7
+_MAI_PATTERNS_PHASE_7 label word
 off_2281E	dw offset sub_1BFDA
 		dw offset sub_1C0E4
+public _MAI_PATTERNS_PHASE_9
+_MAI_PATTERNS_PHASE_9 label word
 off_22822	dw offset sub_1C194
 		dw offset sub_1C23D
+public _MAI_PATTERNS_PHASE_3
+_MAI_PATTERNS_PHASE_3 label word
 off_22826	dw offset sub_1BD2C
 		dw offset sub_1BDD0
+public _YUMEKO_PATTERNS_PHASE_2
+_YUMEKO_PATTERNS_PHASE_2 label word
 off_2282A	dw offset sub_1CA42
 		dw offset sub_1CAD7
 		dw 0
 		dw 0
+public _YUMEKO_PATTERNS_PHASE_5
+_YUMEKO_PATTERNS_PHASE_5 label word
 off_22832	dw offset sub_1CCD3
 		dw offset sub_1CE0D
 		dw 0
@@ -19801,10 +19863,20 @@ public _shinki_devil_laser_grow_delay, _shinki_float_direction
 _shinki_devil_laser_grow_delay	dw 0
 _shinki_float_direction	db 0
 	evendata
+public _s2particles_spawned
+_s2particles_spawned label word
 word_22856	dw 0
+public _stage2_bg_pulse
+_stage2_bg_pulse label byte
 byte_22858	db 0
+public _stage2_flash_tone
+_stage2_flash_tone label byte
 byte_22859	db 0
+public _midbossx_phase_1_pattern
+_midbossx_phase_1_pattern label word
 off_2285A	dw offset sub_1E5FC
+public _MIDBOSSX_PATTERNS_PHASE_1
+_MIDBOSSX_PATTERNS_PHASE_1 label word
 off_2285C	dw offset sub_1E60E
 		dw offset sub_1E66F
 		dw offset sub_1E6A6
@@ -19819,8 +19891,14 @@ byte_22868	db  10h
 		db 0F0h
 		db    0
 		db    0
+public _exalice_laser_slot
+_exalice_laser_slot label word
 word_22870	dw 0
+public _exalice_pattern_origin_x
+_exalice_pattern_origin_x label word
 word_22872	dw (192 shl 4)
+public _EXALICE_PATTERNS
+_EXALICE_PATTERNS label word
 off_22874	dw offset sub_1E922
 		dw offset sub_1E978
 		dw offset sub_1EB52
@@ -19829,6 +19907,8 @@ off_22874	dw offset sub_1E922
 		dw offset sub_1EDC1
 		dw offset sub_1EEF1
 		dw offset sub_1EF80
+public _MIDBOSS5_PATTERNS_PHASE_1
+_MIDBOSS5_PATTERNS_PHASE_1 label word
 off_22884	dw offset sub_1F776
 		dw offset sub_1F7BA
 		dw offset sub_1F823
@@ -20163,34 +20243,76 @@ include th04/main/score[bss].asm
 		db 2 dup(?)
 public _sara_phase_2_3_pattern
 _sara_phase_2_3_pattern	dw ?
+public _midboss2_center
+_midboss2_center label word
 sppoint_2CE26	Point <?>
+public _fp_2CE2A
+_fp_2CE2A label word
 fp_2CE2A	dw ?
+public _fp_2CE2C
+_fp_2CE2C label word
 fp_2CE2C	dw ?
+public _alice_barrier_frame
+_alice_barrier_frame label word
 word_2CE2E	dw ?
+public _alice_barrier_fire_frames
+_alice_barrier_fire_frames label word
 word_2CE30	dw ?
+public _fp_2CE32
+_fp_2CE32 label word
 fp_2CE32	dw ?
 include th05/main/boss/b4_both[bss].asm
+public _mai_pair_pattern
+_mai_pair_pattern label word
 fp_2CE36	dw ?
+public _yuki_pair_pattern
+_yuki_pair_pattern label word
 fp_2CE38	dw ?
+public _midboss4_warp_x
+_midboss4_warp_x label word
 word_2CE3A	dw ?
+public _mai_laser_count
+_mai_laser_count label word
 word_2CE3C	dw ?
+public _mai_laser_angle_speed
+_mai_laser_angle_speed label word
 word_2CE3E	dw ?
+public _mai_laser_angle_progress
+_mai_laser_angle_progress label word
 word_2CE40	dw ?
+public _mai_yuki_pattern
+_mai_yuki_pattern label word
 fp_2CE42	dw ?
+public _mai_laser_bullet_pattern
+_mai_laser_bullet_pattern label word
 fp_2CE44	dw ?
+public _yumeko_pattern
+_yumeko_pattern label word
 fp_2CE46	dw ?
 public _shinki_phase_2_3_pattern, _shinki_wing_pattern
 _shinki_phase_2_3_pattern	dw ?
 _shinki_wing_pattern     	dw ?
+public _stage2_bg_pulse_direction
+_stage2_bg_pulse_direction label byte
 byte_2CE4C	db ?
 		db ?
 include th04/main/stage/funcs[bss].asm
+public _exalice_random_origin
+_exalice_random_origin label word
 point_2CE52	Point <?>
+public _exalice_invincibility_frames
+_exalice_invincibility_frames label byte
 byte_2CE56	db ?
 		evendata
 include th05/main/boss/bx[bss].asm
+public _exalice_overlay_patnum
+_exalice_overlay_patnum label word
 patnum_2CE64	dw ?
+public _exalice_pattern
+_exalice_pattern label word
 fp_2CE66	dw ?
+public _midboss5_phase_1_pattern
+_midboss5_phase_1_pattern label word
 fp_2CE68	dw ?
 include th04/main/hud/overlay[bss].asm
 word_2CE9E	dw ?
@@ -20222,5 +20344,9 @@ byte_2D060	db ?
 		db ?
 include th04/main/player/shots_add[bss].asm
 include th04/main/boss/boss[bss].asm
+
+ORACLE_TEXT segment word public 'CODE' use16
+ORACLE_TEXT ends
+ORACLE group ORACLE_TEXT
 
 		end

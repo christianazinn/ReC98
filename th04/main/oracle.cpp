@@ -1,7 +1,7 @@
 // The frozen source offers a complete current-schema dependency surface for
-// TH04 only. TH05 keeps its historical schema-2 implementation until a
-// separately proven source binding map exists for its later actor state.
-#if (GAME == 4)
+// TH04 and TH05. TH05's private actor state uses the audited, zero-byte aliases
+// in the frozen MAIN root rather than importing gameplay providers.
+#if ((GAME == 4) || (GAME == 5))
 #pragma option -zCORACLE_TEXT
 
 // T4CASE1 / T5CASE1 verifier for TH04 and TH05 MAIN.
@@ -54,64 +54,51 @@
 #include "platform.h"
 
 #if (GAME == 5)
-	// First declarations fix the frame of near callback addresses outside
-	// ORACLE_TEXT. The oracle compares identities but never calls these.
-	#pragma codeseg PLAYFLD_TEXT
-	extern "C" void pascal near cheetos_render(void);
-	#pragma codeseg
-
-	#pragma codeseg MIDBOSSX_TEXT
-	void pascal near midboss1_render(void);
-	void pascal near midboss2_render(void);
-	void pascal near midboss3_render(void);
-	void pascal near midboss4_render(void);
-	void pascal near midbossx_render(void);
-	void pascal near sara_fg_render(void);
-	void pascal near louise_fg_render(void);
-	void pascal near alice_fg_render(void);
-	void pascal near mai_yuki_fg_render(void);
-	void pascal near yumeko_fg_render(void);
-	void pascal near shinki_fg_render(void);
-	extern "C" void pascal near b4balls_render(void);
-	extern "C" void pascal near b4_solo_fg_render(void);
-	extern "C" void pascal near swords_render(void);
-	void pascal near shinki_custombullets_render(void);
-	#pragma codeseg
-
-	#pragma codeseg main_0_TEXT
-	void pascal near midboss5_render(void);
-	void pascal near exalice_fg_render(void);
-	extern "C" void pascal near exalice_custombullets_render(void);
-	#pragma codeseg
-
-	#pragma codeseg PLAYER_B_TEXT
-	extern "C" void pascal near nullfunc_near(void);
-	#pragma codeseg
-
-	#pragma codeseg BOSS_BG_TEXT main_01
-	void pascal near sara_backdrop_colorfill(void);
-	#pragma codeseg
-
-	#pragma codeseg END_EXT_A_TEXT main_01
-	void pascal near louise_backdrop_colorfill(void);
-	void pascal near alice_backdrop_colorfill(void);
-	void pascal near mai_yuki_backdrop_colorfill(void);
-	#pragma codeseg
-
-	#pragma codeseg YUMEKO_COLORFILL_TEXT main_01
-	void pascal near yumeko_backdrop_colorfill(void);
-	#pragma codeseg
-
-	#pragma codeseg LASER_RH_TEXT main_01
-	void pascal near shinki_stage_backdrop_colorfill(void);
-	#pragma codeseg
+	// These are imported as far symbols. The reader compares their low words to
+	// the stored near callback slots, keeping every original code group intact.
+	extern "C" void pascal far cheetos_render(void);
+	void pascal far midboss1_update(void);
+	void pascal far midboss2_update(void);
+	void pascal far midboss3_update(void);
+	void pascal far midboss4_update(void);
+	void pascal far midboss5_update(void);
+	void pascal far midbossx_update(void);
+	void pascal far midboss_invalidate_func(void);
+	void pascal far midboss1_render(void);
+	void pascal far midboss2_render(void);
+	void pascal far midboss3_render(void);
+	void pascal far midboss4_render(void);
+	void pascal far midbossx_render(void);
+	void pascal far sara_fg_render(void);
+	void pascal far louise_fg_render(void);
+	void pascal far alice_fg_render(void);
+	void pascal far mai_yuki_fg_render(void);
+	void pascal far yumeko_fg_render(void);
+	void pascal far shinki_fg_render(void);
+	extern "C" void pascal far b4balls_render(void);
+	extern "C" void pascal far b4_solo_fg_render(void);
+	extern "C" void pascal far swords_render(void);
+	void pascal far shinki_custombullets_render(void);
+	void pascal far midboss5_render(void);
+	void pascal far exalice_fg_render(void);
+	extern "C" void pascal far exalice_custombullets_render(void);
+	extern "C" void pascal far nullfunc_near(void);
+	extern "C" void pascal far nullfunc_far(void);
+	void pascal far sara_backdrop_colorfill(void);
+	void pascal far louise_backdrop_colorfill(void);
+	void pascal far alice_backdrop_colorfill(void);
+	void pascal far mai_yuki_backdrop_colorfill(void);
+	void pascal far yumeko_backdrop_colorfill(void);
+	void pascal far shinki_stage_backdrop_colorfill(void);
 #endif
 
 #include "libs/master.lib/master.hpp"
 #include "th04/common.h"
 #include "th04/end/end.h"
 #include "th04/formats/std.hpp"
-#include "th04/main/bullet/clearzap.hpp"
+#if (GAME == 4)
+	#include "th04/main/bullet/clearzap.hpp"
+#endif
 #include "th04/main/bg.hpp"
 #include "th04/main/circle.hpp"
 #include "th04/main/custom.hpp"
@@ -120,8 +107,10 @@
 #include "th04/main/ems.hpp"
 #include "th04/main/frames.h"
 #include "th04/main/item/splash.hpp"
-#include "th04/main/midboss/midboss.hpp"
-#include "th04/main/null.hpp"
+#if (GAME == 4)
+	#include "th04/main/midboss/midboss.hpp"
+	#include "th04/main/null.hpp"
+#endif
 #include "th04/main/oracle.hpp"
 #include "th04/main/pattern.hpp"
 #include "th04/main/playperf.hpp"
@@ -137,10 +126,6 @@
 #include "th04/main/tile/tile.hpp"
 #include "th04/oracle_build.hpp"
 #if (GAME == 5)
-	#include "th05/main/boss/bosses.hpp"
-	#include "th05/main/bullet/cheeto.hpp"
-	#include "th05/main/bullet/laser.hpp"
-	#include "th05/main/enemy/enemy.hpp"
 	#include "th05/playchar.h"
 	#include "th05/resident.hpp"
 #else
@@ -150,7 +135,375 @@
 	#include "th04/playchar.h"
 	#include "th04/resident.hpp"
 #endif
+
+#if (GAME == 5)
+// These are reader views, not gameplay declarations. Their sole authority is
+// the frozen storage in bullet.inc, items[bss].asm, lasers[bss].asm and the
+// boss BSS modules. Keeping them here avoids importing later provider headers
+// whose transitive definitions either collide at 9fb or silently differ from
+// the linked TH05 MAIN layout.
+static const int ORACLE_BULLET_COUNT = 400;
+static const int ORACLE_ITEM_COUNT = 40;
+static const int ORACLE_LASER_COUNT = 32;
+static const uint8_t ORACLE_ENTITY_FREE = 0;
+
+struct oracle_bullet_template_t {
+	uint8_t spawn_type;
+	uint8_t patnum;
+	PlayfieldPoint origin;
+	uint8_t group;
+	uint8_t special_motion;
+	uint8_t spread;
+	uint8_t spread_angle_delta;
+	uint8_t stack;
+	SubpixelLength8 stack_speed_delta;
+	uint8_t angle;
+	SubpixelLength8 speed;
+};
+
+struct oracle_bullet_t {
+	uint8_t flag;
+	int8_t age;
+	PlayfieldMotion pos;
+	uint8_t from_group;
+	int8_t unused;
+	SubpixelLength8 speed_cur;
+	uint8_t angle;
+	uint8_t spawn_flag;
+	uint8_t move_flag;
+	uint8_t special_motion;
+	SubpixelLength8 speed_final;
+	union {
+		uint8_t decelerate_time;
+		uint8_t turns_done;
+	} u1;
+	union {
+		SubpixelLength8 decelerate_speed_delta;
+		int8_t special_angle;
+	} u2;
+	int16_t patnum;
+	SPPoint origin;
+	Subpixel distance;
+};
+
+union oracle_bullet_special_t {
+	uint8_t turns_max;
+	SubpixelLength8 speed_delta;
+};
+union oracle_bullet_zap_t {
+	bool active;
+	uint8_t frame;
+};
+extern oracle_bullet_t bullets[ORACLE_BULLET_COUNT];
+extern oracle_bullet_template_t bullet_template;
+extern oracle_bullet_special_t bullet_special;
+extern int8_t bullet_template_special_angle;
+extern nearfunc_t_near bullet_template_tune;
+extern oracle_bullet_zap_t bullet_zap;
+extern uint8_t bullet_clear_time;
+extern bool bullet_zap_drop_point_items;
+
+struct oracle_item_t {
+	uint8_t flag;
+	int8_t unused;
+	PlayfieldMotion pos;
+	uint8_t type;
+	int8_t unknown;
+	int16_t patnum;
+	int16_t pulled_to_player;
+};
+extern oracle_item_t items[ORACLE_ITEM_COUNT];
+extern uint8_t item_playperf_raise;
+extern uint8_t item_playperf_lower;
+extern uint16_t item_point_score_at_full_dream;
+extern uint16_t stage_point_items_collected;
+extern uint16_t extend_point_items_collected;
+extern uint16_t items_spawned;
+extern uint16_t items_collected;
+extern uint16_t total_point_items_collected;
+extern bool items_pull_to_player;
+
+struct oracle_laser_coords_t {
+	PlayfieldPoint origin;
+	Subpixel starts_at_distance;
+	Subpixel ends_at_distance;
+	uint8_t angle;
+	uint8_t width;
+};
+struct oracle_laser_t {
+	uint8_t flag;
+	uint8_t col;
+	oracle_laser_coords_t coords;
+	Subpixel shootout_speed;
+	int16_t age;
+	union {
+		int16_t grow;
+		int16_t moveout;
+	} active_at_age;
+	int16_t shrink_at_age;
+	uint8_t grow_to_width;
+	uint8_t padding[3];
+};
+extern oracle_laser_t lasers[ORACLE_LASER_COUNT];
+extern oracle_laser_t laser_template;
+
+struct oracle_midboss_stuff_t {
+	PlayfieldMotion pos;
+	uint16_t frames_until;
+	int16_t hp;
+	uint8_t sprite;
+	uint8_t phase;
+	int16_t phase_frame;
+	uint8_t damage_this_frame;
+	uint8_t angle;
+};
+extern oracle_midboss_stuff_t midboss;
+extern bool midboss_active;
+extern nearfunc_t_near midboss_invalidate;
+extern func_t_near midboss_update;
+extern nearfunc_t_near midboss_render;
+extern func_t_near midboss_update_func;
+extern nearfunc_t_near midboss_render_func;
+
+struct oracle_boss_stuff_t {
+	PlayfieldMotion pos;
+	int16_t hp;
+	uint8_t sprite;
+	uint8_t phase;
+	int16_t phase_frame;
+	uint8_t damage_this_frame;
+	uint8_t mode;
+	uint8_t angle;
+	uint8_t phase_state;
+	int16_t phase_end_hp;
+};
+struct oracle_lrtb_t {
+	Subpixel left;
+	Subpixel right;
+	Subpixel top;
+	Subpixel bottom;
+};
+extern oracle_boss_stuff_t boss;
+extern oracle_boss_stuff_t boss2;
+extern uint8_t boss_statebyte[16];
+extern SPPoint boss_hitbox_radius;
+extern bool boss_phase_timed_out;
+extern func_t_near boss_update;
+extern nearfunc_t_near boss_fg_render;
+extern func_t_near boss_update_func;
+extern nearfunc_t_near boss_bg_render_func;
+extern nearfunc_t_near boss_fg_render_func;
+extern nearfunc_t_near boss_custombullets_render;
+extern uint16_t boss_sprite_left;
+extern uint16_t boss_sprite_right;
+extern uint16_t boss_sprite_stay;
+extern oracle_lrtb_t boss_flystep_random_clamp;
+	void pascal far sara_bg_render(void);
+	void pascal far louise_bg_render(void);
+	void pascal far alice_bg_render(void);
+	void pascal far mai_yuki_bg_render(void);
+	void pascal far yumeko_bg_render(void);
+	void pascal far shinki_bg_render(void);
+	void pascal far exalice_bg_render(void);
+	void pascal far sara_update(void);
+	void pascal far louise_update(void);
+	void pascal far alice_update(void);
+	void pascal far mai_yuki_update(void);
+	void pascal far yumeko_update(void);
+	void pascal far shinki_update(void);
+	void pascal far exalice_update(void);
+
+typedef oracle_bullet_template_t BulletTemplate;
+typedef oracle_laser_t Laser;
+typedef oracle_boss_stuff_t boss_stuff_t;
+
+typedef char oracle_th05_public_reader_layout_must_match_frozen[
+	(sizeof(oracle_bullet_template_t) == 14) &&
+	(offsetof(oracle_bullet_template_t, spawn_type) == 0) &&
+	(offsetof(oracle_bullet_template_t, patnum) == 1) &&
+	(offsetof(oracle_bullet_template_t, origin) == 2) &&
+	(offsetof(oracle_bullet_template_t, group) == 6) &&
+	(offsetof(oracle_bullet_template_t, special_motion) == 7) &&
+	(offsetof(oracle_bullet_template_t, spread) == 8) &&
+	(offsetof(oracle_bullet_template_t, spread_angle_delta) == 9) &&
+	(offsetof(oracle_bullet_template_t, stack) == 10) &&
+	(offsetof(oracle_bullet_template_t, stack_speed_delta) == 11) &&
+	(offsetof(oracle_bullet_template_t, angle) == 12) &&
+	(offsetof(oracle_bullet_template_t, speed) == 13) &&
+	(sizeof(oracle_bullet_t) == 32) &&
+	(offsetof(oracle_bullet_t, flag) == 0) &&
+	(offsetof(oracle_bullet_t, age) == 1) &&
+	(offsetof(oracle_bullet_t, pos) == 2) &&
+	(offsetof(oracle_bullet_t, from_group) == 14) &&
+	(offsetof(oracle_bullet_t, speed_cur) == 16) &&
+	(offsetof(oracle_bullet_t, angle) == 17) &&
+	(offsetof(oracle_bullet_t, spawn_flag) == 18) &&
+	(offsetof(oracle_bullet_t, move_flag) == 19) &&
+	(offsetof(oracle_bullet_t, special_motion) == 20) &&
+	(offsetof(oracle_bullet_t, speed_final) == 21) &&
+	(offsetof(oracle_bullet_t, u1) == 22) &&
+	(offsetof(oracle_bullet_t, u2) == 23) &&
+	(offsetof(oracle_bullet_t, patnum) == 24) &&
+	(offsetof(oracle_bullet_t, origin) == 26) &&
+	(offsetof(oracle_bullet_t, distance) == 30) &&
+	(sizeof(oracle_item_t) == 20) &&
+	(offsetof(oracle_item_t, flag) == 0) &&
+	(offsetof(oracle_item_t, pos) == 2) &&
+	(offsetof(oracle_item_t, type) == 14) &&
+	(offsetof(oracle_item_t, patnum) == 16) &&
+	(offsetof(oracle_item_t, pulled_to_player) == 18) &&
+	(sizeof(oracle_laser_coords_t) == 10) &&
+	(offsetof(oracle_laser_coords_t, origin) == 0) &&
+	(offsetof(oracle_laser_coords_t, starts_at_distance) == 4) &&
+	(offsetof(oracle_laser_coords_t, ends_at_distance) == 6) &&
+	(offsetof(oracle_laser_coords_t, angle) == 8) &&
+	(offsetof(oracle_laser_coords_t, width) == 9) &&
+	(sizeof(oracle_laser_t) == 24) &&
+	(offsetof(oracle_laser_t, flag) == 0) &&
+	(offsetof(oracle_laser_t, col) == 1) &&
+	(offsetof(oracle_laser_t, coords) == 2) &&
+	(offsetof(oracle_laser_t, shootout_speed) == 12) &&
+	(offsetof(oracle_laser_t, age) == 14) &&
+	(offsetof(oracle_laser_t, active_at_age) == 16) &&
+	(offsetof(oracle_laser_t, shrink_at_age) == 18) &&
+	(offsetof(oracle_laser_t, grow_to_width) == 20) &&
+	(sizeof(oracle_midboss_stuff_t) == 22) &&
+	(offsetof(oracle_midboss_stuff_t, pos) == 0) &&
+	(offsetof(oracle_midboss_stuff_t, frames_until) == 12) &&
+	(offsetof(oracle_midboss_stuff_t, hp) == 14) &&
+	(offsetof(oracle_midboss_stuff_t, sprite) == 16) &&
+	(offsetof(oracle_midboss_stuff_t, phase) == 17) &&
+	(offsetof(oracle_midboss_stuff_t, phase_frame) == 18) &&
+	(offsetof(oracle_midboss_stuff_t, damage_this_frame) == 20) &&
+	(offsetof(oracle_midboss_stuff_t, angle) == 21) &&
+	(sizeof(oracle_boss_stuff_t) == 24) &&
+	(offsetof(oracle_boss_stuff_t, pos) == 0) &&
+	(offsetof(oracle_boss_stuff_t, hp) == 12) &&
+	(offsetof(oracle_boss_stuff_t, sprite) == 14) &&
+	(offsetof(oracle_boss_stuff_t, phase) == 15) &&
+	(offsetof(oracle_boss_stuff_t, phase_frame) == 16) &&
+	(offsetof(oracle_boss_stuff_t, damage_this_frame) == 18) &&
+	(offsetof(oracle_boss_stuff_t, mode) == 19) &&
+	(offsetof(oracle_boss_stuff_t, angle) == 20) &&
+	(offsetof(oracle_boss_stuff_t, phase_state) == 21) &&
+	(offsetof(oracle_boss_stuff_t, phase_end_hp) == 22) &&
+	(sizeof(oracle_lrtb_t) == 8) &&
+	(offsetof(oracle_lrtb_t, left) == 0) &&
+	(offsetof(oracle_lrtb_t, right) == 2) &&
+	(offsetof(oracle_lrtb_t, top) == 4) &&
+	(offsetof(oracle_lrtb_t, bottom) == 6)
+	? 1 : -1
+];
+
+// The frozen cheeto header recursively includes the TH04 enemy header, which
+// collides with TH05's unguarded enemy declarations above. This local reader
+// view covers the only cheeto storage serialized here; its layout is checked
+// against cheeto[bss].asm below.
+static const int ORACLE_CHEETO_TRAIL_NODE_COUNT = 16;
+static const int ORACLE_CHEETO_TRAIL_COUNT = 8;
+struct oracle_cheeto_trail_t {
+	uint8_t flag;
+	int8_t col;
+	PlayfieldPoint node_pos[ORACLE_CHEETO_TRAIL_NODE_COUNT];
+	uint8_t node_sprite[ORACLE_CHEETO_TRAIL_NODE_COUNT];
+};
+extern oracle_cheeto_trail_t cheeto_trails[ORACLE_CHEETO_TRAIL_COUNT];
+
+// `th05/main/enemy/enemy.hpp` includes both the TH05 declaration and the
+// unguarded TH04 compatibility header, so it cannot be a single-provider
+// include here. This fieldwise view is the 64-byte enemy_t in enemy.inc;
+// storage and every observed offset are checked below.
+static const int ORACLE_ENEMY_COUNT = 32;
+static const uint8_t ORACLE_ENEMY_CLIP_X = 0x01;
+static const uint8_t ORACLE_ENEMY_CLIP_Y = 0x10;
+struct oracle_enemy_t {
+	uint8_t flag;
+	uint8_t age;
+	PlayfieldMotion pos;
+	int hp;
+	int score;
+	uint8_t near *script;
+	int script_ip;
+	SubpixelLength8 speed;
+	uint8_t patnum_base;
+	uint8_t cur_instr_frame;
+	uint8_t loop_i;
+	uint8_t angle;
+	uint8_t angle_delta;
+	uint8_t anim_cels;
+	uint8_t anim_frames_per_cel;
+	uint8_t anim_cur_cel;
+	int8_t clip;
+	uint8_t item;
+	bool damaged_this_frame;
+	bool can_be_damaged;
+	bool autofire;
+	bool kills_player_on_collision;
+	bool spawned_in_left_half;
+	uint8_t autofire_cur_frame;
+	uint8_t autofire_interval;
+	BulletTemplate bullet_template;
+	uint8_t subtype;
+	int8_t unused_1;
+	int16_t unused_2;
+	int8_t unused_3;
+	int8_t padding[5];
+};
+extern oracle_enemy_t enemies[ORACLE_ENEMY_COUNT];
+extern oracle_enemy_t near *enemy_cur;
+
+typedef char oracle_th05_enemy_reader_layout_must_match_frozen[
+	(sizeof(oracle_cheeto_trail_t) == 82) &&
+	(offsetof(oracle_cheeto_trail_t, flag) == 0) &&
+	(offsetof(oracle_cheeto_trail_t, col) == 1) &&
+	(offsetof(oracle_cheeto_trail_t, node_pos) == 2) &&
+	(offsetof(oracle_cheeto_trail_t, node_sprite) == 66) &&
+	(sizeof(cheeto_trails) == 656) &&
+	(sizeof(oracle_enemy_t) == 64) &&
+	(offsetof(oracle_enemy_t, flag) == 0) &&
+	(offsetof(oracle_enemy_t, age) == 1) &&
+	(offsetof(oracle_enemy_t, pos) == 2) &&
+	(offsetof(oracle_enemy_t, hp) == 14) &&
+	(offsetof(oracle_enemy_t, score) == 16) &&
+	(offsetof(oracle_enemy_t, script) == 18) &&
+	(offsetof(oracle_enemy_t, script_ip) == 20) &&
+	(offsetof(oracle_enemy_t, speed) == 22) &&
+	(offsetof(oracle_enemy_t, patnum_base) == 23) &&
+	(offsetof(oracle_enemy_t, cur_instr_frame) == 24) &&
+	(offsetof(oracle_enemy_t, loop_i) == 25) &&
+	(offsetof(oracle_enemy_t, angle) == 26) &&
+	(offsetof(oracle_enemy_t, angle_delta) == 27) &&
+	(offsetof(oracle_enemy_t, anim_cels) == 28) &&
+	(offsetof(oracle_enemy_t, anim_frames_per_cel) == 29) &&
+	(offsetof(oracle_enemy_t, anim_cur_cel) == 30) &&
+	(offsetof(oracle_enemy_t, clip) == 31) &&
+	(offsetof(oracle_enemy_t, item) == 32) &&
+	(offsetof(oracle_enemy_t, damaged_this_frame) == 33) &&
+	(offsetof(oracle_enemy_t, can_be_damaged) == 34) &&
+	(offsetof(oracle_enemy_t, autofire) == 35) &&
+	(offsetof(oracle_enemy_t, kills_player_on_collision) == 36) &&
+	(offsetof(oracle_enemy_t, spawned_in_left_half) == 37) &&
+	(offsetof(oracle_enemy_t, autofire_cur_frame) == 38) &&
+	(offsetof(oracle_enemy_t, autofire_interval) == 39) &&
+	(offsetof(oracle_enemy_t, bullet_template) == 40) &&
+	(offsetof(oracle_enemy_t, subtype) == 54) &&
+	(sizeof(enemies) == 2048)
+	? 1 : -1
+];
+
+// This public byte has no frozen C++ declaration, but is live in TH05's item
+// score path and explicitly read by the schema-5 packet.
+extern uint8_t dream;
+#endif
 #include "th04/main/boss/backdrop.hpp"
+
+#if (GAME == 5)
+	// Headers above declare near callbacks in their original groups. The reader
+	// itself is deliberately outside the full `main_01` group, whose original
+	// 64 KiB budget has no room for schema-5 diagnostic code.
+	#pragma codeseg ORACLE_TEXT ORACLE
+#endif
+
 // Frozen 9fb keeps this exact declaration private to explode.cpp. This
 // validation-only module needs the historical BSS layout but may not extract
 // or modify that gameplay file.
@@ -203,11 +556,9 @@ typedef char oracle_thicklaser_layout_must_match_frozen[
 	? 1 : -1
 ];
 
-// `gather.hpp` and `enemy.hpp` both include frozen, unguarded `bullet.hpp`.
-// Keep `enemy.hpp` as the single provider because its complete state is
-// observed below. This exact TH04 layout mirror replaces only the otherwise
-// duplicate gather declaration dependency; it neither reimplements nor calls
-// gather gameplay code.
+// This reader-local gather view follows the BSS layout rather than importing
+// the frozen gameplay provider. TH04 and TH05 place the same template on
+// opposite sides of the two trailing radius fields.
 static const int ORACLE_GATHER_COUNT = 16;
 struct oracle_gather_t {
 	entity_flag_t flag;
@@ -217,9 +568,15 @@ struct oracle_gather_t {
 	int ring_points;
 	unsigned char angle_cur;
 	unsigned char angle_delta;
+#if (GAME == 4)
 	BulletTemplate bullet_template;
 	Subpixel radius_prev;
 	Subpixel radius_delta;
+#else
+	Subpixel radius_prev;
+	Subpixel radius_delta;
+	BulletTemplate bullet_template;
+#endif
 };
 struct oracle_gather_template_t {
 	PlayfieldPoint center;
@@ -232,9 +589,9 @@ struct oracle_gather_template_t {
 extern oracle_gather_t gather_circles[ORACLE_GATHER_COUNT];
 extern oracle_gather_template_t gather_template;
 
-// th04/main/gather.inc fixes these offsets independently of this C++ mirror:
-// 16 live entries and 2 unused entries occupy 18 * 42 bytes before the
-// template in gather[bss].asm. Keep the mirror from silently drifting.
+// th04/main/gather.inc fixes these offsets independently of this C++ mirror.
+// The two versions share the live fields but not the on-storage order.
+#if (GAME == 4)
 typedef char oracle_gather_layout_must_match_frozen[
 	(sizeof(oracle_gather_t) == 42) &&
 	(offsetof(oracle_gather_t, flag) == 0) &&
@@ -249,6 +606,22 @@ typedef char oracle_gather_layout_must_match_frozen[
 	(offsetof(oracle_gather_t, radius_delta) == 40)
 	? 1 : -1
 ];
+#else
+typedef char oracle_gather_layout_must_match_frozen[
+	(sizeof(oracle_gather_t) == 38) &&
+	(offsetof(oracle_gather_t, flag) == 0) &&
+	(offsetof(oracle_gather_t, col) == 1) &&
+	(offsetof(oracle_gather_t, center) == 2) &&
+	(offsetof(oracle_gather_t, radius_cur) == 14) &&
+	(offsetof(oracle_gather_t, ring_points) == 16) &&
+	(offsetof(oracle_gather_t, angle_cur) == 18) &&
+	(offsetof(oracle_gather_t, angle_delta) == 19) &&
+	(offsetof(oracle_gather_t, radius_prev) == 20) &&
+	(offsetof(oracle_gather_t, radius_delta) == 22) &&
+	(offsetof(oracle_gather_t, bullet_template) == 24)
+	? 1 : -1
+];
+#endif
 typedef char oracle_gather_template_layout_must_match_frozen[
 	(sizeof(oracle_gather_template_t) == 14) &&
 	(offsetof(oracle_gather_template_t, center) == 0) &&
@@ -260,16 +633,18 @@ typedef char oracle_gather_template_layout_must_match_frozen[
 	? 1 : -1
 ];
 
+#if (GAME == 4)
 // These four symbols remain public in the frozen TH04 MAIN map. The current
 // headers merely published their already-existing declarations later.
 extern unsigned int dream_score;
+#endif
 extern subpixel_t miss_explosion_radius;
 extern unsigned char miss_explosion_angle;
 
 // Like gathers, circles were defined only in circle.cpp at the frozen tip.
-// The complete layout remains in circles[bss].asm, whose 16 entries are the
-// observed TH04 array. This declaration mirrors that source state only.
-static const int ORACLE_CIRCLE_COUNT = 16;
+// The complete layout remains in circles[bss].asm. The storage count is a
+// GAME-dependent contract: TH04 has 16 entries and TH05 has 8.
+static const int ORACLE_CIRCLE_COUNT = ((GAME == 5) ? 8 : 16);
 struct oracle_circle_t {
 	entity_flag_t flag;
 	unsigned char age;
@@ -284,21 +659,27 @@ typedef char oracle_circle_layout_must_match_frozen[
 	(offsetof(oracle_circle_t, age) == 1) &&
 	(offsetof(oracle_circle_t, center) == 2) &&
 	(offsetof(oracle_circle_t, radius_cur) == 6) &&
-	(offsetof(oracle_circle_t, radius_delta) == 8)
+	(offsetof(oracle_circle_t, radius_delta) == 8) &&
+	(sizeof(circles) == (ORACLE_CIRCLE_COUNT * sizeof(oracle_circle_t)))
 	? 1 : -1
 ];
 
-// Both unexported reads below are anchored on a frozen public symbol, never a
-// segment or a raw absolute address. th04_main.asm's BSS makes the first one
-// exact: `_dream_score dw ?` is immediately followed by `byte_2D00E db ?`,
-// and sub_1DA1B seeds and items_add() advances that byte. The second BSS run
-// is likewise explicit: `word_25100 dw ?` precedes the randring include by
-// twelve bytes, and the scroll code is its only writer/reader. Later source
-// names it `tile_ring_row_filled`; this frozen source does not export it.
+#if (GAME == 4)
+// This unexported read is anchored on a frozen public symbol, never a segment
+// or a raw absolute address. th04_main.asm's BSS makes it exact:
+// `_dream_score dw ?` is immediately followed by `byte_2D00E db ?`, and
+// sub_1DA1B seeds and items_add() advances that byte.
 static const unsigned int ORACLE_ENEMY_DROP_RING_P_FROM_DREAM_SCORE = 2;
+#endif
+// The scroll BSS run is explicit: `word_25100 dw ?` precedes the randring
+// include by twelve bytes, and the scroll code is its only writer/reader.
+// Later source names it `tile_ring_row_filled`; this frozen source does not
+// export it.
 static const unsigned int ORACLE_TILE_ROW_FILLED_BEFORE_RANDRING = 12;
 typedef char oracle_unexported_binding_layout_must_match_frozen[
+	#if (GAME == 4)
 	(sizeof(dream_score) == ORACLE_ENEMY_DROP_RING_P_FROM_DREAM_SCORE) &&
+	#endif
 	(sizeof(randring) == ORACLE_RANDRING_SIZE) &&
 	(sizeof(int) == 2) &&
 	(ORACLE_TILE_ROW_FILLED_BEFORE_RANDRING == 12)
@@ -307,10 +688,16 @@ typedef char oracle_unexported_binding_layout_must_match_frozen[
 
 static uint8_t oracle_enemy_drop_ring_p_get(void)
 {
+	#if (GAME == 5)
+	// TH05's historical item BSS has no drop-ring cursor. Keep the schema's
+	// field position without inventing source state or an address.
+	return 0;
+	#else
 	return *(
 		reinterpret_cast<const uint8_t near *>(&dream_score) +
 		ORACLE_ENEMY_DROP_RING_P_FROM_DREAM_SCORE
 	);
+	#endif
 }
 
 static int oracle_tile_ring_row_filled_get(void)
@@ -357,35 +744,25 @@ static unsigned int oracle_total_max_valued_point_items_get(void)
 		puppet_t near *puppet
 	);
 
-	#pragma codeseg B4_UPDATE_TEXT main_03
-	bool pascal near alice_puppet_pattern_19A84(puppet_t near *puppet);
-	bool pascal near alice_puppet_pattern_19AE3(puppet_t near *puppet);
-	bool pascal near alice_puppet_pattern_19AFB(puppet_t near *puppet);
-	#pragma codeseg
+	bool pascal far alice_puppet_pattern_19A84(puppet_t near *puppet);
+	bool pascal far alice_puppet_pattern_19AE3(puppet_t near *puppet);
+	bool pascal far alice_puppet_pattern_19AFB(puppet_t near *puppet);
+	bool far mai_yuki_1A775(void);
+	void far yumeko_1CB71(void);
+	void far yumeko_1CED9(void);
+	void far pattern_random_rain_and_spreads_from_wings(void);
+	void far pattern_cheetos_within_spread_walls(void);
+	void far pattern_aimed_b6balls_and_symmetric_spreads(void);
+	void far pattern_devil(void);
+	bool far pattern_wait(void);
+	bool far pattern_spreads_and_firewaves(void);
+	bool far pattern_bouncing_blue_rings(void);
+	bool far pattern_pingpong_lasers(void);
+	bool far pattern_mirrored_crosses(void);
+#endif
 
-	#pragma codeseg main_035_TEXT main_03
-	bool near mai_yuki_1A775(void);
-	void near yumeko_1CB71(void);
-	void near yumeko_1CED9(void);
-	#pragma codeseg
-
-	#pragma codeseg B6_UPDATE_TEXT main_03
-	void near pattern_random_rain_and_spreads_from_wings(void);
-	void near pattern_cheetos_within_spread_walls(void);
-	void near pattern_aimed_b6balls_and_symmetric_spreads(void);
-	void near pattern_devil(void);
-	#pragma codeseg
-
-	#pragma codeseg BX_UPDATE_TEXT main_03
-	bool near pattern_wait(void);
-	#pragma codeseg
-
-	#pragma codeseg BX_TEXT main_03
-	bool near pattern_spreads_and_firewaves(void);
-	bool near pattern_bouncing_blue_rings(void);
-	bool near pattern_pingpong_lasers(void);
-	bool near pattern_mirrored_crosses(void);
-	#pragma codeseg
+#if (GAME == 5)
+	#pragma codeseg ORACLE_TEXT ORACLE
 #endif
 
 // `th02/math/randring[bss].asm:10-15`: a *word*-sized cursor whose low byte
@@ -439,8 +816,13 @@ extern nearfunc_t_near stage_invalidate;
 extern bool turbo_mode;
 extern unsigned int slowdown_factor;
 extern bool (near* std_update)(void);
+#if (GAME == 5)
+bool far std_update_done(void);
+bool far std_update_frames_then_animate_dialog_and_activate_boss_if_done(void);
+#else
 bool near std_update_done(void);
 bool near std_update_frames_then_animate_dialog_and_activate_boss_if_done(void);
+#endif
 
 #if (GAME == 4)
 	struct oracle_checkerboard_t {
@@ -502,8 +884,11 @@ bool near std_update_frames_then_animate_dialog_and_activate_boss_if_done(void);
 	extern "C" unsigned int alice_barrier_frame;
 	extern "C" unsigned int alice_barrier_fire_frames;
 	extern subpixel_t midboss4_warp_x;
-	extern y_direction_t mai_flystep_random_next_y_direction;
-	extern y_direction_t yuki_flystep_random_next_y_direction;
+	// The gameplay enum is backed by a one-byte BSS slot. Keep this reader-only
+	// view explicitly byte-sized; the original storage, not a self-consistent
+	// C++ enum representation, is the ABI authority.
+	extern int8_t mai_flystep_random_next_y_direction;
+	extern int8_t yuki_flystep_random_next_y_direction;
 	extern "C" int mai_laser_count;
 	extern "C" int mai_laser_angle_speed;
 	extern "C" int mai_laser_angle_progress;
@@ -563,9 +948,114 @@ bool near std_update_frames_then_animate_dialog_and_activate_boss_if_done(void);
 	extern "C" const pattern_oneshot_func_t MIDBOSSX_PATTERNS_PHASE_1[2][2];
 	extern "C" pattern_oneshot_func_t exalice_pattern;
 	extern "C" const pattern_oneshot_func_t EXALICE_PATTERNS[4][2];
-	extern y_direction_t boss_flystep_random_next_y_direction;
+	extern int8_t boss_flystep_random_next_y_direction;
 	void pascal mai_update(void);
 	extern "C" void pascal yuki_update(void);
+
+	// The reader hashes fields rather than native aggregates. These assertions
+	// bind its private views and every private-provider slot to the original
+	// BSS/DATA widths, so a transitive source-layout drift cannot silently turn
+	// into a different serialized state.
+	#if (GAME == 5)
+	typedef char oracle_th05_render_layout_must_match_frozen[
+		(sizeof(Subpixel) == 2) &&
+		(sizeof(SPPoint) == 4) &&
+		(sizeof(PlayfieldPoint) == 4) &&
+		(offsetof(PlayfieldPoint, x) == 0) &&
+		(offsetof(PlayfieldPoint, y) == 2) &&
+		(sizeof(oracle_boss_particle_t) == 16) &&
+		(offsetof(oracle_boss_particle_t, pos) == 0) &&
+		(offsetof(oracle_boss_particle_t, origin) == 4) &&
+		(offsetof(oracle_boss_particle_t, velocity) == 8) &&
+		(offsetof(oracle_boss_particle_t, age) == 12) &&
+		(offsetof(oracle_boss_particle_t, angle) == 14) &&
+		(offsetof(oracle_boss_particle_t, patnum) == 15) &&
+		(sizeof(boss_particles) == 1024) &&
+		(sizeof(oracle_lineset_t) == 142) &&
+		(offsetof(oracle_lineset_t, center) == 0) &&
+		(offsetof(oracle_lineset_t, velocity_y) == 80) &&
+		(offsetof(oracle_lineset_t, radius) == 82) &&
+		(offsetof(oracle_lineset_t, angle) == 122) &&
+		(sizeof(linesets) == 568)
+		? 1 : -1
+	];
+
+	typedef char oracle_th05_actor_binding_layout_must_match_frozen[
+		(sizeof(oracle_firewave_t) == 6) &&
+		(offsetof(oracle_firewave_t, alive) == 0) &&
+		(offsetof(oracle_firewave_t, is_right) == 1) &&
+		(offsetof(oracle_firewave_t, bottom) == 2) &&
+		(offsetof(oracle_firewave_t, amp) == 4) &&
+		(sizeof(firewaves) == 12) &&
+		(sizeof(shinki_bg_linesets_zoomed_out) == 1) &&
+		(sizeof(shinki_bg_type_a_particles_alive) == 2) &&
+		(sizeof(shinki_bg_type_b_initialized) == 1) &&
+		(sizeof(shinki_bg_spinline_frame) == 2) &&
+		(sizeof(shinki_bg_type_c_initialized) == 1) &&
+		(sizeof(shinki_bg_type_d_initialized) == 1) &&
+		(sizeof(slowdown_caused_by_bullets) == 1) &&
+		(sizeof(midboss2_center) == 4) &&
+		(sizeof(alice_barrier_frame) == 2) &&
+		(sizeof(alice_barrier_fire_frames) == 2) &&
+		(sizeof(midboss4_warp_x) == 2) &&
+		(sizeof(mai_flystep_random_next_y_direction) == 1) &&
+		(sizeof(yuki_flystep_random_next_y_direction) == 1) &&
+		(sizeof(mai_laser_count) == 2) &&
+		(sizeof(mai_laser_angle_speed) == 2) &&
+		(sizeof(mai_laser_angle_progress) == 2) &&
+		(sizeof(shinki_devil_laser_grow_delay) == 2) &&
+		(sizeof(shinki_float_direction) == 1) &&
+		(sizeof(exalice_invincibility_frames) == 1) &&
+		(sizeof(exalice_random_origin) == 4) &&
+		(sizeof(exalice_pattern_origin_x) == 2) &&
+		(sizeof(exalice_laser_slot) == 2) &&
+		(sizeof(exalice_overlay_patnum) == 2) &&
+		(sizeof(s2particles_spawned) == 2) &&
+		(sizeof(stage2_bg_pulse) == 1) &&
+		(sizeof(stage2_flash_tone) == 1) &&
+		(sizeof(stage2_bg_pulse_direction) == 1) &&
+		(sizeof(pattern_loop_func_t) == 2) &&
+		(sizeof(pattern_oneshot_func_t) == 2) &&
+		(sizeof(oracle_puppet_func_t) == 2) &&
+		(sizeof(sara_phase_2_3_pattern) == 2) &&
+		(sizeof(SARA_PATTERNS_PHASE_2_3) == 16) &&
+		(sizeof(fp_2CE2A) == 2) &&
+		(sizeof(fp_2CE2C) == 2) &&
+		(sizeof(fp_2CE32) == 2) &&
+		(sizeof(ALICE_PUPPET_PATTERNS) == 8) &&
+		(sizeof(off_22770) == 24) &&
+		(sizeof(mai_pair_pattern) == 2) &&
+		(sizeof(yuki_pair_pattern) == 2) &&
+		(sizeof(mai_yuki_pattern) == 2) &&
+		(sizeof(MAI_PAIR_PATTERNS_1) == 8) &&
+		(sizeof(MAI_PAIR_PATTERNS_3) == 8) &&
+		(sizeof(YUKI_PAIR_PATTERNS_1) == 8) &&
+		(sizeof(YUKI_PAIR_PATTERNS_2) == 8) &&
+		(sizeof(YUKI_PAIR_PATTERNS_3) == 8) &&
+		(sizeof(MAI_PATTERNS_PHASE_3) == 4) &&
+		(sizeof(MAI_PATTERNS_PHASE_7) == 4) &&
+		(sizeof(MAI_PATTERNS_PHASE_9) == 4) &&
+		(sizeof(YUKI_PATTERNS_PHASE_3) == 4) &&
+		(sizeof(YUKI_PATTERNS_PHASE_5) == 4) &&
+		(sizeof(YUKI_PATTERNS_PHASE_9) == 10) &&
+		(sizeof(mai_laser_bullet_pattern) == 2) &&
+		(sizeof(MAI_LASER_BULLET_PATTERNS) == 6) &&
+		(sizeof(midboss5_phase_1_pattern) == 2) &&
+		(sizeof(MIDBOSS5_PATTERNS_PHASE_1) == 6) &&
+		(sizeof(yumeko_pattern) == 2) &&
+		(sizeof(YUMEKO_PATTERNS_PHASE_2) == 4) &&
+		(sizeof(YUMEKO_PATTERNS_PHASE_5) == 4) &&
+		(sizeof(shinki_phase_2_3_pattern) == 2) &&
+		(sizeof(shinki_wing_pattern) == 2) &&
+		(sizeof(SHINKI_PATTERNS_PHASE_2_3) == 8) &&
+		(sizeof(midbossx_phase_1_pattern) == 2) &&
+		(sizeof(MIDBOSSX_PATTERNS_PHASE_1) == 8) &&
+		(sizeof(exalice_pattern) == 2) &&
+		(sizeof(EXALICE_PATTERNS) == 16) &&
+		(sizeof(boss_flystep_random_next_y_direction) == 1)
+		? 1 : -1
+	];
+#endif
 
 	struct oracle_dialog_cursor_t {
 		int16_t x;
@@ -577,6 +1067,16 @@ bool near std_update_frames_then_animate_dialog_and_activate_boss_if_done(void);
 	extern unsigned char far *dialog_p;
 	extern oracle_dialog_cursor_t dialog_cursor;
 	extern int dialog_side;
+	#if (GAME == 5)
+	typedef char oracle_th05_dialog_layout_must_match_frozen[
+		(sizeof(oracle_dialog_cursor_t) == 4) &&
+		(offsetof(oracle_dialog_cursor_t, x) == 0) &&
+		(offsetof(oracle_dialog_cursor_t, y) == 2) &&
+		(sizeof(dialog_p) == 4) &&
+		(sizeof(dialog_side) == 2)
+		? 1 : -1
+	];
+#endif
 #endif
 
 #if (GAME == 5)
@@ -676,6 +1176,11 @@ static bool oracle_finished;
 
 #define ORACLE_FP_SEG(p) ((unsigned)(((unsigned long)(void far *)(p)) >> 16))
 #define ORACLE_FP_OFF(p) ((unsigned)((unsigned long)(void far *)(p)))
+
+// `target` is a far import, while `callback` is a stored near offset. Do not
+// turn the slot into a far pointer: compare its existing raw offset instead.
+#define ORACLE_NEAR_CALLBACK_EQUALS(callback, target) \
+	(ORACLE_FP_OFF(callback) == ORACLE_FP_OFF(target))
 
 #define ORACLE_ACCESS_READ 0
 #define ORACLE_ACCESS_RW   2
@@ -1065,12 +1570,22 @@ enum oracle_std_update_id_t {
 
 static uint8_t oracle_std_update_id(void)
 {
+	#if (GAME == 5)
+	if(ORACLE_NEAR_CALLBACK_EQUALS(
+		std_update, std_update_frames_then_animate_dialog_and_activate_boss_if_done
+	)) {
+	#else
 	if(std_update ==
 		std_update_frames_then_animate_dialog_and_activate_boss_if_done
 	) {
+	#endif
 		return ORACLE_STD_UPDATE_DIALOG;
 	}
+	#if (GAME == 5)
+	if(ORACLE_NEAR_CALLBACK_EQUALS(std_update, std_update_done)) {
+	#else
 	if(std_update == std_update_done) {
+	#endif
 		return ORACLE_STD_UPDATE_DONE;
 	}
 	return ORACLE_STD_UPDATE_UNKNOWN;
@@ -1256,7 +1771,7 @@ static void oracle_hash_laser(const Laser near *laser)
 		laser->coords.ends_at_distance.v
 	));
 	oracle_hash_u8(laser->coords.angle);
-	oracle_hash_u8(laser->coords.width.nonshrink);
+	oracle_hash_u8(laser->coords.width);
 	oracle_hash_u16(static_cast<uint16_t>(laser->shootout_speed.v));
 	oracle_hash_u16(static_cast<uint16_t>(laser->age));
 	oracle_hash_u16(static_cast<uint16_t>(laser->active_at_age.grow));
@@ -1264,13 +1779,13 @@ static void oracle_hash_laser(const Laser near *laser)
 	oracle_hash_u8(laser->grow_to_width);
 }
 
-static void oracle_hash_cheeto_trail(const cheeto_trail_t near *trail)
+static void oracle_hash_cheeto_trail(const oracle_cheeto_trail_t near *trail)
 {
 	int i;
 
 	oracle_hash_u8(static_cast<uint8_t>(trail->flag));
 	oracle_hash_u8(static_cast<uint8_t>(trail->col));
-	for(i = 0; i < CHEETO_TRAIL_NODE_COUNT; i++) {
+	for(i = 0; i < ORACLE_CHEETO_TRAIL_NODE_COUNT; i++) {
 		oracle_hash_playfield_point(&trail->node_pos[i]);
 		oracle_hash_u8(trail->node_sprite[i]);
 	}
@@ -1296,9 +1811,21 @@ static uint16_t oracle_hash_group_bullets(oracle_split_hash_t far *out)
 	int i;
 
 	oracle_hash_init();
-	for(i = 0; i < BULLET_COUNT; i++) {
+	for(i = 0; i <
+#if (GAME == 5)
+		ORACLE_BULLET_COUNT
+#else
+		BULLET_COUNT
+#endif
+	; i++) {
 		oracle_hash_u8(static_cast<uint8_t>(bullets[i].flag));
-		if(bullets[i].flag != F_FREE) {
+		if(
+#if (GAME == 5)
+			bullets[i].flag != ORACLE_ENTITY_FREE
+#else
+			bullets[i].flag != F_FREE
+#endif
+		) {
 			alive++;
 		}
 		oracle_hash_u8(static_cast<uint8_t>(bullets[i].age));
@@ -1333,7 +1860,11 @@ static uint16_t oracle_hash_group_bullets(oracle_split_hash_t far *out)
 	// (`th04/main/bullet/bullet.hpp:331-356`) and are hashed as
 	// installed-or-not for the same reason as the bomb hooks.
 	oracle_hash_u8(bullet_special.turns_max);
+#if (GAME == 5)
+	oracle_hash_u8(static_cast<uint8_t>(bullet_template_special_angle));
+#else
 	oracle_hash_u8(static_cast<uint8_t>(bullet_template_special_angle.v));
+#endif
 	oracle_hash_u8(bullet_template.spawn_type);
 	oracle_hash_u8(bullet_template.patnum);
 	oracle_hash_u16(static_cast<uint16_t>(bullet_template.origin.x.v));
@@ -1401,10 +1932,10 @@ static uint16_t oracle_hash_group_bullets(oracle_split_hash_t far *out)
 	}
 #if (GAME == 5)
 	oracle_hash_laser(&laser_template);
-	for(i = 0; i < LASER_COUNT; i++) {
+	for(i = 0; i < ORACLE_LASER_COUNT; i++) {
 		oracle_hash_laser(&lasers[i]);
 	}
-	for(i = 0; i < (CHEETO_COUNT + 1); i++) {
+	for(i = 0; i < ORACLE_CHEETO_TRAIL_COUNT; i++) {
 		oracle_hash_cheeto_trail(&cheeto_trails[i]);
 	}
 #else
@@ -1448,8 +1979,18 @@ static void oracle_hash_group_enemies(oracle_split_hash_t far *out)
 	int i;
 
 	oracle_hash_init();
-	for(i = 0; i < ENEMY_COUNT; i++) {
+	for(i = 0; i <
+#if (GAME == 5)
+		ORACLE_ENEMY_COUNT
+#else
+		ENEMY_COUNT
+#endif
+	; i++) {
+		#if (GAME == 5)
+		oracle_enemy_t far *enemy = &enemies[i];
+		#else
 		enemy_t far *enemy = &enemies[i];
+		#endif
 
 		oracle_hash_u8(enemy->flag);
 		oracle_hash_u8(enemy->age);
@@ -1472,8 +2013,8 @@ static void oracle_hash_group_enemies(oracle_split_hash_t far *out)
 		oracle_hash_u8(enemy->anim_frames_per_cel);
 		oracle_hash_u8(enemy->anim_cur_cel);
 #if (GAME == 5)
-		oracle_hash_u8((enemy->clip & ENEMY_CLIP_X) ? 1 : 0);
-		oracle_hash_u8((enemy->clip & ENEMY_CLIP_Y) ? 1 : 0);
+		oracle_hash_u8((enemy->clip & ORACLE_ENEMY_CLIP_X) ? 1 : 0);
+		oracle_hash_u8((enemy->clip & ORACLE_ENEMY_CLIP_Y) ? 1 : 0);
 #else
 		oracle_hash_u8(static_cast<uint8_t>(enemy->clip_x));
 		oracle_hash_u8(static_cast<uint8_t>(enemy->clip_y));
@@ -1514,7 +2055,11 @@ static void oracle_hash_boss(const boss_stuff_t far *actor)
 	oracle_hash_u8(actor->damage_this_frame);
 	oracle_hash_u8(actor->mode);
 	oracle_hash_u8(actor->angle);
+#if (GAME == 5)
+	oracle_hash_u8(actor->phase_state);
+#else
 	oracle_hash_u8(actor->phase_state.patterns_seen);
+#endif
 	oracle_hash_u16(static_cast<uint16_t>(actor->phase_end_hp));
 }
 
@@ -1565,27 +2110,28 @@ static uint8_t oracle_loop_id(
 static uint8_t oracle_midboss_setup_id(void)
 {
 	if((midboss_update_func == nullfunc_far) &&
-	   (midboss_render_func == nullfunc_near)) { return 0; }
+	   ORACLE_NEAR_CALLBACK_EQUALS(midboss_render_func, nullfunc_near)) { return 0; }
 	if((midboss_update_func == midboss1_update) &&
-	   (midboss_render_func == midboss1_render)) { return 1; }
+	   ORACLE_NEAR_CALLBACK_EQUALS(midboss_render_func, midboss1_render)) { return 1; }
 	if((midboss_update_func == midboss2_update) &&
-	   (midboss_render_func == midboss2_render)) { return 2; }
+	   ORACLE_NEAR_CALLBACK_EQUALS(midboss_render_func, midboss2_render)) { return 2; }
 	if((midboss_update_func == midboss3_update) &&
-	   (midboss_render_func == midboss3_render)) { return 3; }
+	   ORACLE_NEAR_CALLBACK_EQUALS(midboss_render_func, midboss3_render)) { return 3; }
 	if((midboss_update_func == midboss4_update) &&
-	   (midboss_render_func == midboss4_render)) { return 4; }
+	   ORACLE_NEAR_CALLBACK_EQUALS(midboss_render_func, midboss4_render)) { return 4; }
 	if((midboss_update_func == midboss5_update) &&
-	   (midboss_render_func == midboss5_render)) { return 5; }
+	   ORACLE_NEAR_CALLBACK_EQUALS(midboss_render_func, midboss5_render)) { return 5; }
 	if((midboss_update_func == midbossx_update) &&
-	   (midboss_render_func == midbossx_render)) { return 6; }
+	   ORACLE_NEAR_CALLBACK_EQUALS(midboss_render_func, midbossx_render)) { return 6; }
 	return 0xFF;
 }
 
 #define ORACLE_BOSS_SETUP_CASE(id, bg, update, fg, backdrop) \
 	if( \
-		(boss_bg_render_func == bg) && (boss_update_func == update) && \
-		(boss_fg_render_func == fg) && \
-		(boss_backdrop_colorfill == backdrop) \
+		ORACLE_NEAR_CALLBACK_EQUALS(boss_bg_render_func, bg) && \
+		(boss_update_func == update) && \
+		ORACLE_NEAR_CALLBACK_EQUALS(boss_fg_render_func, fg) && \
+		ORACLE_NEAR_CALLBACK_EQUALS(boss_backdrop_colorfill, backdrop) \
 	) { return id; }
 
 static uint8_t oracle_boss_setup_id(void)
@@ -1625,10 +2171,10 @@ static uint8_t oracle_boss_setup_id(void)
 
 static uint8_t oracle_midboss_live_id(void)
 {
-	if((midboss_invalidate == nullfunc_near) &&
+	if(ORACLE_NEAR_CALLBACK_EQUALS(midboss_invalidate, nullfunc_near) &&
 	   (midboss_update == nullfunc_far) &&
-	   (midboss_render == nullfunc_near)) { return 0; }
-	if((midboss_invalidate == midboss_invalidate_func) &&
+	   ORACLE_NEAR_CALLBACK_EQUALS(midboss_render, nullfunc_near)) { return 0; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(midboss_invalidate, midboss_invalidate_func) &&
 	   (midboss_update == midboss_update_func) &&
 	   (midboss_render == midboss_render_func)) { return 1; }
 	return 0xFF;
@@ -1637,24 +2183,24 @@ static uint8_t oracle_midboss_live_id(void)
 static uint8_t oracle_boss_live_id(void)
 {
 	if((boss_update == nullfunc_far) &&
-	   (boss_fg_render == nullfunc_near)) { return 0; }
+	   ORACLE_NEAR_CALLBACK_EQUALS(boss_fg_render, nullfunc_near)) { return 0; }
 	if((boss_update == boss_update_func) &&
 	   (boss_fg_render == boss_fg_render_func)) { return 1; }
 	if((boss_update == yuki_update) &&
-	   (boss_fg_render == b4_solo_fg_render)) { return 2; }
+	   ORACLE_NEAR_CALLBACK_EQUALS(boss_fg_render, b4_solo_fg_render)) { return 2; }
 	if((boss_update == mai_update) &&
-	   (boss_fg_render == b4_solo_fg_render)) { return 3; }
+	   ORACLE_NEAR_CALLBACK_EQUALS(boss_fg_render, b4_solo_fg_render)) { return 3; }
 	return 0xFF;
 }
 
 static uint8_t oracle_custom_render_id(void)
 {
-	if(boss_custombullets_render == nullfunc_near) { return 0; }
-	if(boss_custombullets_render == cheetos_render) { return 1; }
-	if(boss_custombullets_render == b4balls_render) { return 2; }
-	if(boss_custombullets_render == swords_render) { return 3; }
-	if(boss_custombullets_render == shinki_custombullets_render) { return 4; }
-	if(boss_custombullets_render == exalice_custombullets_render) { return 5; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(boss_custombullets_render, nullfunc_near)) { return 0; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(boss_custombullets_render, cheetos_render)) { return 1; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(boss_custombullets_render, b4balls_render)) { return 2; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(boss_custombullets_render, swords_render)) { return 3; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(boss_custombullets_render, shinki_custombullets_render)) { return 4; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(boss_custombullets_render, exalice_custombullets_render)) { return 5; }
 	return 0xFF;
 }
 
@@ -1665,9 +2211,9 @@ static uint8_t oracle_puppet_id(oracle_puppet_func_t value)
 	for(i = 0; i < 4; i++) {
 		if(value == ALICE_PUPPET_PATTERNS[i]) { return (i + 1); }
 	}
-	if(value == alice_puppet_pattern_19A84) { return 5; }
-	if(value == alice_puppet_pattern_19AE3) { return 6; }
-	if(value == alice_puppet_pattern_19AFB) { return 7; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, alice_puppet_pattern_19A84)) { return 5; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, alice_puppet_pattern_19AE3)) { return 6; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, alice_puppet_pattern_19AFB)) { return 7; }
 	return 0xFF;
 }
 
@@ -1677,7 +2223,7 @@ static uint8_t oracle_mai_pair_id(pattern_oneshot_func_t value)
 	if(value == 0) { return 0; }
 	id = oracle_oneshot_id(value, MAI_PAIR_PATTERNS_1, 4);
 	if(id != 0xFF) { return id; }
-	if(value == mai_yuki_1A775) { return 5; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, mai_yuki_1A775)) { return 5; }
 	id = oracle_oneshot_id(value, MAI_PAIR_PATTERNS_3, 4);
 	return ((id == 0xFF) ? 0xFF : static_cast<uint8_t>(id + 5));
 }
@@ -1720,18 +2266,18 @@ static uint8_t oracle_yumeko_id(pattern_loop_func_t value)
 	if(id != 0xFF) { return id; }
 	id = oracle_loop_id(value, YUMEKO_PATTERNS_PHASE_5, 2);
 	if(id != 0xFF) { return (id + 2); }
-	if(value == yumeko_1CB71) { return 5; }
-	if(value == yumeko_1CED9) { return 6; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, yumeko_1CB71)) { return 5; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, yumeko_1CED9)) { return 6; }
 	return 0xFF;
 }
 
 static uint8_t oracle_wing_id(pattern_loop_func_t value)
 {
 	if(value == 0) { return 0; }
-	if(value == pattern_random_rain_and_spreads_from_wings) { return 1; }
-	if(value == pattern_cheetos_within_spread_walls) { return 2; }
-	if(value == pattern_aimed_b6balls_and_symmetric_spreads) { return 3; }
-	if(value == pattern_devil) { return 4; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, pattern_random_rain_and_spreads_from_wings)) { return 1; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, pattern_cheetos_within_spread_walls)) { return 2; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, pattern_aimed_b6balls_and_symmetric_spreads)) { return 3; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, pattern_devil)) { return 4; }
 	return 0xFF;
 }
 
@@ -1739,7 +2285,7 @@ static uint8_t oracle_midbossx_id(pattern_oneshot_func_t value)
 {
 	uint8_t id;
 	if(value == 0) { return 0; }
-	if(value == pattern_wait) { return 1; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, pattern_wait)) { return 1; }
 	id = oracle_oneshot_id(value, &MIDBOSSX_PATTERNS_PHASE_1[0][0], 4);
 	return ((id == 0xFF) ? 0xFF : static_cast<uint8_t>(id + 1));
 }
@@ -1750,10 +2296,10 @@ static uint8_t oracle_exalice_id(pattern_oneshot_func_t value)
 	if(value == 0) { return 0; }
 	id = oracle_oneshot_id(value, &EXALICE_PATTERNS[0][0], 8);
 	if(id != 0xFF) { return id; }
-	if(value == pattern_spreads_and_firewaves) { return 9; }
-	if(value == pattern_bouncing_blue_rings) { return 10; }
-	if(value == pattern_pingpong_lasers) { return 11; }
-	if(value == pattern_mirrored_crosses) { return 12; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, pattern_spreads_and_firewaves)) { return 9; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, pattern_bouncing_blue_rings)) { return 10; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, pattern_pingpong_lasers)) { return 11; }
+	if(ORACLE_NEAR_CALLBACK_EQUALS(value, pattern_mirrored_crosses)) { return 12; }
 	return 0xFF;
 }
 
@@ -1938,7 +2484,13 @@ static void oracle_hash_group_items(oracle_split_hash_t far *out)
 	int digit;
 
 	oracle_hash_init();
-	for(i = 0; i < ITEM_COUNT; i++) {
+	for(i = 0; i <
+#if (GAME == 5)
+		ORACLE_ITEM_COUNT
+#else
+		ITEM_COUNT
+#endif
+	; i++) {
 		oracle_hash_u8(static_cast<uint8_t>(items[i].flag));
 		oracle_hash_motion(&items[i].pos);
 		oracle_hash_u8(items[i].type);
