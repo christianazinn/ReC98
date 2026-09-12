@@ -927,8 +927,7 @@ int main(void)
 			}
 			#if defined(T1RB)
 			if(replay_stage4_clear_probe) {
-				stage_cleared = true;
-				player_is_hit = true;
+				player_invincibility_time = 1200;
 			}
 			// Private H reaches the native post-boss process boundary after the
 			// first boss resources and entrance have completed. It validates the
@@ -1048,6 +1047,13 @@ int main(void)
 				orb_and_pellets_and_stage_unput_update_render__vsync_wait(
 					stage_id
 				);
+				#if defined(T1RB)
+				if(replay_stage4_clear_probe &&
+					(frame_since_start_of_binary >= 600)) {
+					stage_cleared = true;
+					player_is_hit = true;
+				}
+				#endif
 
 				if(paused == true) {
 					quit = pause_menu();

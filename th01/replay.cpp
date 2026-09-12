@@ -2545,6 +2545,13 @@ static void t1replay_header_capture(void)
 	if(t1replay_practice_from_restart(&t1replay_header.start)) {
 		t1replay_header.flags |= T1REPLAY_FLAG_PRACTICE;
 	}
+#if T1REPLAY_PROCESS_MILESTONES
+	// The private Stage 4 handoff witness uses Practice only to position its
+	// initial state. It must continue as Story after clearing that stage.
+	if(t1replay_header.start.stage_id == (BOSS_STAGE - 1)) {
+		t1replay_header.flags &= ~T1REPLAY_FLAG_PRACTICE;
+	}
+#endif
 	t1replay_header.start_checksum = t1replay_fnv1a(
 		T1REPLAY_FNV1A_BASIS, &t1replay_header.start,
 		sizeof(t1replay_header.start)

@@ -764,88 +764,11 @@ static uint8_t keyconfig_line_put_action(
 	}
 }
 
-static void keyconfig_screen_put(
-	const keyconfig_menu_t __ss& menu, uint8_t selected, uint8_t column,
-	const char far *message
-)
-{
-	char line[81];
-	uint8_t at;
+#include "th01/keymenu.inc"
 
-	text_clear();
-	text_putsa(30, 1, keyconfig_strings.text_key_configuration, TX_YELLOW);
-	text_putsa(27, 3, keyconfig_strings.text_primary, TX_WHITE);
-	text_putsa(50, 3, keyconfig_strings.text_alternate, TX_WHITE);
-	for(uint8_t row = 0; row < KEYCONFIG_ROW_COUNT; row++) {
-		keyconfig_line_clear(line);
-		line[7] = ((row == selected) ? '>' : ' ');
-		if(row < KCA_COUNT) {
-			at = keyconfig_line_put_action(line, 10, row);
-			line[at] = ':';
-			at = 27;
-			if((row == selected) && (column == 0)) line[at - 1] = '[';
-			at = keyconfig_line_put_key_name(line, at, menu.bindings[row * 2]);
-			if((row == selected) && (column == 0)) line[at++] = ']';
-			at = 50;
-			if((row == selected) && (column == 1)) line[at - 1] = '[';
-			at = keyconfig_line_put_key_name(
-				line, at, menu.bindings[(row * 2) + 1]
-			);
-			if((row == selected) && (column == 1)) line[at++] = ']';
-		} else if(row == KEYCONFIG_ROW_AUTOFIRE) {
-			at = keyconfig_line_puts(line, 10, keyconfig_strings.text_autofire);
-			keyconfig_line_puts(line, 27, menu.autofire ? keyconfig_strings.text_on : keyconfig_strings.text_off);
-		} else if(row == KEYCONFIG_ROW_DEFAULTS) {
-			keyconfig_line_puts(line, 10, keyconfig_strings.text_restore_defaults);
-		} else if(row == KEYCONFIG_ROW_APPLY) {
-			keyconfig_line_puts(line, 10, keyconfig_strings.text_apply_and_return);
-		} else {
-			keyconfig_line_puts(line, 10, keyconfig_strings.text_cancel);
-		}
-		text_putsa(0, (5 + row), line, (row == selected) ? TX_CYAN : TX_WHITE);
-	}
-	if(message) {
-		text_putsa(10, 23, message, TX_CYAN);
-	}
-}
 
-static uint8_t keyconfig_raw_first(void)
-{
-	if(peekb(0, KEYGROUP_0) & K0_ESC) {
-		return KEYCONFIG_CAPTURE_CANCEL;
-	}
-	for(uint8_t group = 0; group < T2_KEYCONFIG_KEY_GROUP_COUNT; group++) {
-		uint8_t pressed = (
-			peekb(0, (KEYGROUP_0 + group)) & keyconfig_key_mask(group)
-		);
-		for(uint8_t bit = 0; bit < 8; bit++) {
-			if(pressed & (1 << bit)) {
-				return keyconfig_key(group, bit);
-			}
-		}
-	}
-	return T2_KEYCONFIG_KEY_UNBOUND;
-}
 
-static void keyconfig_raw_wait_release(void)
-{
-	while(keyconfig_raw_first() != T2_KEYCONFIG_KEY_UNBOUND) {
-		frame_delay(1);
-	}
-}
-
-static uint8_t keyconfig_capture(void)
-{
-	uint8_t key;
-
-	keyconfig_raw_wait_release();
-	do {
-		key = keyconfig_raw_first();
-		if(key == T2_KEYCONFIG_KEY_UNBOUND) frame_delay(1);
-	} while(key == T2_KEYCONFIG_KEY_UNBOUND);
-	keyconfig_raw_wait_release();
-	return key;
-}
+#include "th01/keycapture.inc"
 
 static bool keyconfig_binding_assign(
 	keyconfig_menu_t __ss& menu, uint8_t index, uint8_t key
@@ -896,14 +819,6 @@ static bool keyconfig_discard_confirm(const keyconfig_menu_t __ss& menu)
 	}
 }
 
-static void keyconfig_screen_clear(void)
-{
-	text_clear();
-	graph_accesspage(0); graph_clear();
-	graph_accesspage(1); graph_clear();
-	graph_showpage(0);
-	graph_accesspage(0);
-}
 
 bool far keyconfig_menu(void)
 {
@@ -916,7 +831,7 @@ bool far keyconfig_menu(void)
 
 	keyconfig_load(original);
 	menu = original;
-	keyconfig_screen_clear();
+	if(!keyconfig_graphics_begin()) return false;
 	keyconfig_screen_put(menu, selected, column, 0);
 	input_reset_sense();
 	previous = key_det;

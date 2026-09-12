@@ -637,6 +637,7 @@ th01_reiiden:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("reiiden", {
 	"th01/bpr_15m.cpp",
 	"th01/bpr_20m.cpp",
 	"th01/bpr_20j.cpp",
+	"th01/pfstream.cpp",
 	th01_reiiden:replay_crt_align(0, "mnalgn.obj"),
 })
 th01:branch(MODEL_LARGE, { cflags = "-DBINARY='E'" }):link("fuuin", {

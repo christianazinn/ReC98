@@ -57,7 +57,7 @@
 #define REPLAY_OP_ACCESS_READ 0
 #define REPLAY_OP_ACCESS_RW 2
 #define REPLAY_OP_SLOT_ROWS 10
-#define REPLAY_OP_SLOT_CELL_W 13
+#define REPLAY_OP_SLOT_CELL_W 11
 #define REPLAY_OP_SLOT_CELL_STEP (REPLAY_OP_SLOT_CELL_W + 1)
 #define REPLAY_OP_SLOT_ONE_INSET 3
 #define REPLAY_OP_LINE_CAPACITY 80
@@ -112,6 +112,7 @@ enum replay_op_background_t {
 	ROB_REPLAY,
 	ROB_REPLAY_SAVE,
 	ROB_PRACTICE,
+	ROB_KEYCONFIG,
 };
 
 enum replay_op_word_t {
@@ -245,6 +246,11 @@ static void replay_op_background_name_set(
 	char *fn, replay_op_background_t background
 )
 {
+	if(background == ROB_KEYCONFIG) {
+		fn[0] = 'B'; fn[1] = 'G'; fn[2] = '1'; fn[3] = '.';
+		fn[4] = 'P'; fn[5] = 'I'; fn[6] = 0;
+		return;
+	}
 	#if (GAME == 4)
 		if(background == ROB_PRACTICE) {
 			fn[0] = 'P'; fn[1] = 'R'; fn[2] = 'A'; fn[3] = 'C';
@@ -317,7 +323,9 @@ static bool replay_op_screen_begin(
 		return false;
 	}
 	pi_palette_apply(0);
-	replay_op_selected_palette_apply();
+	if(background != ROB_KEYCONFIG) {
+		replay_op_selected_palette_apply();
+	}
 	palette_settone(0);
 	graph_accesspage(0);
 	pi_put_8(0, 0, 0);
@@ -360,6 +368,39 @@ static void replay_op_screen_end(
 	// The only native layout is an 8-pixel ANK advance (16 before the renderer
 	// halves it). Restoring a stale zero repeats the one-cell menu regression.
 	graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
+}
+
+static graph_putsa_fx_func_t keyconfig_previous_func;
+static bool keyconfig_first_frame;
+
+bool far keyconfig_graphics_begin(void)
+{
+	keyconfig_first_frame = true;
+	return replay_op_screen_begin(ROB_KEYCONFIG, keyconfig_previous_func, true);
+}
+
+void far keyconfig_graphics_draw_begin(void)
+{
+	text_clear();
+	graph_accesspage(!replay_op_page_shown);
+	pi_put_8(0, 0, 0);
+}
+
+void far keyconfig_graphics_draw_end(void)
+{
+	vsync_wait();
+	replay_op_page_shown = !replay_op_page_shown;
+	graph_showpage(replay_op_page_shown);
+	if(keyconfig_first_frame) {
+		keyconfig_first_frame = false;
+		palette_black_in(1);
+	}
+}
+
+void far keyconfig_graphics_end(void)
+{
+	palette_black_out(1);
+	replay_op_screen_end(keyconfig_previous_func);
 }
 
 static void replay_op_practice_diagnostic_fn_set(char far *fn, bool start)
@@ -5110,6 +5151,7 @@ static void replay_main_unlock_update(void)
 
 void far replay_main_language_assets_reload(void)
 {
+	int tone = PaletteTone;
 	replay_op_paths_init();
 	graph_accesspage(1);
 	language_asset_pi_load(0, replay_op_main_bg_fn);
@@ -5121,15 +5163,21 @@ void far replay_main_language_assets_reload(void)
 	graph_accesspage(0);
 	graph_putsa_fx_func = FX_WEIGHT_NORMAL;
 	graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
-	palette_100();
+	palette_settone(tone);
 	replay_main_initialized = false;
 }
+
+static void replay_main_initialize(void);
 
 static void replay_main_return(int sel)
 {
 	replay_main_language_assets_reload();
 	in_option = false;
 	menu_sel = sel;
+	if(PaletteTone == 0) {
+		replay_main_initialize();
+		palette_black_in(1);
+	}
 }
 
 #if (GAME == 5)

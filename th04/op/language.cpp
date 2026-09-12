@@ -924,17 +924,13 @@ static void language_option_stock_put(language_option_choice_t sel, vc2 color)
 
 static void language_option_keyconfig_put(vc2 color)
 {
-	char label[10];
 	screen_y_t top = language_option_choice_top(LOC_KEYCONFIG);
-	label[0] = 'K'; label[1] = 'e'; label[2] = 'y';
-	label[3] = 'C'; label[4] = 'o'; label[5] = 'n';
-	label[6] = 'f'; label[7] = 'i'; label[8] = 'g'; label[9] = 0;
 	egc_copy_rect_1_to_0_16(
 		LANGUAGE_OPTION_LEFT, top, LANGUAGE_OPTION_W, LANGUAGE_OPTION_LABEL_H
 	);
-	graph_putsa_fx_func = FX_WEIGHT_BOLD;
-	graph_putsa_fx_spacing = REPLAY_OP_TEXT_SPACING;
-	graph_putsa_fx(284, top, color, label);
+	grcg_setcolor(GC_RMW, color);
+	cdg_put_nocolors_8(LANGUAGE_OPTION_COMMAND_LEFT, top, CDG_OPTION_LABEL_KEYCONFIG);
+	grcg_off();
 	if(color == LANGUAGE_OPTION_COL_ACTIVE) {
 		cdg_put_8(LANGUAGE_OPTION_COMMAND_CURSOR_LEFT, top, CDG_CURSOR_LEFT);
 		cdg_put_8(LANGUAGE_OPTION_COMMAND_CURSOR_RIGHT, top, CDG_CURSOR_RIGHT);
@@ -1130,6 +1126,9 @@ void far language_option_update_and_render(void)
 			);
 		}
 		language_option_initialized = true;
+		if(PaletteTone == 0) {
+			palette_black_in(1);
+		}
 		return;
 	}
 	if(!key_det) {

@@ -22,6 +22,7 @@
 #include "th01/hardware/grppsafx.h"
 #include "th01/hardware/palette.h"
 #include "th01/hardware/grp_text.hpp"
+#include "th01/hardware/ztext.hpp"
 #include "th01/hiscore/regist.hpp"
 #include "th01/formats/grp.h"
 #include "th01/language.hpp"
@@ -81,7 +82,7 @@ static const screen_x_t T1REPLAY_OP_SAVE_DIFF_CENTER = 365;
 static const screen_x_t T1REPLAY_OP_SAVE_ROUTE_CENTER = 462;
 static const screen_x_t T1REPLAY_OP_SAVE_STAGE_CENTER = 542;
 static const screen_y_t T1REPLAY_OP_SAVE_METADATA_TOP = 168;
-static const pixel_t T1REPLAY_OP_SLOT_CELL_W = 13;
+static const pixel_t T1REPLAY_OP_SLOT_CELL_W = 11;
 static const pixel_t T1REPLAY_OP_SLOT_CELL_STEP = (T1REPLAY_OP_SLOT_CELL_W + 1);
 static const pixel_t T1REPLAY_OP_SLOT_ONE_INSET = 3;
 static const uint8_t T1REPLAY_OP_DETAIL_PAGE_MASK = 0x7F;
@@ -2019,6 +2020,8 @@ static bool t1replay_op_panel_load(const char *fn, uint8_t panel_kind)
 	return true;
 }
 
+static bool t1replay_op_palette_hidden;
+
 static bool t1replay_op_panel_show(const char *fn, uint8_t panel_kind)
 {
 	if(
@@ -2034,7 +2037,9 @@ static bool t1replay_op_panel_show(const char *fn, uint8_t panel_kind)
 	z_Palettes[T1REPLAY_OP_COL_SELECTED].c.r = 0xF;
 	z_Palettes[T1REPLAY_OP_COL_SELECTED].c.g = 0xF;
 	z_Palettes[T1REPLAY_OP_COL_SELECTED].c.b = 0x0;
-	z_palette_set_all_show(z_Palettes);
+	if(!t1replay_op_palette_hidden) {
+		z_palette_set_all_show(z_Palettes);
+	}
 	return true;
 }
 
@@ -2058,6 +2063,41 @@ static bool t1replay_op_practice_panel_restore(void)
 	return t1replay_op_panel_show(fn, T1OPK_PRACTICE);
 }
 
+static bool keyconfig_first_frame;
+
+bool far keyconfig_graphics_begin(void)
+{
+	char fn[7];
+	fn[0] = 'B'; fn[1] = 'G'; fn[2] = '1'; fn[3] = '.';
+	fn[4] = 'P'; fn[5] = 'I'; fn[6] = 0;
+	z_palette_black_out();
+	keyconfig_first_frame = true;
+	return replay_op_font_load() && t1replay_op_panel_load(fn, T1OPK_NONE);
+}
+
+void far keyconfig_graphics_draw_begin(void)
+{
+	z_text_clear();
+	graph_accesspage_func(1);
+	graph_copy_accessed_page_to_other();
+	graph_accesspage_func(0);
+}
+
+void far keyconfig_graphics_draw_end(void)
+{
+	if(keyconfig_first_frame) {
+		keyconfig_first_frame = false;
+		z_palette_black_in();
+	}
+}
+
+void far keyconfig_graphics_end(void)
+{
+	z_palette_black_out();
+	replay_op_font_free();
+	t1replay_op_panel_kind = T1OPK_NONE;
+}
+
 static void t1replay_op_title_backing_restore(void)
 {
 	// Keep the patch UI tail free of initialized DGROUP data. The native title
@@ -2079,10 +2119,8 @@ static void t1replay_op_title_backing_restore(void)
 	win_fn[4] = 'i'; win_fn[5] = 'n'; win_fn[6] = '.'; win_fn[7] = 'g';
 	win_fn[8] = 'r'; win_fn[9] = 'p'; win_fn[10] = '\0';
 	graph_accesspage_func(1);
-	grp_put_palette_show(fn);
-	// grp_put_palette_show() updates the fade owner and the hardware together.
-	// Keep the already-faded transition black until the title backing is ready.
-	z_palette_black();
+	grp_put(fn);
+	z_Palettes = grp_palette;
 	graph_copy_accessed_page_to_other();
 	grp_put(overlay_fn);
 	graph_copy_accessed_page_to_other();
@@ -4985,7 +5023,9 @@ bool t1replay_op_replay_enter(void)
 		z_palette_black_in();
 		return false;
 	}
+	t1replay_op_palette_hidden = true;
 	shown = t1replay_op_replay_render();
+	t1replay_op_palette_hidden = false;
 	z_palette_black_in();
 	return shown;
 }
@@ -5060,7 +5100,9 @@ bool t1replay_op_practice_enter(int8_t rank, int8_t lives, int8_t bombs, uint32_
 	#if T1REPLAY_PROCESS_MILESTONES
 		t1replay_process_milestone(T1RPM_PRACTICE_STATE_READY);
 	#endif
+	t1replay_op_palette_hidden = true;
 	shown = t1replay_op_practice_render();
+	t1replay_op_palette_hidden = false;
 	z_palette_black_in();
 	return shown;
 }

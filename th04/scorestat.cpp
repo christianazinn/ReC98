@@ -663,7 +663,7 @@ void far scorestat_view_put(uint8_t rank)
 	graph_putsa_fx_func_t previous_func = graph_putsa_fx_func;
 	pixel_t previous_spacing = graph_putsa_fx_spacing;
 	graph_putsa_fx_func = FX_WEIGHT_BOLD;
-	graph_putsa_fx_spacing = 0;
+	graph_putsa_fx_spacing = 16;
 	#if (GAME == 4)
 		#define SCORESTAT_VIEW_TOP 304
 	#else

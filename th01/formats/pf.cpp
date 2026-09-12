@@ -3,23 +3,18 @@
 /// --------------------------------------------------------------------------
 
 #include <ctype.h>
+#if defined(T1RB)
+#include <alloc.h>
+#include <stdio.h>
+#endif
 #include "libs/master.lib/master.hpp"
 #include "th01/formats/pf.hpp"
+#include "th01/formats/pf_state.hpp"
 
 static const int FILE_COUNT = 64;
 static const size_t CACHE_SIZE = 0x100;
 
 #define PF_TYPE_COMPRESSED "\x95\x95" // "封" in Shift-JIS
-
-struct pf_header_t {
-	uint8_t type[2]; // PF_TYPE_COMPRESSED if RLE-compressed
-	int8_t aux; // Always 3, unused
-	char fn[PF_FN_LEN];
-	int32_t packsize;
-	int32_t orgsize;
-	int32_t offset; // of the file data within the entire archive
-	int32_t reserved; // Always zero
-};
 
 pf_header_t *arc_pfs;
 pf_header_t *file_pf;
@@ -272,6 +267,9 @@ void pascal arc_file_load(const char fn[PF_FN_LEN])
 		file_compressed = false;
 	}
 	file_pos = 0;
+	#if defined(T1RB)
+	printf("T1PF %s size=%ld free=%lu\n", fn, file_pf->orgsize, farcoreleft());
+	#endif
 	file_data = new uint8_t[file_pf->orgsize];
 	if(file_compressed) {
 		cache = new uint8_t[CACHE_SIZE];

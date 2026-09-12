@@ -26,13 +26,18 @@ struct bos_image_t {
 // Shared loading subfunctions
 // ---------------------------
 
+void pascal bos_file_load(const char fn[PF_FN_LEN]);
+void pascal bos_file_get(uint8_t *buf, size_t size);
+void pascal bos_file_seek(int8_t pos);
+void bos_file_free(void);
+
 // Separate function to work around the `Condition is always true/false` and
 // `Unreachable code` warnings
 inline void bos_header_load_palette(Palette4 &pal, bool load) {
 	if(load) {
-		arc_file_get_far(pal);
+		bos_file_get(reinterpret_cast<uint8_t far *>(&pal), sizeof(pal));
 	} else {
-		arc_file_seek(sizeof(SpriteFormatHeader<bos_header_t>));
+		bos_file_seek(sizeof(SpriteFormatHeader<bos_header_t>));
 	}
 }
 
@@ -43,9 +48,9 @@ inline void bos_header_load_palette(Palette4 &pal, bool load) {
 		int8_t space[50]; \
 	} header; \
 	\
-	arc_file_load(fn); \
+	bos_file_load(fn); \
 	\
-	arc_file_get_far(header.outer); \
+	bos_file_get(reinterpret_cast<uint8_t far *>(&header.outer), sizeof(header.outer)); \
 	that->vram_w = header.outer.vram_w; \
 	that->h = header.outer.h; \
 	that->bos_image_count = header.outer.inner.image_count; \

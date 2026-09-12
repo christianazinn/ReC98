@@ -37,7 +37,7 @@
 
 #define T2OP_LINE_CAPACITY 79
 #define T2OP_SLOT_ROWS 10
-#define T2OP_SLOT_CELL_W 13
+#define T2OP_SLOT_CELL_W 11
 #define T2OP_SLOT_CELL_STEP (T2OP_SLOT_CELL_W + 1)
 #define T2OP_SLOT_ONE_INSET 3
 #define T2OP_INPUT_KNOWN 0xF1FF
@@ -2894,6 +2894,7 @@ enum t2op_replay_surface_t {
 	T2ORS_BROWSER,
 	T2ORS_NAME,
 	T2ORS_PRACTICE,
+	T2ORS_KEYCONFIG,
 };
 
 static void t2op_title_pictures_free(void)
@@ -2975,6 +2976,7 @@ static void t2op_surface_draw_end(uint8_t page_drawn)
 static bool t2op_replay_surface_prepare(enum t2op_replay_surface_t surface)
 {
 	const char *fn = (
+		(surface == T2ORS_KEYCONFIG) ? "BG1.PI" :
 		(surface == T2ORS_NAME) ? "SLB1B.PI" :
 		((surface == T2ORS_PRACTICE) ? "PRACTIC.PI" : "SLB1.PI")
 	);
@@ -3008,12 +3010,14 @@ static bool t2op_replay_surface_prepare(enum t2op_replay_surface_t surface)
 		palette_settone(0);
 	}
 	pi_palette_apply(0);
-	palette_set(
-		T2OP_SELECTED_COLOR,
-		T2OP_SELECTED_RED,
-		T2OP_SELECTED_GREEN,
-		T2OP_SELECTED_BLUE
-	);
+	if(surface != T2ORS_KEYCONFIG) {
+		palette_set(
+			T2OP_SELECTED_COLOR,
+			T2OP_SELECTED_RED,
+			T2OP_SELECTED_GREEN,
+			T2OP_SELECTED_BLUE
+		);
+	}
 	palette_show();
 	graph_accesspage(0);
 	pi_put_8(0, 0, 0);
@@ -3042,6 +3046,39 @@ static void t2op_title_return_request(void)
 	// stock menus. Keep title input locked until that rebuild has completed.
 	replay_title_restore_needed = true;
 	t2op_main_input_allowed = false;
+	t2op_surface_release();
+	replay_op_font_free();
+}
+
+static bool keyconfig_first_frame;
+static uint8_t keyconfig_draw_page;
+
+bool far keyconfig_graphics_begin(void)
+{
+	text_clear();
+	palette_black_out(1);
+	keyconfig_first_frame = true;
+	return t2op_replay_surface_prepare(T2ORS_KEYCONFIG);
+}
+
+void far keyconfig_graphics_draw_begin(void)
+{
+	keyconfig_draw_page = t2op_surface_draw_begin();
+}
+
+void far keyconfig_graphics_draw_end(void)
+{
+	vsync_wait();
+	t2op_surface_draw_end(keyconfig_draw_page);
+	if(keyconfig_first_frame) {
+		keyconfig_first_frame = false;
+		palette_black_in(1);
+	}
+}
+
+void far keyconfig_graphics_end(void)
+{
+	palette_black_out(1);
 	t2op_surface_release();
 	replay_op_font_free();
 }

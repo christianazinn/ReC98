@@ -4,6 +4,7 @@
 #include "th01/hardware/grppsafx.h"
 #include "th01/language.hpp"
 #include "th01/snd/audio.hpp"
+#include "th01/snd/mdrv2.h"
 #include "th01/replay_op.hpp"
 
 extern cfg_options_t opts;
@@ -20,11 +21,52 @@ enum keyconfig_option_row_t {
 	KCO_RANK, KCO_MUSIC, KCO_SFX, KCO_PLAYER, KCO_LANGUAGE,
 	KCO_KEYS, KCO_MUSIC_TEST, KCO_QUIT, KCO_COUNT
 };
+static const int KCO_SOUND = 15;
+static const int KCO_BACK = 16;
+static bool keyconfig_option_sound;
 static bool keyconfig_option_initialized;
 static bool keyconfig_option_return_from_music;
 static bool keyconfig_option_horizontal_locked;
 static bool keyconfig_option_confirm_locked;
 static int8_t keyconfig_option_previous;
+
+static int keyconfig_option_count(void)
+{
+	return keyconfig_option_sound ? 4 : 6;
+}
+
+static int keyconfig_option_id(int row)
+{
+	if(keyconfig_option_sound) {
+		switch(row) {
+		case 0: return KCO_MUSIC;
+		case 1: return KCO_SFX;
+		case 2: return KCO_MUSIC_TEST;
+		default: return KCO_BACK;
+		}
+	}
+	switch(row) {
+	case 0: return KCO_RANK;
+	case 1: return KCO_PLAYER;
+	case 2: return KCO_LANGUAGE;
+	case 3: return KCO_SOUND;
+	case 4: return KCO_KEYS;
+	default: return KCO_QUIT;
+	}
+}
+
+static void keyconfig_option_music_apply(void)
+{
+	static char fn[10];
+	t1_audio_configure(opts.bgm_mode);
+	if(opts.bgm_mode) {
+		fn[0] = 'r'; fn[1] = 'e'; fn[2] = 'i'; fn[3] = 'm';
+		fn[4] = 'u'; fn[5] = '.'; fn[6] = 'm'; fn[7] = 'd';
+		fn[8] = 't'; fn[9] = 0;
+		mdrv2_bgm_load(fn);
+		mdrv2_bgm_play();
+	}
+}
 
 static void keyconfig_option_word(char __ss *out, int id)
 {
@@ -74,6 +116,12 @@ static void keyconfig_option_word(char __ss *out, int id)
 	case 14:
 		out[0] = 'F'; out[1] = 'M'; out[2] = 0;
 		break;
+	case KCO_SOUND:
+		out[0] = 'S'; out[1] = 'O'; out[2] = 'U'; out[3] = 'N'; out[4] = 'D'; out[5] = 0;
+		break;
+	case KCO_BACK:
+		out[0] = 'B'; out[1] = 'A'; out[2] = 'C'; out[3] = 'K'; out[4] = 0;
+		break;
 	}
 }
 
@@ -103,21 +151,22 @@ static void keyconfig_option_put(int row, int color)
 	char native_label[32];
 	char value[24];
 	int top = (236 + (row * 20));
-	keyconfig_option_word(label, row);
+	int id = keyconfig_option_id(row);
+	keyconfig_option_word(label, id);
 	keyconfig_option_label_fullwidth(native_label, label);
 	egc_copy_rect_1_to_0_16(208, top, 224, 16);
-	if(row == KCO_LANGUAGE) {
+	if(id == KCO_LANGUAGE) {
 		t1replay_op_language_choice_put(228, top, color, FX_WEIGHT_BLACK);
 		return;
 	}
-	if(row >= KCO_KEYS) {
+	if(id >= KCO_KEYS) {
 		graph_putsa_fx(316 - (text_extent_fx(FX_WEIGHT_BLACK, native_label) / 2), top,
 			(color | FX_WEIGHT_BLACK), native_label);
 		return;
 	}
-	if(row == KCO_RANK) keyconfig_option_word(value, 8 + opts.rank);
-	else if(row == KCO_MUSIC) keyconfig_option_word(value, opts.bgm_mode ? 14 : 12);
-	else if(row == KCO_SFX) keyconfig_option_word(value, t1_sfx_enabled() ? 13 : 12);
+	if(id == KCO_RANK) keyconfig_option_word(value, 8 + opts.rank);
+	else if(id == KCO_MUSIC) keyconfig_option_word(value, opts.bgm_mode ? 14 : 12);
+	else if(id == KCO_SFX) keyconfig_option_word(value, t1_sfx_enabled() ? 13 : 12);
 	else {
 		value[0] = ('0' + keyconfig_option_player_count()); value[1] = 0;
 	}
@@ -129,7 +178,7 @@ static void keyconfig_option_put(int row, int color)
 
 static void keyconfig_option_render(void)
 {
-	for(int i = 0; i < KCO_COUNT; i++) {
+	for(int i = 0; i < keyconfig_option_count(); i++) {
 		keyconfig_option_put(i, (i == menu_sel) ? 15 : 5);
 	}
 }
@@ -137,9 +186,9 @@ static void keyconfig_option_render(void)
 void far keyconfig_option_update(void)
 {
 	if(!keyconfig_option_initialized) {
-		menu_sel = keyconfig_option_return_from_music ? KCO_MUSIC_TEST : KCO_RANK;
+		menu_sel = keyconfig_option_return_from_music ? 2 : 0;
 		keyconfig_option_return_from_music = false;
-		option_choice_max = (KCO_COUNT - 1);
+		option_choice_max = (keyconfig_option_count() - 1);
 		keyconfig_option_horizontal_locked = true;
 		keyconfig_option_confirm_locked = true;
 		keyconfig_option_previous = menu_sel;
@@ -155,43 +204,63 @@ void far keyconfig_option_update(void)
 	}
 	if(!input_ok && !input_shot) keyconfig_option_confirm_locked = false;
 	if(!input_left && !input_right) keyconfig_option_horizontal_locked = false;
+	int id = keyconfig_option_id(menu_sel);
 	if((input_left || input_right) && !keyconfig_option_horizontal_locked) {
 		int direction = input_right ? 1 : -1;
-		if(menu_sel == KCO_RANK) {
+		if(id == KCO_RANK) {
 			opts.rank = ((opts.rank + direction + 4) % 4);
-		} else if(menu_sel == KCO_MUSIC) {
+		} else if(id == KCO_MUSIC) {
 			opts.bgm_mode = static_cast<bgm_mode_t>(1 - opts.bgm_mode);
-		} else if(menu_sel == KCO_SFX) {
+			keyconfig_option_music_apply();
+		} else if(id == KCO_SFX) {
 			t1_sfx_set(!t1_sfx_enabled());
-		} else if(menu_sel == KCO_PLAYER) {
+		} else if(id == KCO_PLAYER) {
 			opts.credit_lives_extra = ((opts.credit_lives_extra + direction + CFG_CREDIT_LIVES_EXTRA_MAX) %
 				CFG_CREDIT_LIVES_EXTRA_MAX);
-		} else if(menu_sel == KCO_LANGUAGE) {
+		} else if(id == KCO_LANGUAGE) {
 			t1replay_op_language_toggle();
 		}
 		keyconfig_option_horizontal_locked = true;
 		keyconfig_option_render();
 	}
-	if(input_cancel || ((input_ok || input_shot) && (menu_sel == KCO_QUIT))) {
+	if(input_cancel || ((input_ok || input_shot) && !keyconfig_option_confirm_locked &&
+		((id == KCO_QUIT) || (id == KCO_BACK)))) {
 		egc_copy_rect_1_to_0_16(208, 216, 224, 176);
-		t1_audio_configure(opts.bgm_mode);
-		menu_id = 5; // MID_UPDATE_BGM_MODE__DELAY__SWITCH_TO_MAIN
+		if(keyconfig_option_sound) {
+			keyconfig_option_sound = false;
+			option_choice_max = 5;
+			menu_sel = 3;
+			keyconfig_option_previous = menu_sel;
+			keyconfig_option_confirm_locked = true;
+			input_cancel = false;
+			keyconfig_option_render();
+			frame_delay(15);
+			return;
+		}
+		menu_id = 7; // MID_DELAY__SWITCH_TO_MAIN; audio is already applied.
 		menu_sel = 2;
 		keyconfig_option_initialized = false;
 		return;
 	}
 	if((input_ok || input_shot) && !keyconfig_option_confirm_locked) {
 		keyconfig_option_confirm_locked = true;
-		if(menu_sel == KCO_KEYS) {
+		if(id == KCO_SOUND) {
+			keyconfig_option_sound = true;
+			option_choice_max = 3;
+			menu_sel = 0;
+			keyconfig_option_previous = menu_sel;
+			egc_copy_rect_1_to_0_16(208, 216, 224, 176);
+			keyconfig_option_render();
+		} else if(id == KCO_KEYS) {
 			keyconfig_menu();
 			t1replay_op_restore();
-			menu_sel = KCO_KEYS;
+			menu_sel = 4;
 			keyconfig_option_horizontal_locked = true;
 			keyconfig_option_render();
-		} else if(menu_sel == KCO_SFX) {
+		} else if(id == KCO_SFX) {
 			t1_sfx_set(!t1_sfx_enabled());
 			keyconfig_option_render();
-		} else if(menu_sel == KCO_MUSIC_TEST) {
+		} else if(id == KCO_MUSIC_TEST) {
 			egc_copy_rect_1_to_0_16(208, 216, 224, 176);
 			keyconfig_option_return_from_music = true;
 			menu_id = 2; // MID_MUSIC
