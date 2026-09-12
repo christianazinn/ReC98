@@ -150,7 +150,7 @@ static void keyconfig_option_put(int row, int color)
 	char label[24];
 	char native_label[32];
 	char value[24];
-	int top = (236 + (row * 20));
+	int top = ((keyconfig_option_sound ? 276 : 256) + (row * 20));
 	int id = keyconfig_option_id(row);
 	keyconfig_option_word(label, id);
 	keyconfig_option_label_fullwidth(native_label, label);
@@ -239,6 +239,7 @@ void far keyconfig_option_update(void)
 		}
 		menu_id = 7; // MID_DELAY__SWITCH_TO_MAIN; audio is already applied.
 		menu_sel = 2;
+		t1replay_op_main_choices_put(menu_sel);
 		keyconfig_option_initialized = false;
 		return;
 	}

@@ -65,7 +65,7 @@
 #define REPLAY_OP_LINE_H 24
 #define REPLAY_OP_CELL_W REPLAY_OP_FONT_NUMERIC_CELL_W
 #define REPLAY_SCORE_DISPLAY_DIGITS 9
-#define REPLAY_OP_COL_ACTIVE ((GAME == 5) ? 14 : 8)
+#define REPLAY_OP_COL_ACTIVE 9
 #define REPLAY_SAVE_MODAL_COL_SELECTED 8
 #define REPLAY_OP_COL_SELECTED 7
 #define REPLAY_OP_COL_PRACTICE_SELECTED REPLAY_OP_COL_SELECTED
@@ -2382,22 +2382,22 @@ static void replay_browser_header_put(void)
 {
 	char *p = replay_op_line;
 	p = replay_op_word_append(p, ROW_SLOT);
-	replay_op_line_put(REPLAY_BROWSER_SLOT_LEFT, 80, V_WHITE, p);
+	replay_op_line_put(REPLAY_BROWSER_SLOT_LEFT, 80, REPLAY_OP_COL_ACTIVE, p);
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_NAME);
-	replay_op_line_put(REPLAY_BROWSER_NAME_LEFT, 80, V_WHITE, p);
+	replay_op_line_put(REPLAY_BROWSER_NAME_LEFT, 80, REPLAY_OP_COL_ACTIVE, p);
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_SHOT);
-	replay_op_line_put(REPLAY_BROWSER_SHOT_LEFT, 80, V_WHITE, p);
+	replay_op_line_put(REPLAY_BROWSER_SHOT_LEFT, 80, REPLAY_OP_COL_ACTIVE, p);
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_RANK);
-	replay_op_line_put(REPLAY_BROWSER_RANK_LEFT, 80, V_WHITE, p);
+	replay_op_line_put(REPLAY_BROWSER_RANK_LEFT, 80, REPLAY_OP_COL_ACTIVE, p);
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_SCORE);
-	replay_op_line_put(REPLAY_BROWSER_SCORE_LEFT, 80, V_WHITE, p);
+	replay_op_line_put(REPLAY_BROWSER_SCORE_LEFT, 80, REPLAY_OP_COL_ACTIVE, p);
 	p = replay_op_line;
 	p = replay_op_word_append(p, ROW_STAGE);
-	replay_op_line_put(REPLAY_BROWSER_STAGE_LEFT, 80, V_WHITE, p);
+	replay_op_line_put(REPLAY_BROWSER_STAGE_LEFT, 80, REPLAY_OP_COL_ACTIVE, p);
 }
 
 static void replay_browser_slot_put(uint8_t slot, bool selected, vram_y_t top)
@@ -2594,7 +2594,6 @@ static void replay_detail_left_put(uint8_t slot, bool settings_focused)
 		p, replay_op_playchar_word(replay_op_header.start.playchar)
 	);
 	#if (GAME == 4)
-		*p++ = ' ';
 		*p++ = (replay_op_header.start.shottype ? 'B' : 'A');
 	#endif
 	replay_op_line_put(REPLAY_DETAIL_LEFT, 184, V_WHITE, p);
@@ -4770,6 +4769,9 @@ static bool replay_save_pending(void)
 
 	if(!replay_op_pending_read(&request, true)) {
 		return false;
+	}
+	if(request.source == RSRS_PAUSE_SAVE_EXIT) {
+		snd_kaja_func(KAJA_SONG_STOP, 0);
 	}
 	background = ((request.source == RSRS_POSTGAME)
 		? ROB_REPLAY : ROB_REPLAY_SAVE

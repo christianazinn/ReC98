@@ -469,8 +469,20 @@ struct keyconfig_menu_t {
 	bool autofire;
 };
 
+static bool keyconfig_alternate_only(uint8_t action)
+{
+	return ((action == KCA_UP_LEFT) || (action == KCA_UP_RIGHT) ||
+		(action == KCA_DOWN_LEFT) || (action == KCA_DOWN_RIGHT));
+}
+
 static uint8_t keyconfig_default_binding(uint8_t action, uint8_t alternate)
 {
+	if(keyconfig_alternate_only(action)) {
+		if(!alternate) {
+			return T2_KEYCONFIG_KEY_UNBOUND;
+		}
+		alternate = 0;
+	}
 	if(alternate) {
 		switch(action) {
 		case KCA_UP:    return keyconfig_key(8, 3);
@@ -595,6 +607,14 @@ static void keyconfig_load(keyconfig_menu_t __ss& menu)
 	if(keyconfig_file_read_exact(keyconfig_strings.text_th2key_cfg, &cfg, sizeof(cfg)) &&
 		keyconfig_file_valid(cfg)) {
 		keyconfig_mem_copy(menu.bindings, cfg.bindings, sizeof(menu.bindings));
+		for(uint8_t action = 0; action < KCA_COUNT; action++) {
+			if(keyconfig_alternate_only(action)) {
+				if(menu.bindings[action * 2 + 1] == T2_KEYCONFIG_KEY_UNBOUND) {
+					menu.bindings[action * 2 + 1] = menu.bindings[action * 2];
+				}
+				menu.bindings[action * 2] = T2_KEYCONFIG_KEY_UNBOUND;
+			}
+		}
 	}
 }
 
@@ -826,7 +846,7 @@ bool far keyconfig_menu(void)
 	keyconfig_menu_t original;
 	keyconfig_menu_t menu;
 	uint8_t selected = 0;
-	uint8_t column = 0;
+	uint8_t column = keyconfig_alternate_only(0) ? 1 : 0;
 	input_t previous;
 
 	keyconfig_load(original);
@@ -840,12 +860,14 @@ bool far keyconfig_menu(void)
 		if(previous == INPUT_NONE) {
 			if(key_det & INPUT_UP) {
 				selected = ((selected == 0) ? (KEYCONFIG_ROW_COUNT - 1) : (selected - 1));
+				if(keyconfig_alternate_only(selected)) column = 1;
 				keyconfig_screen_put(menu, selected, column, 0);
 			} else if(key_det & INPUT_DOWN) {
 				selected = ((selected + 1) % KEYCONFIG_ROW_COUNT);
+				if(keyconfig_alternate_only(selected)) column = 1;
 				keyconfig_screen_put(menu, selected, column, 0);
 			} else if(key_det & (INPUT_LEFT | INPUT_RIGHT)) {
-				if(selected < KCA_COUNT) column ^= 1;
+				if((selected < KCA_COUNT) && !keyconfig_alternate_only(selected)) column ^= 1;
 				else if(selected == KEYCONFIG_ROW_AUTOFIRE) menu.autofire = !menu.autofire;
 				keyconfig_screen_put(menu, selected, column, 0);
 			} else if((key_det & INPUT_BOMB) && (selected < KCA_COUNT)) {

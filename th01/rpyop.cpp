@@ -74,7 +74,8 @@ static const uint16_t T1REPLAY_OP_POINT_CAP = 65530;
 static const uint8_t T1REPLAY_OP_PRACTICE_ROW_COUNT = 11;
 static const screen_x_t T1REPLAY_OP_NAME_LEFT = 32;
 static const screen_y_t T1REPLAY_OP_NAME_KEYBOARD_TOP = 240;
-static const screen_x_t T1REPLAY_OP_SAVE_NAME_LEFT = 146;
+// Eight full-width cells, centered on the date field at x=176.
+static const screen_x_t T1REPLAY_OP_SAVE_NAME_LEFT = 112;
 static const screen_y_t T1REPLAY_OP_SAVE_NAME_TOP = 104;
 static const screen_x_t T1REPLAY_OP_SAVE_POINT_RIGHT = 532;
 static const screen_x_t T1REPLAY_OP_SAVE_DATE_CENTER = 176;
@@ -3375,7 +3376,7 @@ static void t1replay_op_name_key_put(
 	screen_x_t left;
 	screen_y_t top;
 	int16_t col_and_fx = static_cast<int16_t>(FX_WEIGHT_BOLD | (
-		selected ? (FX_REVERSE | COL_REGIST_SELECTED) : COL_REGIST_REGULAR
+		selected ? T1REPLAY_OP_COL_SELECTED : T1REPLAY_OP_COL_VALUE
 	));
 
 	if(!t1replay_op_name_key_exists(row, column)) {
@@ -3475,14 +3476,14 @@ static void t1replay_op_name_line_render(void)
 	*p = '\0';
 	graph_putsa_fx(
 		T1REPLAY_OP_SAVE_NAME_LEFT, T1REPLAY_OP_SAVE_NAME_TOP,
-		(COL_REGIST_SELECTED | FX_WEIGHT_BOLD), t1replay_op_text
+		(T1REPLAY_OP_COL_SELECTED | FX_WEIGHT_BOLD), t1replay_op_text
 	);
 	t1replay_op_name_kanji_put(
 		static_cast<screen_x_t>(
 			T1REPLAY_OP_SAVE_NAME_LEFT +
 			(t1replay_op_name_cursor * GLYPH_FULL_W)
 		),
-		T1REPLAY_OP_SAVE_NAME_TOP, COL_REGIST_SELECTED, cursor
+		T1REPLAY_OP_SAVE_NAME_TOP, T1REPLAY_OP_COL_SELECTED, cursor
 	);
 }
 
@@ -3825,6 +3826,55 @@ static void t1replay_op_save_decision_render(void)
 // Browser navigation never uses horizontal hold. Its positive low values
 // preserve detail paging, while the sentinel holds a post-save acknowledgement
 // without growing the patch-owned BSS tail.
+static bool t1replay_op_discard_confirm(void)
+{
+	t1replay_op_input_t input;
+	bool yes = false;
+	bool redraw = true;
+	char *p;
+	t1replay_op_input_reset();
+	while(1) {
+		if(redraw) {
+			t1replay_op_panel_restore(false);
+			p = t1replay_op_text;
+			#define P(c) *p++ = static_cast<char>(c)
+			if(t1_language_get() == T1LANG_JAPANESE) {
+				P(0x95); P(0xDB); P(0x91); P(0xB6); P(0x82); P(0xF0);
+				P(0x82); P(0xE2); P(0x82); P(0xDF); P(0x82); P(0xDC);
+				P(0x82); P(0xB7); P(0x82); P(0xA9); P(0x81); P(0x48);
+			} else {
+				P('D'); P('i'); P('s'); P('c'); P('a'); P('r'); P('d');
+				P(' '); P('R'); P('e'); P('p'); P('l'); P('a'); P('y'); P('?');
+			}
+			t1replay_op_save_text_center(152, T1REPLAY_OP_COL_VALUE, p);
+			for(int choice = 0; choice < 2; choice++) {
+				p = t1replay_op_text;
+				if(t1_language_get() == T1LANG_JAPANESE) {
+					if(choice == 0) { P(0x82); P(0xCD); P(0x82); P(0xA2); }
+					else { P(0x82); P(0xA2); P(0x82); P(0xA2); P(0x82); P(0xA6); }
+				} else if(choice == 0) { P('Y'); P('e'); P('s'); }
+				else { P('N'); P('o'); }
+				t1replay_op_save_text_center(200 + choice * 32,
+					((choice == 0) == yes) ? 8 : T1REPLAY_OP_COL_VALUE, p);
+			}
+			#undef P
+			redraw = false;
+		}
+		t1replay_op_input_read(input);
+		if(input.cancel || input.ok) {
+			bool discard = (input.ok && yes);
+			t1replay_op_return_wait_release();
+			t1replay_op_input_reset();
+			return discard;
+		}
+		if(input.up || input.down || input.left || input.right) {
+			yes = !yes;
+			redraw = true;
+		}
+		frame_delay(1);
+	}
+}
+
 static bool t1replay_op_detail_active(void)
 {
 	return (
@@ -3862,7 +3912,11 @@ static bool t1replay_op_checkpoint_prefix_identity(
 	) {
 		return false;
 	}
-	t1replay_op_slot_fn(fn, slot);
+	if(slot == T1REPLAY_SLOT_PENDING) {
+		t1replay_op_pending_fn(fn);
+	} else {
+		t1replay_op_slot_fn(fn, slot);
+	}
 	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
 	fp = fopen(fn, mode);
 	if(!fp || (fseek(fp, static_cast<long>(header->input_offset), SEEK_SET) != 0)) {
@@ -4044,7 +4098,8 @@ static bool t1replay_op_checkpoint_probe(
 	t1replay_checkpoint_pacing_t pacing;
 	bool valid;
 
-	if(t1replay_op_header_has_accelerator(replay_header)) {
+	if((slot != T1REPLAY_SLOT_PENDING) &&
+		t1replay_op_header_has_accelerator(replay_header)) {
 		return t1replay_op_embedded_checkpoint_probe(
 			slot, replay_header, stage_id, process_seq, source_process
 		);
@@ -5115,12 +5170,25 @@ bool t1replay_op_practice_redraw(void)
 	return t1replay_op_practice_render();
 }
 
+extern void main_choice_unput_and_put(int choice, vc2 col);
+extern int8_t menu_id;
+
+void far t1replay_op_main_choices_put(int selected)
+{
+	for(int choice = 0; choice < 6; choice++) {
+		main_choice_unput_and_put(choice, (choice == selected) ? 15 : 5);
+	}
+}
+
 void t1replay_op_restore(void)
 {
 	z_palette_black_out();
 	t1replay_op_name_active = false;
 	replay_op_font_free();
 	t1replay_op_title_backing_restore();
+	if((menu_id == 3) || (menu_id == 4)) {
+		t1replay_op_main_choices_put((menu_id == 3) ? 4 : 3);
+	}
 	z_palette_black_in();
 	t1replay_op_return_wait_release();
 	t1replay_op_input_reset();
@@ -5161,6 +5229,10 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 	}
 	if(t1replay_op_name_active) {
 		if(input.cancel) {
+			if(!t1replay_op_discard_confirm()) {
+				t1replay_op_name_render();
+				return result;
+			}
 			t1replay_op_name_keyboard_restore();
 			t1replay_op_name_active = false;
 			t1replay_op_pending_discard();
@@ -5356,6 +5428,10 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 	}
 	if(input.cancel) {
 		if(t1replay_op_save_pending) {
+			if(!t1replay_op_discard_confirm()) {
+				t1replay_op_replay_render();
+				return result;
+			}
 			t1replay_op_pending_discard();
 			t1replay_op_save_pending = false;
 		}

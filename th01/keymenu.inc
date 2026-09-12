@@ -18,10 +18,6 @@ static void keyconfig_screen_put(
 	char line[81];
 	uint8_t at;
 	keyconfig_graphics_draw_begin();
-	line[0] = '['; line[1] = ' '; line[2] = 'S'; line[3] = 't';
-	line[4] = 'o'; line[5] = 'r'; line[6] = 'y'; line[7] = ' ';
-	line[8] = ']'; line[9] = 0;
-	replay_op_font_put_centered(320, 64, line, 14);
 	replay_op_font_put_centered(338, 88, keyconfig_strings.text_primary, 14);
 	replay_op_font_put_centered(470, 88, keyconfig_strings.text_alternate, 14);
 	for(uint8_t row = 0; row < KCA_COUNT; row++) {
@@ -30,6 +26,11 @@ static void keyconfig_screen_put(
 		line[at] = 0;
 		replay_op_font_put(144, y, line, row == selected ? 11 : 12);
 		for(uint8_t col = 0; col < 2; col++) {
+#if (GAME != 1)
+			if((col == 0) && keyconfig_alternate_only(row)) {
+				continue;
+			}
+#endif
 			at = keyconfig_line_put_key_name(line, 0, menu.bindings[row * 2 + col]);
 			line[at] = 0;
 			replay_op_font_put_centered(338 + col * 132, y, line,
@@ -40,11 +41,18 @@ static void keyconfig_screen_put(
 			replay_op_font_put(120, y, line, 11);
 		}
 	}
+#if (GAME == 2)
+	replay_op_font_put(144, 272, keyconfig_strings.text_autofire,
+		(selected == KEYCONFIG_ROW_AUTOFIRE) ? 11 : 12);
+	replay_op_font_put_centered(470, 272,
+		menu.autofire ? keyconfig_strings.text_on : keyconfig_strings.text_off,
+		(selected == KEYCONFIG_ROW_AUTOFIRE) ? 11 : 15);
+#endif
 	for(uint8_t command = 0; command < 3; command++) {
 		const char far *label = command == 0 ? keyconfig_strings.text_restore_defaults :
 			(command == 1 ? keyconfig_strings.text_apply_and_return : keyconfig_strings.text_cancel);
-		int y = 288 + command * 20;
-		bool active = (selected == KCA_COUNT + command);
+		int y = ((GAME == 2) ? 296 : 288) + command * 20;
+		bool active = (selected == KEYCONFIG_ROW_DEFAULTS + command);
 		replay_op_font_put_centered(320, y, label, active ? 11 : 14);
 		if(active) {
 			line[0] = '>'; line[1] = 0;

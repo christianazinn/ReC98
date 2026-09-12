@@ -23,6 +23,7 @@ bool t1replay_op_practice_enter(
 );
 bool t1replay_op_practice_redraw(void);
 void t1replay_op_restore(void);
+void far t1replay_op_main_choices_put(int selected);
 void t1replay_op_command_clear(void);
 bool t1replay_op_record_prepare(void);
 #if defined(T1RB) && (T1RB == 1)
