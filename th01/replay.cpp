@@ -3174,7 +3174,7 @@ void far t1replay_entry(void)
 			t1replay_packet_cursor = t1replay_res->packet_count;
 			t1replay_sample_cursor = t1replay_res->sample_count;
 			t1replay_payload_checksum = t1replay_res->payload_checksum;
-			#if T1REPLAY_CHECKPOINT_PRIVATE_RESTORE
+			#if T1REPLAY_CHECKPOINT_PRIVATE_RESTORE && (T1RP != 3)
 			if(t1replay_mode == T1RM_PLAYBACK) {
 				start_resident = ResData<resident_t>::exist(resident_id);
 				resident = start_resident;
@@ -3922,7 +3922,7 @@ static uint32_t t1replay_checkpoint_world_digest(
 static bool t1replay_checkpoint_snapshot_capture(
 	t1replay_checkpoint_t far *checkpoint, int pellet_speed_raise_cycle,
 	uint32_t sample_anchor, uint32_t packet_anchor, uint32_t input_anchor,
-	uint32_t prefix_checksum, uint8_t process_seq
+	uint32_t prefix_checksum, uint8_t process_seq, bool resumable = true
 )
 {
 	uint32_t digest = T1REPLAY_FNV1A_BASIS;
@@ -3967,7 +3967,7 @@ static bool t1replay_checkpoint_snapshot_capture(
 	);
 	return (
 		t1replay_checkpoint_valid(checkpoint) &&
-		t1replay_checkpoint_cross_groups_valid(checkpoint)
+		(!resumable || t1replay_checkpoint_cross_groups_valid(checkpoint))
 	);
 }
 
@@ -4229,6 +4229,7 @@ static bool t1replay_exact_trace_emit(
 	// comparisons using recorded input, with no emulator keyboard injection.
 	if((kind == T1REPLAY_EXACT_ROW_PRE_INPUT) &&
 		(t1replay_exact_snapshot.pacing.frame_since_start_of_binary == 0) &&
+		t1replay_checkpoint_cross_groups_valid(&t1replay_exact_snapshot) &&
 		((t1replay_mode == T1RM_RECORD) || (t1replay_decode_run == 0)) &&
 		t1replay_checkpoint_path_set(t1replay_res->slot,
 			static_cast<uint8_t>(row.stage_id))) {
@@ -4271,7 +4272,8 @@ static bool t1replay_exact_trace_row_capture(
 	}
 	if(!t1replay_checkpoint_snapshot_capture(
 		snapshot, pellet_speed_raise_cycle, sample_anchor, packet_anchor,
-		input_anchor, t1replay_payload_checksum, t1replay_res->process_seq
+		input_anchor, t1replay_payload_checksum, t1replay_res->process_seq,
+		false // Trace paused and terminal worlds, not just resumable boundaries.
 	)) {
 		if(t1replay_checkpoint_path_set(t1replay_res->slot,
 			static_cast<uint8_t>(resident->stage_id))) {
