@@ -2193,6 +2193,24 @@ static bool t1replay_checkpoint_probe_prepare(
 }
 #endif
 
+#if T1REPLAY_EXACT_TRACE
+static void t1replay_exact_restore_step(uint8_t step)
+{
+	char fn[12];
+	int fd;
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'R'; fn[3] = 'S';
+	fn[4] = 'T'; fn[5] = 'E'; fn[6] = 'P'; fn[7] = '.';
+	fn[8] = 'B'; fn[9] = 'I'; fn[10] = 'N'; fn[11] = '\0';
+	fd = t1replay_dos_create(fn);
+	if(fd >= 0) {
+		t1replay_dos_write(fd, &step, sizeof(step));
+		t1replay_dos_close(fd);
+	}
+}
+#else
+#define t1replay_exact_restore_step(step) ((void)0)
+#endif
+
 static bool t1replay_checkpoint_restore_prepare(
 	resident_t far *start_resident, uint8_t slot, uint8_t stage_id,
 	uint8_t process_seq, uint8_t source_process, bool scenario_from_checkpoint
@@ -2202,6 +2220,7 @@ static bool t1replay_checkpoint_restore_prepare(
 	const t1replay_checkpoint_pacing_t far *pacing;
 	const t1replay_checkpoint_scenario_t far *scenario;
 
+	t1replay_exact_restore_step(1);
 	if(
 		!start_resident ||
 		!t1replay_checkpoint_read(slot, stage_id)
@@ -2210,6 +2229,7 @@ static bool t1replay_checkpoint_restore_prepare(
 	}
 	pacing = &t1replay_checkpoint->pacing;
 	scenario = &t1replay_checkpoint->scenario;
+	t1replay_exact_restore_step(2);
 	if(
 		!t1replay_checkpoint_valid(t1replay_checkpoint) ||
 		!t1replay_checkpoint_cross_groups_valid(t1replay_checkpoint) ||
@@ -2237,6 +2257,7 @@ static bool t1replay_checkpoint_restore_prepare(
 		return false;
 	}
 
+	t1replay_exact_restore_step(3);
 	// Only the resident scenario is needed before native scene and owner
 	// loaders rebuild their allocations. All remaining mutation is deferred to
 	// the top-of-gameplay-loop restore seam.
@@ -3683,6 +3704,7 @@ static bool t1replay_practice_boss_phase_restore_apply(
 bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 {
 	const t1replay_checkpoint_t far *checkpoint = t1replay_checkpoint;
+	t1replay_exact_restore_step(4);
 
 	if((t1replay_header.start.practice_boss_phase != T1RPBPT_NONE) &&
 		!t1replay_checkpoint_restore_is_direct) {
@@ -3757,6 +3779,7 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 		return false;
 	}
 	if(checkpoint->pacing.frame_since_start_of_binary == 0) {
+		t1replay_exact_restore_step(5);
 		// These two entrances normally execute immediately before the first
 		// gameplay input. Rebuild their graphics without consuming replay input;
 		// the recorded RNG and all gameplay owners are imported afterward.
@@ -3778,6 +3801,7 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 	}
 
 	t1replay_checkpoint_scenario_apply(&checkpoint->scenario);
+	t1replay_exact_restore_step(6);
 	frame_rand = checkpoint->rng.frame_rand;
 	random_seed = static_cast<long>(checkpoint->rng.random_seed);
 	t1replay_player_checkpoint_import(&checkpoint->player);
@@ -3797,6 +3821,7 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 	}
 
 	frame_since_start_of_binary = checkpoint->pacing.frame_since_start_of_binary;
+	t1replay_exact_restore_step(7);
 	bomb_frame = checkpoint->pacing.bomb_frame;
 	timer_initialized = checkpoint->pacing.timer_initialized;
 	first_stage_in_scene = checkpoint->pacing.first_stage_in_scene;
