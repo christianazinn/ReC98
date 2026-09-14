@@ -98,6 +98,7 @@ bool16 t1replay_stage_entry_paint(
 	// Paint carried items and HUD values only after importing their state.
 	graph_accesspage_func(0);
 	items_render();
+	hud_bombs_put(checkpoint->scenario.resident_rem_bombs);
 	hud_score_and_cardcombo_render();
 	timer_put();
 	return (

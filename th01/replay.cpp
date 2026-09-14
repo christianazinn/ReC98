@@ -1377,7 +1377,6 @@ static bool t1replay_checkpoint_cross_groups_valid(
 	if(
 		(scenario->resident_rank != scenario->game_rank) ||
 		(scenario->resident_bgm_mode != scenario->game_bgm_mode) ||
-		(scenario->resident_rem_bombs != scenario->game_rem_bombs) ||
 		(scenario->resident_credit_lives_extra !=
 			scenario->game_credit_lives_extra) ||
 		(scenario->resident_route != scenario->game_route) ||
@@ -1391,6 +1390,8 @@ static bool t1replay_checkpoint_cross_groups_valid(
 	) {
 		return false;
 	}
+	// Bomb use and collection update the gameplay count immediately, but the
+	// resident copy is synchronized only at specific handoffs. Both are saved.
 	if(checkpoint->orb.in_portal) {
 		int slot = checkpoint->stage.entered_portal_slot;
 
