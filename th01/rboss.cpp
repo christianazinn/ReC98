@@ -382,6 +382,16 @@ bool16 t1replay_ckpt_present_valid(
 {
 	const t1replay_checkpoint_player_t far *player = &checkpoint->player;
 
+	// At stage entry, native startup can rebuild the boss and background
+	// resources. Mid-stage snapshots still need the explicit owner below.
+	if(checkpoint->pacing.frame_since_start_of_binary == 0) {
+		return (
+			t1replay_checkpoint_world_valid(checkpoint) &&
+			t1replay_ckpt_player_paint_valid(player) &&
+			t1replay_ckpt_orb_paint_valid(&checkpoint->orb)
+		);
+	}
+
 	if(
 		(checkpoint->boss.boss_id != BID_SINGYOKU) ||
 		(checkpoint->orb.in_portal != 0) ||
@@ -410,6 +420,9 @@ bool16 t1replay_ckpt_present_apply(
 {
 	if(!t1replay_ckpt_present_valid(checkpoint)) {
 		return false;
+	}
+	if(checkpoint->pacing.frame_since_start_of_binary == 0) {
+		return t1replay_stage_entry_paint(checkpoint);
 	}
 	if(!t1boss_singyoku_presentation_reconstruct(
 		reinterpret_cast<const t1boss_singyoku_checkpoint_t far *>(

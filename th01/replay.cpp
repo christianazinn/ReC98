@@ -2599,7 +2599,7 @@ static void t1replay_checkpoint_scenario_capture(
 	scenario->mode_test = static_cast<int8_t>(mode_test);
 }
 
-#if T1REPLAY_CHECKPOINT_EMIT
+#if T1REPLAY_CHECKPOINT_EMIT || T1REPLAY_EXACT_TRACE
 static bool t1replay_checkpoint_write(void)
 {
 	int fd;
@@ -2619,7 +2619,9 @@ static bool t1replay_checkpoint_write(void)
 	t1replay_dos_close(fd);
 	return true;
 }
+#endif
 
+#if T1REPLAY_CHECKPOINT_EMIT
 // Persist the first-frame snapshot while its transient far allocation is still
 // available, then release that memory before the next process loads resources.
 static void t1replay_checkpoint_flush_if_enabled(void)
@@ -3753,6 +3755,18 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 		t1replay_fail();
 		return false;
 	}
+	if(checkpoint->pacing.frame_since_start_of_binary == 0) {
+		// These two entrances normally execute immediately before the first
+		// gameplay input. Rebuild their graphics without consuming replay input;
+		// the recorded RNG and all gameplay owners are imported afterward.
+		if(boss_id == BID_SINGYOKU) {
+			singyoku_main();
+		} else if(boss_id == BID_MIMA) {
+			mima_main();
+		}
+		ptn_unput_8(player_left, player_top, PTN_MIKO_L);
+		ptn_unput_8(orb_cur_left, orb_cur_top, PTN_ORB);
+	}
 	if((boss_id == BID_NONE) &&
 		!t1replay_stage_checkpoint_import(&checkpoint->stage)) {
 		t1replay_checkpoint_restore_is_pending = false;
@@ -4208,6 +4222,22 @@ static bool t1replay_exact_trace_emit(
 	if(!t1replay_exact_trace_row_write(&row)) {
 		t1replay_exact_trace_failed = true;
 		return false;
+	}
+	// Diagnostic profiles preserve each stage-entry world independently of
+	// the trace rows. A packet-aligned playback fixture permits exact direct
+	// comparisons using recorded input, with no emulator keyboard injection.
+	if((kind == T1REPLAY_EXACT_ROW_PRE_INPUT) &&
+		(t1replay_exact_snapshot.pacing.frame_since_start_of_binary == 0) &&
+		((t1replay_mode == T1RM_RECORD) || (t1replay_decode_run == 0)) &&
+		t1replay_checkpoint_path_set(t1replay_res->slot,
+			static_cast<uint8_t>(row.stage_id))) {
+		t1replay_checkpoint = &t1replay_exact_snapshot;
+		if(!t1replay_checkpoint_write()) {
+			t1replay_checkpoint = 0;
+			t1replay_exact_trace_failed = true;
+			return false;
+		}
+		t1replay_checkpoint = 0;
 	}
 	t1replay_exact_last_kind = kind;
 	t1replay_exact_last_sample = row.sample_cursor;

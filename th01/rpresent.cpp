@@ -6,6 +6,9 @@
 #include "th01/formats/ptn.hpp"
 #include "th01/hardware/graph.h"
 #include "th01/rpresent.hpp"
+#include "th01/main/stage/item.hpp"
+#include "th01/main/stage/timer.hpp"
+#include "th01/main/hud/hud.hpp"
 
 #if T1REPLAY_CHECKPOINT_RESTORE || T1REPLAY_PIXEL_TRACE
 enum {
@@ -85,6 +88,22 @@ bool16 t1replay_orb_checkpoint_paint(
 	graph_accesspage_func(0);
 	ptn_put_8(checkpoint->cur_left, checkpoint->cur_top, ptn_id);
 	return true;
+}
+
+bool16 t1replay_stage_entry_paint(
+	const t1replay_checkpoint_t far *checkpoint
+)
+{
+	// Native entrance and stage import own the background and boss imagery.
+	// Paint carried items and HUD values only after importing their state.
+	graph_accesspage_func(0);
+	items_render();
+	hud_score_and_cardcombo_render();
+	timer_put();
+	return (
+		t1replay_player_checkpoint_paint(&checkpoint->player) &&
+		t1replay_orb_checkpoint_paint(&checkpoint->orb)
+	);
 }
 #endif
 

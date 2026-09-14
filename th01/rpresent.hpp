@@ -19,6 +19,9 @@ bool16 t1replay_player_checkpoint_paint(
 bool16 t1replay_orb_checkpoint_paint(
 	const t1replay_checkpoint_orb_t far *checkpoint
 );
+bool16 t1replay_stage_entry_paint(
+	const t1replay_checkpoint_t far *checkpoint
+);
 #endif
 
 #endif /* TH01_RPRESENT_HPP */

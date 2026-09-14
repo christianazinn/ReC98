@@ -1343,6 +1343,11 @@ static bool t1replay_op_command_write(
 }
 
 #if T1REPLAY_EXACT_TRACE
+static bool t1replay_op_checkpoint_probe(
+	uint8_t slot, const t1replay_header_t *replay_header, uint8_t stage_id,
+	uint8_t *process_seq, uint8_t *source_process
+);
+
 bool t1replay_op_exact_bootstrap(void)
 {
 	uint8_t config[8];
@@ -1383,6 +1388,31 @@ bool t1replay_op_exact_bootstrap(void)
 		(config[7] != checksum)
 	) {
 		return false;
+	}
+	// Optional private stage selector; ordinary replay commands and the
+	// public file format are unchanged. Resolve the cursor through OP's
+	// production directory probe rather than trusting a test-provided cursor.
+	fn[2] = 'S'; fn[3] = 'E'; fn[4] = 'E'; fn[5] = 'K';
+	fn[6] = '.'; fn[7] = 'C'; fn[8] = 'F'; fn[9] = 'G'; fn[10] = '\0';
+	fp = fopen(fn, mode);
+	if(fp) {
+		uint8_t stage_id;
+		uint8_t process_seq;
+		uint8_t source_process;
+		t1replay_op_slot_t slot;
+		valid = ((fread(&stage_id, 1, 1, fp) == 1) &&
+			(fread(&extra, 1, 1, fp) == 0));
+		fclose(fp);
+		remove(fn);
+		t1replay_op_slot_read(config[6], slot);
+		if(!valid || (stage_id >= STAGE_COUNT) ||
+			!slot.valid ||
+			!t1replay_op_checkpoint_probe(config[6], &slot.header, stage_id,
+				&process_seq, &source_process)) {
+			return false;
+		}
+		return t1replay_op_command_write(config[5], config[6], stage_id,
+			process_seq, source_process);
 	}
 	return t1replay_op_command_write(
 		config[5], config[6], T1REPLAY_COMMAND_CHECKPOINT_STAGE_NONE,
