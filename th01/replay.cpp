@@ -3862,7 +3862,6 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 	return true;
 }
 
-#if T1REPLAY_WORLD_CAPTURE
 static bool t1replay_stage_snapshot_capture(
 	t1replay_checkpoint_stage_t far *checkpoint
 )
@@ -3888,6 +3887,7 @@ static bool t1replay_stage_snapshot_capture(
 	return ok;
 }
 
+#if T1REPLAY_WORLD_CAPTURE
 static bool t1replay_checkpoint_world_snapshot_capture(
 	t1replay_checkpoint_t far *checkpoint, int pellet_speed_raise_cycle,
 	uint32_t sample_anchor, uint32_t packet_anchor, uint32_t input_anchor,
