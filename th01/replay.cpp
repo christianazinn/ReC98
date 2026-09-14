@@ -4272,6 +4272,13 @@ static bool t1replay_exact_trace_row_capture(
 		snapshot, pellet_speed_raise_cycle, sample_anchor, packet_anchor,
 		input_anchor, t1replay_payload_checksum, t1replay_res->process_seq
 	)) {
+		if(t1replay_checkpoint_path_set(t1replay_res->slot,
+			static_cast<uint8_t>(resident->stage_id))) {
+			t1replay_checkpoint_fn[2] = 'B';
+			t1replay_checkpoint = snapshot;
+			t1replay_checkpoint_write();
+			t1replay_checkpoint = 0;
+		}
 		t1replay_exact_trace_failed = true;
 		return false;
 	}
