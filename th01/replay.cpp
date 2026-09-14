@@ -3863,6 +3863,31 @@ bool16 far t1replay_checkpoint_restore_apply(int *pellet_speed_raise_cycle)
 }
 
 #if T1REPLAY_WORLD_CAPTURE
+static bool t1replay_stage_snapshot_capture(
+	t1replay_checkpoint_stage_t far *checkpoint
+)
+{
+	turret_flag_t far *flags = t1replay_stage_turret_flag;
+	bool has_turret = false;
+	bool ok;
+	for(int i = 0; i < obstacles.count; i++) {
+		if((obstacles.type[i] >= OT_TURRET_SLOW_1_AIMED) &&
+			(obstacles.type[i] <= OT_TURRET_QUICK_5_SPREAD_WIDE_AIMED)) {
+			has_turret = true;
+			break;
+		}
+	}
+	// A stage without turrets may retain a smaller preceding stage's unused
+	// allocation. Hide it only during export, then restore the native owner.
+	// Keep this logic outside the original stage-object code segment.
+	if(!has_turret) {
+		t1replay_stage_turret_flag = 0;
+	}
+	ok = t1replay_stage_checkpoint_export(checkpoint);
+	t1replay_stage_turret_flag = flags;
+	return ok;
+}
+
 static bool t1replay_checkpoint_world_snapshot_capture(
 	t1replay_checkpoint_t far *checkpoint, int pellet_speed_raise_cycle,
 	uint32_t sample_anchor, uint32_t packet_anchor, uint32_t input_anchor,
@@ -3902,7 +3927,7 @@ static bool t1replay_checkpoint_world_snapshot_capture(
 	t1replay_timer_checkpoint_export(&checkpoint->pacing);
 	t1replay_player_checkpoint_export(&checkpoint->player);
 	t1replay_orb_checkpoint_export(&checkpoint->orb);
-	if(!t1replay_stage_checkpoint_export(&checkpoint->stage)) {
+	if(!t1replay_stage_snapshot_capture(&checkpoint->stage)) {
 		return false;
 	}
 	t1replay_items_checkpoint_export(&checkpoint->items);
@@ -4439,7 +4464,7 @@ void far t1replay_checkpoint_capture(int pellet_speed_raise_cycle)
 	t1replay_timer_checkpoint_export(&checkpoint->pacing);
 	t1replay_player_checkpoint_export(&checkpoint->player);
 	t1replay_orb_checkpoint_export(&checkpoint->orb);
-	if(!t1replay_stage_checkpoint_export(&checkpoint->stage)) {
+	if(!t1replay_stage_snapshot_capture(&checkpoint->stage)) {
 		t1replay_checkpoint_free();
 		return;
 	}

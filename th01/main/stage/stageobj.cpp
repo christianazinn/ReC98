@@ -1060,10 +1060,7 @@ bool16 t1replay_stage_checkpoint_export(t1replay_checkpoint_stage_t *checkpoint)
 		checkpoint->obstacles[i].frame = obstacles.frame[i].v;
 		checkpoint->obstacles[i].type = obstacles.type[i];
 		checkpoint->obstacles[i].turret_flag = (
-			((obstacles.type[i] >= OT_TURRET_SLOW_1_AIMED) &&
-			 (obstacles.type[i] <= OT_TURRET_QUICK_5_SPREAD_WIDE_AIMED) &&
-			 t1replay_stage_turret_flag) ?
-				t1replay_stage_turret_flag[i] : TF_READY
+			t1replay_stage_turret_flag ? t1replay_stage_turret_flag[i] : TF_READY
 		);
 	}
 	return true;
