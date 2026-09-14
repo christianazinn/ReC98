@@ -2703,7 +2703,9 @@ static bool rck_practice_boss_construct(
 			} else if(boss_update != boss_update_func) {
 				boss.hp = boss.phase_end_hp;
 			}
-		} else {
+		} else if(stage_id != 3) {
+			// The paired fight reaches phase 2 by time alone. Retain both HP
+			// values so its first playable frame does not trigger a defeat.
 			boss.hp = boss.phase_end_hp;
 		}
 #else
