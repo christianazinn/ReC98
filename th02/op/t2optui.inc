@@ -72,7 +72,7 @@ static void t2_language_option_native_center_put_at(
 	gaiji[length] = gs_NULL;
 	left = static_cast<screen_x_t>(center - ((length * GAIJI_W) / 2));
 	graph_gaiji_puts(
-		left, top, GAIJI_W,
+		left + 4, top + 4, GAIJI_W,
 		reinterpret_cast<const char *>(gaiji), 0
 	);
 	gaiji_putsa(
@@ -99,7 +99,7 @@ static void t2_language_option_japanese_center_put(tram_atrb2 atrb)
 		T2_LANGUAGE_OPTION_VALUE_CENTER - ((3 * GAIJI_W) / 2)
 	);
 
-	graph_putsa_fx(left, T2_LANGUAGE_OPTION_TOP, 0, japanese);
+	graph_putsa_fx(left + 4, T2_LANGUAGE_OPTION_TOP + 4, 0, japanese);
 	text_putsa(
 		(left / GLYPH_HALF_W), (T2_LANGUAGE_OPTION_TOP / GLYPH_H), japanese,
 		atrb
@@ -122,7 +122,7 @@ static void t2_language_option_language_put(tram_atrb2 atrb)
 	graph_copy_rect_1_to_0_16(
 		T2_LANGUAGE_OPTION_VALUE_LEFT, T2_LANGUAGE_OPTION_TOP,
 		((T2_LANGUAGE_OPTION_VALUE_CELLS * GAIJI_W) + GAIJI_W),
-		GLYPH_H
+		(GLYPH_H + 4)
 	);
 	for(i = 0; i < (T2_LANGUAGE_OPTION_VALUE_CELLS * GAIJI_TRAM_W); i++) {
 		clear[i] = ' ';
@@ -156,7 +156,7 @@ static void t2_language_option_perf_put(tram_atrb2 atrb)
 	graph_copy_rect_1_to_0_16(
 		T2_PERF_OPTION_VALUE_LEFT, T2_PERF_OPTION_TOP,
 		((T2_PERF_OPTION_VALUE_CELLS * GAIJI_W) + GAIJI_W),
-		GLYPH_H
+		(GLYPH_H + 4)
 	);
 	for(i = 0; i < (T2_PERF_OPTION_VALUE_CELLS * GAIJI_TRAM_W); i++) {
 		clear[i] = ' ';
@@ -371,6 +371,11 @@ static void t2_language_option_selection_move(int direction)
 
 static void t2_language_option_return_to_main(void)
 {
+	text_clear();
+	graph_accesspage(1);
+	graph_copy_page(0);
+	graph_showpage(0);
+	graph_accesspage(0);
 	menu_sel = 3;
 	in_option = false;
 	t2_language_option_initialized = false;
@@ -391,7 +396,6 @@ void far pascal t2_language_option_update_and_render(void)
 
 	if(!t2_language_option_initialized) {
 		t2_language_option_sel = t2_keyconfig_returning ? 7 : 6;
-		t2_keyconfig_returning = false;
 		t2_language_option_input_allowed = false;
 		text_clear();
 		graph_accesspage(1);
@@ -405,6 +409,10 @@ void far pascal t2_language_option_update_and_render(void)
 			);
 		}
 		t2_language_option_initialized = true;
+		if(t2_keyconfig_returning) {
+			t2_keyconfig_returning = false;
+			palette_black_in(1);
+		}
 		return;
 	}
 	if(!key_det) {
@@ -431,11 +439,14 @@ void far pascal t2_language_option_update_and_render(void)
 	}
 	if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
 		if(t2_language_option_sel == 7) {
+			text_clear();
+			graph_accesspage(1);
+			graph_copy_page(0);
+			graph_showpage(0);
+			graph_accesspage(0);
 			keyconfig_menu();
-			// Use the established balanced PI/font/palette title transaction.
-			replay_title_restore_request();
+			replay_keyconfig_return_to_option();
 			key_det = INPUT_NONE;
-			replay_title_update_and_render();
 			t2_keyconfig_returning = true;
 			t2_language_option_initialized = false;
 			t2_language_option_input_allowed = false;

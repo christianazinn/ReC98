@@ -103,6 +103,9 @@
 #include "th04/score.h"
 #include "th04/snd/snd.h"
 
+void far replay_practice_dialog_begin(void);
+void far replay_practice_dialog_end(void);
+
 struct map_section_tiles_t;
 extern map_section_tiles_t __seg* map_seg;
 #if (GAME == 5)
@@ -2155,7 +2158,6 @@ static void rck_practice_th04_gengetsu_prepare(void)
 {
 	char bg_fn[12];
 	char bb_fn[9];
-	extern uint8_t number_of_calls_to_this_function_during_extra;
 
 	bg_fn[0] = 's'; bg_fn[1] = 't'; bg_fn[2] = '0'; bg_fn[3] = '6';
 	bg_fn[4] = 'b'; bg_fn[5] = 'k'; bg_fn[6] = '2'; bg_fn[7] = '.';
@@ -2166,9 +2168,6 @@ static void rck_practice_th04_gengetsu_prepare(void)
 	bb_fn[8] = '\0';
 
 	boss_statebyte[0] = true;
-	// Direct construction skips Mugetsu's real dialog_exit(). The next exit is
-	// therefore Gengetsu's and must select her defeat faceset.
-	number_of_calls_to_this_function_during_extra = 1;
 	boss_update = nullfunc_far;
 	boss_fg_render = nullfunc_near;
 	boss.phase = PHASE_HP_FILL;
@@ -2619,14 +2618,43 @@ static bool rck_practice_boss_construct(
 	boss_update = boss_update_func;
 	boss_fg_render = boss_fg_render_func;
 	snd_se_mode = SND_SE_OFF;
-	dialog_prepared = rck_practice_dialog_prepare();
 #if (GAME == 4)
+	if((stage_id == 5) || (stage_id == STAGE_EXTRA)) {
+		cdg_free(CDG_EYECATCH);
+		if(std_seg) {
+			hmem_free(std_seg);
+			std_seg = 0;
+		}
+		if(map_seg) {
+			hmem_free(map_seg);
+			map_seg = 0;
+		}
+	}
+#endif
+	replay_practice_dialog_begin();
+	dialog_prepared = rck_practice_dialog_prepare();
+	replay_practice_dialog_end();
+#if (GAME == 4)
+	if((start->stage == STAGE_EXTRA) &&
+		(start->section == RCS_TH04_MUGETSU) && (start->phase == 0)) {
+		// The entrance's first update normally establishes these owners.
+		// A phase-zero checkpoint is captured before that update runs.
+		mugetsu_pose_func = mugetsu_180BB;
+		mugetsu_gather_frame_offset = 0x10;
+		mugetsu_gather_center = boss.pos.cur;
+		extra_boss_bomb_immunity = 0;
+		boss.phase_end_hp = 3700;
+	}
 	if(
 		dialog_prepared &&
 		(start->stage == STAGE_EXTRA) &&
 		(start->section == RCS_TH04_GENGETSU)
 	) {
+		// Native Mugetsu defeat resets the sprite bank before this dialog.
+		super_clean(PAT_STAGE, (PAT_STAGE_last + 1));
+		replay_practice_dialog_begin();
 		dialog_prepared = rck_practice_dialog_prepare();
+		replay_practice_dialog_end();
 		if(dialog_prepared) {
 			rck_practice_th04_gengetsu_prepare();
 		}
@@ -2696,6 +2724,14 @@ static bool rck_practice_boss_construct(
 		}
 	}
 
+#if (GAME == 4)
+	if((stage_id == STAGE_EXTRA) &&
+		(start->section == RCS_TH04_MUGETSU)) {
+		// Traversal lowers HP to skip earlier attacks. Mugetsu carries HP
+		// through her transition states instead of refilling each phase.
+		boss.hp = ((start->phase <= 2) ? 9400 : 3700);
+	}
+#endif
 	if(!rck_practice_boss_auxiliary_valid()) {
 		snd_se_mode = se_mode;
 		return false;

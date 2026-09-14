@@ -1252,7 +1252,7 @@ bool replay_checkpoint_identity_valid(
 			case 5: return ((start->section == 0) && (start->phase <= 16));
 			case STAGE_EXTRA:
 				if(start->section == RCS_TH04_MUGETSU) {
-					return (start->phase <= 6);
+					return ((start->phase <= 6) && ((start->phase & 1) == 0));
 				}
 				return (
 					(start->section == RCS_TH04_GENGETSU) &&
@@ -3085,7 +3085,9 @@ void replay_stage_start(void)
 	if(
 		(replay_mode == RRM_PLAYBACK) && !replay_stage_seen &&
 		((replay_header.flags & REPLAY_USER_FLAG_CHECKPOINT) != 0) &&
-		!replay_checkpoint_restore()
+		(((replay_header.start.kind == RSK_BOSS_PHASE) &&
+		  !replay_ck_practice_direct_seek(&replay_header.start)) ||
+		 !replay_checkpoint_restore())
 	) {
 		replay_fail();
 		quit = Q_QUIT_TO_OP;

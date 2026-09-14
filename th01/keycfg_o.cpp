@@ -754,6 +754,10 @@ static bool keyconfig_binding_assign(
 )
 {
 	uint8_t old_key = menu.bindings[index];
+	if(key == T1_KEYCONFIG_KEY_UNBOUND) {
+		menu.bindings[index] = key;
+		return true;
+	}
 
 	for(uint8_t i = 0; i < T1_KEYCONFIG_BINDING_COUNT; i++) {
 		if((i != index) && (menu.bindings[i] == key)) {
@@ -837,8 +841,10 @@ bool far keyconfig_menu(void)
 					keyconfig_screen_put(menu, selected, column,
 						keyconfig_strings.text_capture);
 					key = keyconfig_capture();
+					if(key == KEYCONFIG_CAPTURE_CANCEL) {
+						key = T1_KEYCONFIG_KEY_UNBOUND;
+					}
 					if(
-						(key != KEYCONFIG_CAPTURE_CANCEL) &&
 						!keyconfig_binding_assign(menu, (selected * 2) + column, key)
 					) {
 						keyconfig_screen_put(menu, selected, column,

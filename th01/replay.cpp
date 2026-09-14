@@ -1996,7 +1996,7 @@ static bool t1replay_checkpoint_read_embedded(uint8_t stage_id)
 		(header.version != T1REPLAY_ACCELERATOR_VERSION) ||
 		(header.header_size != T1REPLAY_ACCELERATOR_HEADER_SIZE) ||
 		(header.entry_size != T1REPLAY_ACCELERATOR_ENTRY_SIZE) ||
-		(header.entry_count != t1replay_header.summary.split_count) ||
+		(header.entry_count > t1replay_header.summary.split_count) ||
 		(header.total_size < (header.header_size +
 			(static_cast<uint32_t>(header.entry_count) * header.entry_size))) ||
 		(file_size != (tail_offset + header.total_size)) ||
@@ -2013,7 +2013,8 @@ static bool t1replay_checkpoint_read_embedded(uint8_t stage_id)
 	for(i = 0; i < header.entry_count; i++) {
 		if((t1replay_dos_read(fd, &entry, sizeof(entry)) != sizeof(entry)) ||
 			(entry.stage_id >= STAGE_COUNT) ||
-			(entry.stage_id != t1replay_header.summary.splits[i].stage_id) ||
+			(entry.stage_id < t1replay_header.summary.splits[0].stage_id) ||
+			(entry.stage_id > t1replay_header.summary.final_stage_id) ||
 			((previous_stage != 0xFF) && (entry.stage_id <= previous_stage)) ||
 			(entry.codec > T1REPLAY_ACCELERATOR_CODEC_ZERO_LITERAL) ||
 			(entry.payload_offset != expected_payload_offset) ||

@@ -2976,10 +2976,17 @@ static void t2op_surface_draw_end(uint8_t page_drawn)
 static bool t2op_replay_surface_prepare(enum t2op_replay_surface_t surface)
 {
 	const char *fn = (
-		(surface == T2ORS_KEYCONFIG) ? "BG1.PI" :
 		(surface == T2ORS_NAME) ? "SLB1B.PI" :
 		((surface == T2ORS_PRACTICE) ? "PRACTIC.PI" : "SLB1.PI")
 	);
+	char keyconfig_fn[7];
+	if(surface == T2ORS_KEYCONFIG) {
+		keyconfig_fn[0] = 'B'; keyconfig_fn[1] = 'G';
+		keyconfig_fn[2] = '1'; keyconfig_fn[3] = '.';
+		keyconfig_fn[4] = 'P'; keyconfig_fn[5] = 'I';
+		keyconfig_fn[6] = '\0';
+		fn = keyconfig_fn;
+	}
 
 	t2op_surface_release();
 	t2op_title_pictures_free();
@@ -3515,11 +3522,12 @@ static char *t2op_end_reason_append(char *p, uint8_t value)
 
 static char *t2op_stage_append(char *p, int8_t stage)
 {
-	if(stage == (T2REPLAY_STAGE_COUNT - 1)) {
-		return t2op_word_append(p, T2OW_EXTRA);
-	}
 	p = t2op_word_append(p, T2OW_STAGE);
 	p = t2op_char(p, ' ');
+	if(stage == (T2REPLAY_STAGE_COUNT - 1)) {
+		*p++ = 'E'; *p++ = 'X';
+		return p;
+	}
 	return t2op_char(p, static_cast<char>('1' + stage));
 }
 
@@ -3598,6 +3606,15 @@ void replay_title_background_restore(void)
 	graph_copy_page(0);
 	graph_showpage(0);
 	graph_accesspage(0);
+}
+
+void far replay_keyconfig_return_to_option(void)
+{
+	replay_title_background_restore();
+	replay_title_restore_needed = false;
+	t2op_title_redraw_needed = false;
+	t2op_title_return_fade = false;
+	t2op_main_input_allowed = false;
 }
 
 static void t2op_main_line_put(

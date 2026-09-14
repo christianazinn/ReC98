@@ -26,6 +26,7 @@ void pascal far replay_practice_yuuka6_bg_render(void)
 	yuuka6_bg_render();
 }
 
+#include "th04/rp_dlg.cpp"
+
 // Fill the exact stock DEMO_TEXT extent after moving demo policy to the tail.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

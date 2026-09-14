@@ -316,7 +316,7 @@ static void keyconfig_strings_init(void)
 	keyconfig_strings.text_autofire[2] = 116; keyconfig_strings.text_autofire[3] = 111;
 	keyconfig_strings.text_autofire[4] = 102; keyconfig_strings.text_autofire[5] = 105;
 	keyconfig_strings.text_autofire[6] = 114; keyconfig_strings.text_autofire[7] = 101;
-	keyconfig_strings.text_autofire[8] = 58; keyconfig_strings.text_autofire[9] = 0;
+	keyconfig_strings.text_autofire[8] = 0; keyconfig_strings.text_autofire[9] = 0;
 	keyconfig_strings.text_on[0] = 79; keyconfig_strings.text_on[1] = 110;
 	keyconfig_strings.text_on[2] = 0; keyconfig_strings.text_off[0] = 79;
 	keyconfig_strings.text_off[1] = 102; keyconfig_strings.text_off[2] = 102;
@@ -562,6 +562,10 @@ static bool keyconfig_bindings_valid(const uint8_t __ss *bindings)
 		}
 	}
 	for(action = 0; action < KCA_COUNT; action++) {
+		if((action == KCA_UP_LEFT) || (action == KCA_UP_RIGHT) ||
+			(action == KCA_DOWN_LEFT) || (action == KCA_DOWN_RIGHT)) {
+			continue;
+		}
 		bound = false;
 		for(i = 0; i < T2_KEYCONFIG_BINDINGS_PER_ACTION; i++) {
 			if(bindings[(action * 2) + i] != T2_KEYCONFIG_KEY_UNBOUND) {
@@ -795,6 +799,10 @@ static bool keyconfig_binding_assign(
 )
 {
 	uint8_t old_key = menu.bindings[index];
+	if(key == T2_KEYCONFIG_KEY_UNBOUND) {
+		menu.bindings[index] = key;
+		return true;
+	}
 
 	for(uint8_t i = 0; i < T2_KEYCONFIG_BINDING_COUNT; i++) {
 		if((i != index) && (menu.bindings[i] == key)) {
@@ -885,8 +893,10 @@ bool far keyconfig_menu(void)
 					keyconfig_screen_put(menu, selected, column,
 						keyconfig_strings.text_capture);
 					key = keyconfig_capture();
+					if(key == KEYCONFIG_CAPTURE_CANCEL) {
+						key = T2_KEYCONFIG_KEY_UNBOUND;
+					}
 					if(
-						(key != KEYCONFIG_CAPTURE_CANCEL) &&
 						!keyconfig_binding_assign(menu, (selected * 2) + column, key)
 					) {
 						keyconfig_screen_put(menu, selected, column,

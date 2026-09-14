@@ -1004,7 +1004,7 @@ static bool replay_op_checkpoint_identity_valid(
 			case 5: return ((start->section == 0) && (start->phase <= 16));
 			case STAGE_EXTRA:
 				if(start->section == RCS_TH04_MUGETSU) {
-					return (start->phase <= 6);
+					return ((start->phase <= 6) && ((start->phase & 1) == 0));
 				}
 				return (
 					(start->section == RCS_TH04_GENGETSU) &&
@@ -2277,7 +2277,7 @@ static void replay_op_line_put_cells_right(
 	screen_x_t right, vram_y_t top, vc2 col, char *p
 )
 {
-	replay_op_line_put_cells(
+	replay_op_line_put_numeric_cells(
 		(right - ((p - replay_op_line) * REPLAY_OP_CELL_W)), top, col, p
 	);
 }
@@ -2431,7 +2431,7 @@ static void replay_browser_slot_put(uint8_t slot, bool selected, vram_y_t top)
 	p = replay_op_uint_append(
 		p, replay_op_header.score_final, REPLAY_SCORE_DISPLAY_DIGITS
 	);
-	replay_op_line_put_cells(REPLAY_BROWSER_SCORE_LEFT, top, col, p);
+	replay_op_line_put_numeric_cells(REPLAY_BROWSER_SCORE_LEFT, top, col, p);
 	p = replay_op_line;
 	p = replay_op_browser_stage_append(p);
 	replay_op_line_put(REPLAY_BROWSER_STAGE_LEFT, top, col, p);
@@ -2671,25 +2671,31 @@ static void replay_detail_splits_put(uint8_t selected_stage)
 	p = replay_op_word_append(p, ROW_STAGE_SPLITS);
 	replay_op_line_put(368, 80, REPLAY_OP_COL_ACTIVE, p);
 	for(stage = first; stage <= last; stage++) {
+		vc2 col = ((stage == selected_stage) ? REPLAY_OP_COL_SELECTED : V_WHITE);
 		p = replay_op_line;
-		*p++ = ((stage == selected_stage) ? '>' : ' ');
-		*p++ = ' ';
+		if(stage == selected_stage) {
+			*p++ = '>';
+			replay_op_line_put(352, top, col, p);
+		}
+		p = replay_op_line;
 		p = replay_op_word_append(p, ROW_STAGE);
 		*p++ = ' ';
-		*p++ = static_cast<char>('1' + stage);
-		p = replay_op_spaces_append(p, 4);
+		if(stage == STAGE_EXTRA) {
+			*p++ = 'E'; *p++ = 'X';
+		} else {
+			*p++ = static_cast<char>('1' + stage);
+		}
+		replay_op_line_put(368, top, col, p);
+		p = replay_op_line;
 		p = replay_op_uint_append(
 			p,
 			((stage == last)
 				? replay_op_header.score_final
 				: replay_op_header.stage_scores[stage]
 			),
-			REPLAY_SCORE_DISPLAY_DIGITS
+			1
 		);
-		replay_op_line_put_cells(
-			368, top,
-			((stage == selected_stage) ? REPLAY_OP_COL_SELECTED : V_WHITE), p
-		);
+		replay_op_line_put_cells_right(600, top, col, p);
 		top += 28;
 	}
 }
@@ -3094,7 +3100,8 @@ static uint8_t practice_target_count(
 	}
 	for(section = 0; section < practice_boss_section_count(start); section++) {
 		count = static_cast<uint8_t>(
-			count + practice_boss_phase_max(start, section) + 1
+			count + practice_boss_phase_max(start, section) /
+			replay_practice_boss_phase_stride(start->stage, section) + 1
 		);
 	}
 	return count;
@@ -3153,10 +3160,12 @@ static uint8_t practice_target_index(
 	}
 	for(section = 0; section < start->section; section++) {
 		index = static_cast<uint8_t>(
-			index + practice_boss_phase_max(start, section) + 1
+			index + practice_boss_phase_max(start, section) /
+			replay_practice_boss_phase_stride(start->stage, section) + 1
 		);
 	}
-	return static_cast<uint8_t>(index + start->phase);
+	return static_cast<uint8_t>(index + start->phase /
+		replay_practice_boss_phase_stride(start->stage, start->section));
 }
 
 static void practice_target_set(
@@ -3206,12 +3215,14 @@ static void practice_target_set(
 	}
 	for(section = 0; section < practice_boss_section_count(start); section++) {
 		span = static_cast<uint8_t>(
-			practice_boss_phase_max(start, section) + 1
+			practice_boss_phase_max(start, section) /
+			replay_practice_boss_phase_stride(start->stage, section) + 1
 		);
 		if(index < span) {
 			start->kind = RSK_BOSS_PHASE;
 			start->section = section;
-			start->phase = index;
+			start->phase = static_cast<uint8_t>(index *
+				replay_practice_boss_phase_stride(start->stage, section));
 			return;
 		}
 		index = static_cast<uint8_t>(index - span);
@@ -3323,7 +3334,8 @@ static char *practice_target_value_append(
 	}
 	P('P'); P('h'); P('a'); P('s'); P('e'); P(' ');
 	#undef P
-	return replay_op_uint_append(p, start->phase, 1);
+	return replay_op_uint_append(p, start->phase /
+		replay_practice_boss_phase_stride(start->stage, start->section), 1);
 }
 
 static bool practice_start_valid(const replay_start_config_t far *start)

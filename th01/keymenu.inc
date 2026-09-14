@@ -18,10 +18,11 @@ static void keyconfig_screen_put(
 	char line[81];
 	uint8_t at;
 	keyconfig_graphics_draw_begin();
-	replay_op_font_put_centered(338, 88, keyconfig_strings.text_primary, 14);
-	replay_op_font_put_centered(470, 88, keyconfig_strings.text_alternate, 14);
+	const int binding_top = ((GAME == 1) ? 160 : 112);
+	replay_op_font_put_centered(338, binding_top - 24, keyconfig_strings.text_primary, 14);
+	replay_op_font_put_centered(470, binding_top - 24, keyconfig_strings.text_alternate, 14);
 	for(uint8_t row = 0; row < KCA_COUNT; row++) {
-		int y = (112 + row * 16);
+		int y = (binding_top + row * 16);
 		at = keyconfig_line_put_action(line, 0, row);
 		line[at] = 0;
 		replay_op_font_put(144, y, line, row == selected ? 11 : 12);
@@ -44,7 +45,7 @@ static void keyconfig_screen_put(
 #if (GAME == 2)
 	replay_op_font_put(144, 272, keyconfig_strings.text_autofire,
 		(selected == KEYCONFIG_ROW_AUTOFIRE) ? 11 : 12);
-	replay_op_font_put_centered(470, 272,
+	replay_op_font_put_centered(338, 272,
 		menu.autofire ? keyconfig_strings.text_on : keyconfig_strings.text_off,
 		(selected == KEYCONFIG_ROW_AUTOFIRE) ? 11 : 15);
 #endif

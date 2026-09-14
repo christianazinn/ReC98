@@ -9,6 +9,7 @@ void replay_title_background_restore(void);
 extern bool replay_title_restore_needed;
 void far replay_title_redraw_request(void);
 void far replay_title_restore_request(void);
+void far replay_keyconfig_return_to_option(void);
 
 // Replaces op_animate()'s existing far snd_load() call without changing that
 // original contribution's size. A Restart command is consumed before the

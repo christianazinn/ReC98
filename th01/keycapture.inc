@@ -9,6 +9,9 @@ static uint8_t keyconfig_capture(void)
 	}
 	while(1) {
 		if(peekb(0, KEYGROUP_0) & K0_ESC) {
+			while(peekb(0, KEYGROUP_0) & K0_ESC) {
+				frame_delay(1);
+			}
 			return KEYCONFIG_CAPTURE_CANCEL;
 		}
 		for(group = 0; group < 15; group++) {
@@ -20,6 +23,9 @@ static uint8_t keyconfig_capture(void)
 					uint8_t key = keyconfig_key(group, bit);
 					while(peekb(0, KEYGROUP_0 + group) & (1 << bit)) {
 						if(peekb(0, KEYGROUP_0) & K0_ESC) {
+							while(peekb(0, KEYGROUP_0) & K0_ESC) {
+								frame_delay(1);
+							}
 							return KEYCONFIG_CAPTURE_CANCEL;
 						}
 						frame_delay(1);

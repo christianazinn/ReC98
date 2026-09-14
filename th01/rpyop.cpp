@@ -36,6 +36,7 @@
 #include "th01/rank.h"
 #include "th01/formats/cfg.hpp"
 #include "th01/snd/audio.hpp"
+#include "th01/snd/mdrv2.h"
 #include "th04/scorestat.hpp"
 
 extern cfg_options_t opts;
@@ -2094,7 +2095,6 @@ void far keyconfig_graphics_draw_end(void)
 
 void far keyconfig_graphics_end(void)
 {
-	z_palette_black_out();
 	replay_op_font_free();
 	t1replay_op_panel_kind = T1OPK_NONE;
 }
@@ -4000,7 +4000,7 @@ static bool t1replay_op_embedded_checkpoint_probe(
 		(header.version != T1REPLAY_ACCELERATOR_VERSION) ||
 		(header.header_size != T1REPLAY_ACCELERATOR_HEADER_SIZE) ||
 		(header.entry_size != T1REPLAY_ACCELERATOR_ENTRY_SIZE) ||
-		(header.entry_count != replay_header->summary.split_count) ||
+		(header.entry_count > replay_header->summary.split_count) ||
 		(header.replay_header_checksum != replay_header->header_checksum) ||
 		(fseek(fp, 0L, SEEK_END) != 0) ||
 		((file_size = ftell(fp)) != static_cast<long>(
@@ -4041,8 +4041,8 @@ static bool t1replay_op_embedded_checkpoint_probe(
 	for(entry_index = 0; entry_index < header.entry_count; entry_index++) {
 		if((fread(&entry, 1, sizeof(entry), fp) != sizeof(entry)) ||
 			(entry.stage_id >= STAGE_COUNT) ||
-			(entry.stage_id !=
-			 replay_header->summary.splits[entry_index].stage_id) ||
+			(entry.stage_id < replay_header->summary.splits[0].stage_id) ||
+			(entry.stage_id > replay_header->summary.final_stage_id) ||
 			((previous_stage != 0xFF) &&
 			 (entry.stage_id <= previous_stage)) ||
 			(entry.codec > T1REPLAY_ACCELERATOR_CODEC_ZERO_LITERAL) ||
@@ -4404,12 +4404,15 @@ static bool t1replay_op_accelerator_candidate_build(
 			(stored_size < raw_size) ? stored_checksum : raw_checksum;
 		entry_count++;
 	}
-	if(entry_count != pending_header->summary.split_count) {
+	// Exact checkpoints are optional; unsupported presentation states and
+	// allocation failures must not prevent saving the sequential input stream.
+	if(entry_count > pending_header->summary.split_count) {
 		return false;
 	}
 	for(stage_id = 0; stage_id < entry_count; stage_id++) {
-		if(entries[stage_id].stage_id !=
-			pending_header->summary.splits[stage_id].stage_id) {
+		if((entries[stage_id].stage_id <
+			pending_header->summary.splits[0].stage_id) ||
+			(entries[stage_id].stage_id > pending_header->summary.final_stage_id)) {
 			return false;
 		}
 	}
@@ -5121,6 +5124,9 @@ bool t1replay_op_pending_enter(void)
 		return false;
 	}
 	t1replay_op_save_decision = (request.source == T1RSRS_POSTGAME);
+	if(request.source == T1RSRS_PAUSE) {
+		mdrv2_bgm_stop();
+	}
 	if(t1replay_op_save_decision) {
 		t1replay_op_save_decision_render();
 	} else {

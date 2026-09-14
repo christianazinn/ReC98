@@ -572,6 +572,10 @@ static bool keyconfig_bindings_valid(const uint8_t __ss *bindings)
 		}
 	}
 	for(action = 0; action < KCA_COUNT; action++) {
+		if((action == KCA_UP_LEFT) || (action == KCA_UP_RIGHT) ||
+			(action == KCA_DOWN_LEFT) || (action == KCA_DOWN_RIGHT)) {
+			continue;
+		}
 		bound = false;
 		for(i = 0; i < KEYCONFIG_BINDINGS_PER_ACTION; i++) {
 			if(bindings[(action * 2) + i] != KEYCONFIG_KEY_UNBOUND) {
@@ -824,6 +828,10 @@ static bool keyconfig_binding_assign(
 )
 {
 	uint8_t old_key = menu.bindings[index];
+	if(key == KEYCONFIG_KEY_UNBOUND) {
+		menu.bindings[index] = key;
+		return true;
+	}
 
 	for(uint8_t i = 0; i < KEYCONFIG_BINDING_COUNT; i++) {
 		if((i != index) && (menu.bindings[i] == key)) {
@@ -910,8 +918,10 @@ bool far keyconfig_menu(void)
 					keyconfig_screen_put(menu, selected, column,
 						keyconfig_strings.text_capture);
 					key = keyconfig_capture();
+					if(key == KEYCONFIG_CAPTURE_CANCEL) {
+						key = KEYCONFIG_KEY_UNBOUND;
+					}
 					if(
-						(key != KEYCONFIG_CAPTURE_CANCEL) &&
 						!keyconfig_binding_assign(menu, (selected * 2) + column, key)
 					) {
 						keyconfig_screen_put(menu, selected, column,

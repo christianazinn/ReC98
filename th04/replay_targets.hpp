@@ -278,6 +278,16 @@ static replay_practice_target_label_t replay_practice_chapter_label(
 
 // Extension seam for community names such as color-based boss phases. Stable
 // replay identities remain the numeric (stage, section, phase) tuple.
+static uint8_t replay_practice_boss_phase_stride(uint8_t stage, uint8_t section)
+{
+#if (GAME == 4)
+	if((stage == STAGE_EXTRA) && (section == RCS_TH04_MUGETSU)) {
+		return 2;
+	}
+#endif
+	return 1;
+}
+
 static replay_practice_target_label_t replay_practice_boss_phase_label(
 	uint8_t stage, uint8_t section, uint8_t phase
 )

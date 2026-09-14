@@ -142,6 +142,10 @@ static bool keyconfig_file_valid(const keyconfig_file_t __ss& cfg)
 		}
 	}
 	for(action = 0; action < KCA_COUNT; action++) {
+		if((action == KCA_UP_LEFT) || (action == KCA_UP_RIGHT) ||
+			(action == KCA_DOWN_LEFT) || (action == KCA_DOWN_RIGHT)) {
+			continue;
+		}
 		bound = false;
 		for(i = 0; i < KEYCONFIG_BINDINGS_PER_ACTION; i++) {
 			if(cfg.bindings[(action * 2) + i] != KEYCONFIG_KEY_UNBOUND) {
