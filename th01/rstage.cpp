@@ -19,8 +19,9 @@ bool16 t1replay_stage_checkpoint_import(
 	if(
 		!checkpoint || !stageobj_bgs || !cards.left || !cards.top ||
 		!cards.flag || !cards.flip_frame || !cards.hp || !cards_score ||
-		!obstacles.left || !obstacles.top || !obstacles.type ||
-		!obstacles.frame || !t1replay_stage_turret_flag ||
+		((obstacles.count != 0) &&
+		 (!obstacles.left || !obstacles.top || !obstacles.type ||
+		  !obstacles.frame)) ||
 		(cards.count <= 0) ||
 		(cards.count != checkpoint->cards_count) ||
 		(obstacles.count != checkpoint->obstacles_count) ||
@@ -62,6 +63,7 @@ bool16 t1replay_stage_checkpoint_import(
 		);
 
 		if(
+			(is_turret && !t1replay_stage_turret_flag) ||
 			(obstacle->left != obstacles.left[i]) ||
 			(obstacle->top != obstacles.top[i]) ||
 			(obstacle->type != obstacles.type[i]) ||
@@ -112,9 +114,13 @@ bool16 t1replay_stage_checkpoint_import(
 	}
 	for(i = 0; i < obstacles.count; i++) {
 		obstacles.frame[i].v = checkpoint->obstacles[i].frame;
-		t1replay_stage_turret_flag[i] = static_cast<turret_flag_t>(
-			checkpoint->obstacles[i].turret_flag
-		);
+		// Native startup allocates this owner only when a turret is present.
+		if((obstacles.type[i] >= OT_TURRET_SLOW_1_AIMED) &&
+			(obstacles.type[i] <= OT_TURRET_QUICK_5_SPREAD_WIDE_AIMED)) {
+			t1replay_stage_turret_flag[i] = static_cast<turret_flag_t>(
+				checkpoint->obstacles[i].turret_flag
+			);
+		}
 	}
 	t1replay_stage_entered_portal_slot = checkpoint->entered_portal_slot;
 	t1replay_stage_portal_dst_left = checkpoint->portal_dst_left;
