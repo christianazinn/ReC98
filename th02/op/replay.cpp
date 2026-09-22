@@ -3741,6 +3741,113 @@ static void t2op_practice_defaults(void)
 	t2op_practice.reduce_effects = (resident->reduce_effects ? 1 : 0);
 }
 
+struct t2op_prac_prefs_t {
+	char magic[4];
+	uint8_t version;
+	uint8_t seed_random;
+	t2replay_start_t start;
+	uint32_t checksum;
+};
+
+static void t2op_prac_prefs_fn(char *fn)
+{
+	fn[0] = 'T'; fn[1] = '2'; fn[2] = 'P'; fn[3] = 'R';
+	fn[4] = 'A'; fn[5] = 'C'; fn[6] = '.'; fn[7] = 'C';
+	fn[8] = 'F'; fn[9] = 'G'; fn[10] = '\0';
+}
+
+static uint32_t t2op_prac_prefs_sum(
+	const t2op_prac_prefs_t far *prefs
+)
+{
+	uint32_t hash = t2op_fnv1a(
+		T2REPLAY_FNV1A_BASIS, &prefs->start, sizeof(prefs->start)
+	);
+	return t2op_fnv1a(hash, &prefs->seed_random, 1);
+}
+
+static void t2op_prac_prefs_load(void)
+{
+	char fn[11];
+	t2op_prac_prefs_t prefs;
+	uint8_t extra;
+	int fh;
+	bool complete;
+
+	t2op_prac_prefs_fn(fn);
+	fh = t2op_dos_open(fn, T2OP_DOS_ACCESS_READ);
+	if(fh < 0) {
+		return;
+	}
+	complete = (
+		(t2op_dos_read(fh, &prefs, sizeof(prefs)) == sizeof(prefs)) &&
+		(t2op_dos_read(fh, &extra, 1) == 0)
+	);
+	t2op_dos_close(fh);
+	if(!complete ||
+		(prefs.magic[0] != 'T') || (prefs.magic[1] != '2') ||
+		(prefs.magic[2] != 'P') || (prefs.magic[3] != 'C') ||
+		(prefs.version != 1) || (prefs.seed_random > 1) ||
+		(prefs.checksum != t2op_prac_prefs_sum(&prefs)) ||
+		!t2op_start_valid(&prefs.start)) {
+		return;
+	}
+	if(!extra_unlocked && (prefs.start.stage == (T2REPLAY_STAGE_COUNT - 1))) {
+		prefs.start.stage = 0;
+		prefs.start.reserved[T2REPLAY_PRACTICE_TARGET_OFFSET] = T2RPT_STAGE_START;
+	}
+	prefs.start.rank = (prefs.start.stage == (T2REPLAY_STAGE_COUNT - 1))
+		? RANK_EXTRA : ((rank == RANK_EXTRA) ? RANK_NORMAL : rank);
+	prefs.start.shottype = resident->shottype;
+	prefs.start.skill = resident->skill;
+	if(prefs.start.skill < 0) {
+		prefs.start.skill = 0;
+	} else if(prefs.start.skill > 100) {
+		prefs.start.skill = 100;
+	}
+	prefs.start.bgm_mode = snd_bgm_mode;
+	prefs.start.reduce_effects = (resident->reduce_effects ? 1 : 0);
+	prefs.start.reserved[T2REPLAY_AUTOFIRE_OFFSET] =
+		(t2_autofire_get() ? 1 : 0);
+	if(prefs.seed_random) {
+		prefs.start.resident_frame = static_cast<uint32_t>(resident->frame);
+		prefs.start.random_seed = prefs.start.resident_frame;
+	}
+	if(t2replay_practice_playperf_decode(
+		prefs.start.reserved[T2REPLAY_PRACTICE_PLAYPERF_OFFSET]
+	) > ((prefs.start.rank == RANK_EASY) ? 4 : 16)) {
+		prefs.start.reserved[T2REPLAY_PRACTICE_PLAYPERF_OFFSET] =
+			t2replay_practice_playperf_encode(0);
+	}
+	if(!t2op_start_valid(&prefs.start)) {
+		return;
+	}
+	t2op_practice = prefs.start;
+	t2op_practice_seed_random = (prefs.seed_random != 0);
+}
+
+static void t2op_prac_prefs_save(void)
+{
+	char fn[11];
+	t2op_prac_prefs_t prefs;
+	int fh;
+
+	t2op_memclear(&prefs, sizeof(prefs));
+	prefs.magic[0] = 'T'; prefs.magic[1] = '2';
+	prefs.magic[2] = 'P'; prefs.magic[3] = 'C';
+	prefs.version = 1;
+	prefs.seed_random = (t2op_practice_seed_random ? 1 : 0);
+	prefs.start = t2op_practice;
+	prefs.checksum = t2op_prac_prefs_sum(&prefs);
+	t2op_prac_prefs_fn(fn);
+	fh = t2op_dos_create(fn);
+	if(fh >= 0) {
+		t2op_dos_write(fh, &prefs, sizeof(prefs));
+		t2op_dos_close(fh);
+		t2op_dos_flush();
+	}
+}
+
 static void t2op_practice_stage_set(int8_t stage)
 {
 	t2op_practice.stage = stage;
@@ -4759,6 +4866,7 @@ static void t2op_practice_start(void)
 	char request_fn[11];
 	uint32_t seed;
 
+	t2op_prac_prefs_save();
 	if(t2op_practice_seed_random) {
 		seed = static_cast<uint32_t>(resident->frame);
 		t2op_practice.resident_frame = seed;
@@ -5706,6 +5814,7 @@ static void t2op_practice_menu(void)
 		return;
 	}
 	t2op_practice_defaults();
+	t2op_prac_prefs_load();
 	t2op_practice_sel = T2OPC_STAGE;
 	t2op_practice_render();
 	palette_black_in(2);
@@ -5757,6 +5866,7 @@ static void t2op_practice_menu(void)
 		resident->frame++;
 		frame_delay(1);
 	}
+	t2op_prac_prefs_save();
 	t2op_title_return_request_faded();
 	key_det = INPUT_NONE;
 }

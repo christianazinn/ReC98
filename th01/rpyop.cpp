@@ -5165,6 +5165,94 @@ bool t1replay_op_pending_enter(void)
 	return true;
 }
 
+struct t1op_prac_prefs_t {
+	char magic[4];
+	uint8_t version;
+	uint8_t seed_random;
+	t1replay_practice_start_t start;
+	uint32_t checksum;
+};
+
+static uint32_t t1op_prac_prefs_sum(
+	const t1op_prac_prefs_t *prefs
+)
+{
+	uint32_t hash = t1replay_op_fnv1a(
+		T1REPLAY_FNV1A_BASIS, &prefs->start, sizeof(prefs->start)
+	);
+	return t1replay_op_fnv1a(hash, &prefs->seed_random, 1);
+}
+
+static void t1op_prac_prefs_fn(char *fn)
+{
+	fn[0] = 'T'; fn[1] = '1'; fn[2] = 'P'; fn[3] = 'R';
+	fn[4] = 'A'; fn[5] = 'C'; fn[6] = '.'; fn[7] = 'C';
+	fn[8] = 'F'; fn[9] = 'G'; fn[10] = '\0';
+}
+
+static void t1op_prac_prefs_load(int8_t rank, uint32_t rand)
+{
+	char fn[11];
+	char mode[3];
+	t1op_prac_prefs_t prefs;
+	uint8_t extra;
+	FILE *fp;
+	bool complete;
+
+	t1op_prac_prefs_fn(fn);
+	mode[0] = 'r'; mode[1] = 'b'; mode[2] = '\0';
+	fp = fopen(fn, mode);
+	if(!fp) {
+		return;
+	}
+	complete = (
+		(fread(&prefs, 1, sizeof(prefs), fp) == sizeof(prefs)) &&
+		(fread(&extra, 1, 1, fp) == 0)
+	);
+	fclose(fp);
+	if(!complete ||
+		(prefs.magic[0] != 'T') || (prefs.magic[1] != '1') ||
+		(prefs.magic[2] != 'P') || (prefs.magic[3] != 'C') ||
+		(prefs.version != 1) || (prefs.seed_random > 1) ||
+		(prefs.checksum != t1op_prac_prefs_sum(&prefs)) ||
+		!t1replay_op_practice_start_valid(&prefs.start)) {
+		return;
+	}
+	prefs.start.rank = rank;
+	if(!t1replay_op_practice_start_valid(&prefs.start)) {
+		return;
+	}
+	t1replay_practice_start = prefs.start;
+	t1replay_op_practice_seed_random_set(prefs.seed_random != 0);
+	if(prefs.seed_random) {
+		t1replay_practice_start.rand = rand;
+	}
+}
+
+static void t1op_prac_prefs_save(void)
+{
+	char fn[11];
+	char mode[3];
+	t1op_prac_prefs_t prefs;
+	FILE *fp;
+
+	memset(&prefs, 0, sizeof(prefs));
+	prefs.magic[0] = 'T'; prefs.magic[1] = '1';
+	prefs.magic[2] = 'P'; prefs.magic[3] = 'C';
+	prefs.version = 1;
+	prefs.seed_random = (t1replay_op_practice_seed_is_random() ? 1 : 0);
+	prefs.start = t1replay_practice_start;
+	prefs.checksum = t1op_prac_prefs_sum(&prefs);
+	t1op_prac_prefs_fn(fn);
+	mode[0] = 'w'; mode[1] = 'b'; mode[2] = '\0';
+	fp = fopen(fn, mode);
+	if(fp) {
+		fwrite(&prefs, 1, sizeof(prefs), fp);
+		fclose(fp);
+		t1replay_op_dos_flush();
+	}
+}
+
 bool t1replay_op_practice_enter(int8_t rank, int8_t lives, int8_t bombs, uint32_t rand)
 {
 	bool shown;
@@ -5188,6 +5276,7 @@ bool t1replay_op_practice_enter(int8_t rank, int8_t lives, int8_t bombs, uint32_
 	t1replay_practice_start.pellet_speed = to_pellet_speed(-0.1f);
 	t1replay_practice_start.rand = rand;
 	t1replay_op_practice_seed_random_set(true);
+	t1op_prac_prefs_load(rank, rand);
 	#if T1REPLAY_PROCESS_MILESTONES
 		t1replay_process_milestone(T1RPM_PRACTICE_STATE_READY);
 	#endif
@@ -5914,6 +6003,7 @@ t1replay_op_result_t t1replay_op_practice_update(void)
 
 	t1replay_op_input_read(input);
 	if(input.cancel) {
+		t1op_prac_prefs_save();
 		result.action = T1ROA_RETURN;
 		return result;
 	}
@@ -5961,6 +6051,7 @@ t1replay_op_result_t t1replay_op_practice_update(void)
 		if(t1replay_op_sel == T1OPR_START) {
 			t1replay_practice_start_t restart_start;
 
+			t1op_prac_prefs_save();
 			if(t1replay_op_practice_seed_is_random()) {
 				t1replay_practice_start.rand = frame_rand;
 			}
@@ -5969,6 +6060,7 @@ t1replay_op_result_t t1replay_op_practice_update(void)
 				result.action = T1ROA_PRACTICE_RECORD;
 			}
 		} else if(t1replay_op_sel == T1OPR_BACK) {
+			t1op_prac_prefs_save();
 			result.action = T1ROA_RETURN;
 		}
 	}

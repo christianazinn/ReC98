@@ -3449,6 +3449,106 @@ static void practice_defaults(replay_start_config_t far *start)
 	start->random_seed = resident->rand;
 }
 
+struct practice_preferences_t {
+	char magic[4];
+	uint8_t version;
+	replay_start_config_t start;
+	uint32_t checksum;
+};
+
+static void practice_preferences_fn(char *fn)
+{
+	fn[0] = 'T'; fn[1] = ('0' + GAME);
+	fn[2] = 'P'; fn[3] = 'R'; fn[4] = 'A'; fn[5] = 'C';
+	fn[6] = '.'; fn[7] = 'C'; fn[8] = 'F'; fn[9] = 'G';
+	fn[10] = '\0';
+}
+
+static void practice_preferences_load(replay_start_config_t far *start)
+{
+	char fn[11];
+	practice_preferences_t prefs;
+	uint8_t extra;
+	int fh;
+	bool complete;
+
+	practice_preferences_fn(fn);
+	fh = replay_op_dos_open(fn);
+	if(fh < 0) {
+		return;
+	}
+	complete = (
+		(replay_op_dos_read(fh, &prefs, sizeof(prefs)) == sizeof(prefs)) &&
+		(replay_op_dos_read(fh, &extra, 1) == 0)
+	);
+	replay_op_dos_close(fh);
+	if(!complete ||
+		(prefs.magic[0] != 'T') || (prefs.magic[1] != ('0' + GAME)) ||
+		(prefs.magic[2] != 'P') || (prefs.magic[3] != 'C') ||
+		(prefs.version != 1) ||
+		(prefs.checksum != replay_op_fnv1a(
+			REPLAY_FNV1A_BASIS, &prefs.start, sizeof(prefs.start)
+		)) || !practice_start_valid(&prefs.start)) {
+		return;
+	}
+	if(!extra_unlocked && (prefs.start.stage == STAGE_EXTRA)) {
+		prefs.start.stage = 0;
+		practice_target_reset(&prefs.start);
+	}
+	prefs.start.rank = (prefs.start.stage == STAGE_EXTRA)
+		? RANK_EXTRA : resident->rank;
+	prefs.start.turbo_mode = (prefs.start.stage == STAGE_EXTRA)
+		? 1 : static_cast<uint8_t>(resident->turbo_mode);
+	#if (GAME == 5)
+		prefs.start.playchar = ((resident->playchar <= 3)
+			? resident->playchar : 0);
+		prefs.start.shottype = 0;
+	#else
+		uint8_t playchar = static_cast<uint8_t>(
+			resident->playchar_ascii - '0'
+		);
+		prefs.start.playchar = ((playchar <= 1) ? playchar : 0);
+		prefs.start.shottype = ((resident->shottype <= 1)
+			? resident->shottype : 0);
+	#endif
+	if(!replay_op_playperf_valid(prefs.start.rank, prefs.start.playperf)) {
+		prefs.start.playperf = replay_op_native_playperf(prefs.start.rank);
+	}
+	if((prefs.start.seed_mode & RSM_VALUE_MASK) == RSM_RANDOM) {
+		prefs.start.resident_rand = resident->rand;
+		prefs.start.random_seed = resident->rand;
+	}
+	if(!practice_start_valid(&prefs.start)) {
+		practice_target_reset(&prefs.start);
+	}
+	if(practice_start_valid(&prefs.start)) {
+		replay_op_copy(start, &prefs.start, sizeof(*start));
+	}
+}
+
+static void practice_preferences_save(const replay_start_config_t far *start)
+{
+	char fn[11];
+	practice_preferences_t prefs;
+	int fh;
+
+	replay_op_memclear(&prefs, sizeof(prefs));
+	prefs.magic[0] = 'T'; prefs.magic[1] = ('0' + GAME);
+	prefs.magic[2] = 'P'; prefs.magic[3] = 'C';
+	prefs.version = 1;
+	replay_op_copy(&prefs.start, start, sizeof(prefs.start));
+	prefs.checksum = replay_op_fnv1a(
+		REPLAY_FNV1A_BASIS, &prefs.start, sizeof(prefs.start)
+	);
+	practice_preferences_fn(fn);
+	fh = replay_op_dos_create(fn);
+	if(fh >= 0) {
+		replay_op_dos_write(fh, &prefs, sizeof(prefs));
+		replay_op_dos_close(fh);
+		replay_op_dos_flush();
+	}
+}
+
 static void practice_seed_change(
 	replay_start_config_t far *start, bool right, bool fast
 )
@@ -3983,6 +4083,7 @@ bool replay_practice_setup(replay_start_config_t far *start)
 	graph_putsa_fx_func_t previous_func;
 
 	practice_defaults(start);
+	practice_preferences_load(start);
 	// The native character-selection screen already faded to black.
 	if(!replay_op_screen_begin(ROB_PRACTICE, previous_func, false)) {
 		return false;
@@ -4037,6 +4138,7 @@ bool replay_practice_setup(replay_start_config_t far *start)
 					continue;
 				}
 				palette_black_out(1);
+				practice_preferences_save(start);
 				replay_op_screen_end(previous_func);
 				return false;
 			} else if((key_det & INPUT_OK) && practice_field_is_numeric(field)) {
@@ -4055,6 +4157,7 @@ bool replay_practice_setup(replay_start_config_t far *start)
 			} else if((key_det & (INPUT_SHOT | INPUT_OK)) && (field == PF_START)) {
 				if(practice_start_valid(start)) {
 					palette_black_out(1);
+					practice_preferences_save(start);
 					replay_op_screen_end(previous_func);
 					return true;
 				}
