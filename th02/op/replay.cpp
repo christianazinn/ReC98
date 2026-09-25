@@ -5481,10 +5481,10 @@ static bool t2op_overwrite_confirm(uint8_t slot)
 				overwrite = !overwrite;
 				t2op_overwrite_render(slot, overwrite);
 			} else if(key_det & INPUT_CANCEL) {
-				key_det = INPUT_NONE;
+				t2op_input_wait_release();
 				return false;
 			} else if((key_det & INPUT_SHOT) || (key_det & INPUT_OK)) {
-				key_det = INPUT_NONE;
+				t2op_input_wait_release();
 				return overwrite;
 			}
 			if(key_det != INPUT_NONE) {
@@ -5953,7 +5953,7 @@ void far replay_title_update_and_render(void)
 
 // Keep this replay-owned segment's growth paragraph-aligned so every
 // following stock and patch segment retains its audited phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
 
