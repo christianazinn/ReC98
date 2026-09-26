@@ -96,6 +96,7 @@ bool replay_process_end(void);
 
 bool replay_active(void);
 bool replay_playback_active(void);
+extern bool replay_continue_hiscore_enabled;
 
 // Fixed-span pause.cpp delegates its expanded native menu here. Return value
 // retains pause()'s stock ABI: zero resumes and nonzero returns to OP.

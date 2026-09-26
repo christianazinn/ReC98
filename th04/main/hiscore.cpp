@@ -2,6 +2,7 @@
 #include "th04/main/score.hpp"
 #include "th04/main/stage/stage.hpp"
 #include "th04/main/slowdown.hpp"
+#include "th04/main/replay.hpp"
 #include "th04/common.h"
 
 void near hiscore_continue_enter_raw(void)
@@ -88,7 +89,7 @@ shift:
 void near hiscore_continue_enter(void)
 {
 	hiscore_scoredat_load_for_cur();
-	if(turbo_mode) {
+	if(replay_continue_hiscore_enabled) {
 		hiscore_continue_enter_raw();
 	}
 }

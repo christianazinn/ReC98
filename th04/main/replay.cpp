@@ -88,6 +88,7 @@ static bool replay_stat_entered;
 static bool replay_stat_excluded;
 static bool replay_stat_eligible;
 static bool replay_stat_gameover;
+bool replay_continue_hiscore_enabled;
 static uint8_t replay_stat_owner;
 static uint8_t replay_stat_continues;
 static void far replay_stat_sample(void);
@@ -3033,6 +3034,12 @@ static void far replay_stat_sample(void)
 	if(!replay_stat_entered) {
 		replay_stat_entered = true;
 		replay_stat_continues = continues_used;
+		replay_continue_hiscore_enabled = (
+			turbo_mode && (replay_mode != RRM_PLAYBACK) &&
+			(((replay_mode != RRM_RECORD) &&
+			  (replay_mode != RRM_PRACTICE)) ||
+			 (replay_header.mode != RUM_PRACTICE))
+		);
 		#if (GAME == 5)
 			uint8_t owner = resident->playchar;
 		#else

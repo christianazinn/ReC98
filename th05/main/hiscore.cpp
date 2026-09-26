@@ -11,6 +11,7 @@
 #include "th04/main/rank.hpp"
 #include "th04/main/score.hpp"
 #include "th04/main/slowdown.hpp"
+#include "th04/main/replay.hpp"
 #include "th04/gaiji/gaiji.h"
 #include "th04/common.h"
 #include "th01/rank.h"
@@ -195,7 +196,7 @@ found:
 
 void near hiscore_continue_enter(void)
 {
-	if(turbo_mode) {
+	if(replay_continue_hiscore_enabled) {
 		hiscore_continue_enter_raw();
 	}
 }
