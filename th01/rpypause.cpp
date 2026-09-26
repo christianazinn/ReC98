@@ -19,10 +19,17 @@
 #include "th01/main/stage/palette.hpp"
 #include "th01/replay.hpp"
 #include "th01/snd/mdpause.hpp"
+#include "th01/snd/mdrv2.h"
 #include "th01/v_colors.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
 
 extern void z_palette_settone_but_keep_white(int tone);
+
+static void t1replay_pause_music_stop(void)
+{
+	t1_mdrv2_music_resume();
+	mdrv2_bgm_stop();
+}
 
 static screen_y_t t1replay_pause_top(uint8_t line)
 {
@@ -285,7 +292,7 @@ bool16 far t1replay_pause_menu(void)
 		// Escape is the sole out-of-stream control and aborts before the seam
 		// can consume a sample that belongs to the recorded run.
 		if(t1replay_playback_abort_requested()) {
-			t1_mdrv2_music_resume();
+			t1replay_pause_music_stop();
 			t1replay_abort_to_op();
 			return true;
 		}
@@ -294,13 +301,13 @@ bool16 far t1replay_pause_menu(void)
 		if(t1replay_pause_discard_exit_pressed()) {
 			t1replay_pause_action_set(T1RPA_DISCARD_EXIT);
 			t1replay_pause_discard_exit_release();
-			t1_mdrv2_music_resume();
+			t1replay_pause_music_stop();
 			return true;
 		}
 		if(t1replay_pause_restart_pressed()) {
 			t1replay_pause_action_set(T1RPA_RESTART);
 			t1replay_pause_restart_release();
-			t1_mdrv2_music_resume();
+			t1replay_pause_music_stop();
 			return true;
 		}
 		input_sense(false);
@@ -324,7 +331,7 @@ bool16 far t1replay_pause_menu(void)
 		}
 		if(player_is_hit == true) {
 			t1replay_pause_action_set(T1RPA_DISCARD_EXIT);
-			t1_mdrv2_music_resume();
+			t1replay_pause_music_stop();
 			return true;
 		}
 		previous = selected;
@@ -346,7 +353,7 @@ bool16 far t1replay_pause_menu(void)
 		if(input_shot || input_ok) {
 			t1replay_pause_action_set(selected);
 			if(selected != T1RPA_RESUME) {
-				t1_mdrv2_music_resume();
+				t1replay_pause_music_stop();
 				return true;
 			}
 			t1replay_pause_input_release();
