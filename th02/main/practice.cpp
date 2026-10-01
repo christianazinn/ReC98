@@ -153,7 +153,7 @@ bool16 far practice_spawn_row_upper_bound(
 	return true;
 }
 
-bool16 far practice_chapter_field_build(int target_scroll_step)
+static bool16 near practice_field_build(int target_scroll_step, bool terminal)
 {
 	int top_map_row;
 	int top_ring_y;
@@ -167,12 +167,17 @@ bool16 far practice_chapter_field_build(int target_scroll_step)
 	vram_y_t target_scroll_line;
 
 	t2practice_diag_target_scroll(target_scroll_step);
-	if(
-		!practice_map_target_validate(target_scroll_step, &top_map_row) ||
-		!practice_spawn_row_upper_bound(
-			target_scroll_step, &derived_spawn_row
-		)
-	) {
+	if(!practice_map_target_validate(target_scroll_step, &top_map_row)) {
+		t2practice_diag_failure(T2PDR_CHAPTER_FIELD);
+		return false;
+	}
+	if(terminal) {
+		// Boss-only fields never spawn stage enemies. Stage 4's trigger column
+		// is not ordered across its entire extent; do not treat it as a chapter.
+		derived_spawn_row = spawn_rows;
+	} else if(!practice_spawn_row_upper_bound(
+		target_scroll_step, &derived_spawn_row
+	)) {
 		t2practice_diag_failure(T2PDR_CHAPTER_FIELD);
 		return false;
 	}
@@ -236,6 +241,11 @@ bool16 far practice_chapter_field_build(int target_scroll_step)
 	return true;
 }
 
+bool16 far practice_chapter_field_build(int target_scroll_step)
+{
+	return practice_field_build(target_scroll_step, false);
+}
+
 bool16 far practice_terminal_field_build(void)
 {
 	int map_rows;
@@ -250,7 +260,7 @@ bool16 far practice_terminal_field_build(void)
 		(map_rows - ((PLAYFIELD_H / TILE_H) + 1)) * 2
 	);
 	t2practice_diag_target_scroll(target_scroll_step);
-	if(!practice_chapter_field_build(target_scroll_step)) {
+	if(!practice_field_build(target_scroll_step, true)) {
 		t2practice_diag_failure(T2PDR_TERMINAL_FIELD);
 		return false;
 	}
