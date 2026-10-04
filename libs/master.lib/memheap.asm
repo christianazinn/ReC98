@@ -64,7 +64,26 @@ nextseg	dw	?
 mem_id	dw	?
 MEMHEAD	ENDS
 
+REPLAY_CHECKED_HEAP = 0
+ifdef BINARY
+if ((GAME eq 4) or (GAME eq 5)) and (BINARY eq 'M')
+	REPLAY_CHECKED_HEAP = 1
+endif
+endif
+
+if REPLAY_CHECKED_HEAP
+_TEXT ends
+	extrn REPLAY_HEAP_ALLOCBYTE:far
+_TEXT segment word public 'CODE' use16
+endif
+
 func HMEM_ALLOCBYTE	; hmem_allocbyte() {
+if REPLAY_CHECKED_HEAP
+	db	0EAh
+	dw	offset REPLAY_HEAP_ALLOCBYTE, seg REPLAY_HEAP_ALLOCBYTE
+	; Keep HMEM_ALLOC and every following native offset unchanged.
+	db	15 dup(90h)
+else
 	push	BX
 	mov	BX,SP
 	;
@@ -76,6 +95,7 @@ func HMEM_ALLOCBYTE	; hmem_allocbyte() {
 	shr	BX,1
 	shr	BX,1
 	jmp	short hmem_allocb
+endif
 endfunc			; }
 
 func HMEM_ALLOC		; hmem_alloc() {

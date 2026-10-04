@@ -1601,6 +1601,7 @@ local th04_main_inputs = {
 	-- USER REPLAY MOD: production code in an isolated REPLAY_TEXT segment.
 	-- Keep mod-only segments at the tail of the link list.
 	"th04/replay.cpp",
+	"th04/rp_heap.asm",
 	-- PORTABLE CHECKPOINT MOD: field codecs in an isolated tail segment.
 	"th04/rp_ckpt.cpp",
 	-- SAVESTATE GUARD MOD: physical FAT verification in an isolated tail.
@@ -1901,6 +1902,7 @@ local th05_main_inputs = {
 	-- USER REPLAY MOD: production code in an isolated REPLAY_TEXT segment.
 	-- Keep mod-only segments at the tail of the link list.
 	"th05/replay.cpp",
+	"th04/rp_heap.asm",
 	-- PORTABLE CHECKPOINT MOD: field codecs in an isolated tail segment.
 	"th05/rp_ckpt.cpp",
 	-- SAVESTATE GUARD MOD: physical FAT verification in an isolated tail.

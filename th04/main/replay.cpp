@@ -222,6 +222,7 @@ extern const gaiji_th04_t gEXTRA_STAGE[12];
 #endif
 
 #define REPLAY_DOS_RESERVE_PARAS (4096 >> 4)
+#define REPLAY_ARCHIVE_BUFFER_SIZE 1024
 
 // The RC19 sender-result paths add eight bytes in this tail contribution.
 // Keep the following stock CRT segment at its foundation paragraph phase.
@@ -248,6 +249,22 @@ static void replay_dos_terminate_failure(void)
 	}
 }
 
+extern "C" int MASTER_RET ems_free(unsigned int handle);
+extern "C" const char far replay_heap_message[53];
+static unsigned replay_dos_write(int fh, const void far *buf, unsigned len);
+
+extern "C" void far replay_heap_failure(void)
+{
+	snd_kaja_func(KAJA_SONG_STOP, 0);
+	if(Ems) {
+		ems_free(Ems);
+		Ems = nullptr;
+	}
+	game_exit();
+	replay_dos_write(1, replay_heap_message, sizeof(replay_heap_message) - 1);
+	replay_dos_terminate_failure();
+}
+
 void replay_game_init_main_or_exit(const unsigned char far *pf_fn)
 {
 	uint16_t largest = replay_dos_largest_free_block();
@@ -260,6 +277,9 @@ void replay_game_init_main_or_exit(const unsigned char far *pf_fn)
 	if(game_init_main(pf_fn)) {
 		replay_dos_terminate_failure();
 	}
+	// Archive reads overlap large graphics reloads. Replay I/O uses raw DOS
+	// handles and does not depend on this transient packfile buffer.
+	pfsetbufsiz(REPLAY_ARCHIVE_BUFFER_SIZE);
 #if (GAME == 5)
 	language_main_hud_gaiji_apply();
 #endif
@@ -1136,7 +1156,6 @@ static bool replay_pending_commit(void)
 	replay_pending_run = 0;
 	return true;
 }
-
 static bool replay_record_sample(uint8_t phase, input_t input, bool shift)
 {
 	uint8_t low = static_cast<uint8_t>(input & 0xFF);
