@@ -187,8 +187,10 @@ void pascal near dissolve_unput(
 
 /// One animation frame: wait out two VSyncs, flip the pages, and start drawing
 /// into the one that is no longer shown.
+// Preserve the native wait's footprint so later SCORE_TEXT/SHARED stay pinned.
 #define dissolve_frame_flip() { \
 	staff_fast_forward_vsync_wait(2); \
+	_asm { nop; nop; nop; nop; nop; nop; } \
 	graph_showpage(page); \
 	page = (1 - page); \
 	graph_accesspage(page); \

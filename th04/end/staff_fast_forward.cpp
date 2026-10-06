@@ -1,6 +1,6 @@
 // Patch-owned staff-roll acceleration shared by TH04 and TH05's MAINE.EXE.
 
-#pragma option -zCREPLAY_END_TEXT -zPgroup_01 -G-
+#pragma option -zCREPLAY_END_TEXT -G-
 
 #include "libs/master.lib/master.hpp"
 #include "platform/x86real/pc98/keyboard.hpp"
@@ -9,6 +9,7 @@
 #include "th02/snd/measure.hpp"
 #include "th04/end/staff_fast_forward.hpp"
 #include "th04/formats/scoredat/scoredat.hpp"
+#include "th04/formats/scoredat/impl.hpp"
 #include "th04/snd/snd.h"
 #if (GAME == 5)
 #include "th05/playchar.h"
@@ -19,15 +20,8 @@
 #endif
 #include "x86real.h"
 
-#if (GAME == 5)
-typedef int staff_playchar_t;
-#else
-typedef playchar_t staff_playchar_t;
-#endif
+extern const char SCOREDAT_FN_1[];
 
-bool pascal near hiscore_scoredat_load_for(staff_playchar_t playchar);
-
-extern unsigned char rank;
 #if (GAME == 5)
 extern int staffroll_frame;
 extern int frame_half;
@@ -47,30 +41,34 @@ static int near staff_fast_forward_bgm_measure(void)
 
 static bool near staff_fast_forward_unlocked_load(void)
 {
-	unsigned char rank_saved = rank;
+	// A near call into SCORE_TEXT would extend its group across SHARED and
+	// invalidate the shared renderers' self-modifying instruction addresses.
+	scoredat_section_t section;
+	int i;
+	int sum;
 	bool unlocked = false;
 
-	for(int playchar = 0; playchar < PLAYCHAR_COUNT; playchar++) {
-		for(rank = RANK_EASY; rank < RANK_COUNT; rank++) {
-			if(hiscore_scoredat_load_for(
-				static_cast<staff_playchar_t>(playchar)
-			)) {
-				continue;
-			}
-#if (GAME == 5)
-			if(hi.score.cleared == SCOREDAT_CLEARED) {
-#else
-			if((hi.score.cleared & SCOREDAT_CLEARED_BOTH) != 0) {
-#endif
-				unlocked = true;
-				break;
-			}
+	if(!file_ropen(SCOREDAT_FN_1)) {
+		return false;
+	}
+	for(int section_id = 0; section_id < (PLAYCHAR_COUNT * RANK_COUNT); section_id++) {
+		if(file_read(&section, sizeof(section)) != sizeof(section)) {
+			break;
 		}
-		if(unlocked) {
+		scoredat_decode_section(section, sum, i);
+		if(section.score_sum != sum) {
+			continue;
+		}
+#if (GAME == 5)
+		if(section.score.cleared == SCOREDAT_CLEARED) {
+#else
+		if((section.score.cleared & SCOREDAT_CLEARED_BOTH) != 0) {
+#endif
+			unlocked = true;
 			break;
 		}
 	}
-	rank = rank_saved;
+	file_close();
 	return unlocked;
 }
 
