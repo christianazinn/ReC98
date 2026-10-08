@@ -26,6 +26,7 @@
 #include "th02/main/tile/tile.hpp"
 #include "th02/main/player/player.hpp"
 #include "th02/main/player/bomb.hpp"
+#include "th02/main/player/bomb_bft.hpp"
 
 // The filenames still live in th02_main.asm's own _DATA contribution, so they
 // have to be referenced rather than re-emitted. (kb/codegen/0084)
@@ -55,7 +56,7 @@ void near bomb_load(void)
 	file_ropen(bomb_bft_fn);
 	file_seek(0x20, SEEK_SET);
 	bomb_bft = reinterpret_cast<uint8_t __seg *>(
-		hmem_allocbyte(BOMB_BFT_SIZE)
+		bomb_bft_alloc(BOMB_BFT_SIZE)
 	);
 	file_read(bomb_bft, BOMB_BFT_SIZE);
 	file_close();

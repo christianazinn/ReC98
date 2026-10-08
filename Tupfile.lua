@@ -871,6 +871,7 @@ local th02_main_sources = {
 	"th02/keycfg_i.cpp",
 	"th02/scrst_m.cpp",
 	"th02/main/s3late.cpp",
+	"th02/main/player/bftalloc.cpp",
 	th02_main:replay_crt_align(1, "mnalgn.obj"),
 }
 th02_main:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link("main", th02_main_sources)
