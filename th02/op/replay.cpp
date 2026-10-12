@@ -1406,8 +1406,8 @@ static bool t2op_stage_seek_start_valid(
 		(start->continues_used <= 9) &&
 		(start->rem_lives >= 0) && (start->rem_lives <= 5) &&
 		(start->rem_bombs >= 0) && (start->rem_bombs <= 5) &&
-		(start->start_lives == static_cast<uint8_t>(start->rem_lives)) &&
-		(start->start_bombs == static_cast<uint8_t>(start->rem_bombs)) &&
+		(start->start_lives == t2op_header.start.start_lives) &&
+		(start->start_bombs == t2op_header.start.start_bombs) &&
 		(start->start_power >= 1) && (start->start_power <= 80) &&
 		(start->random_seed == start->resident_frame) &&
 		(start->shottype == t2op_header.start.shottype) &&

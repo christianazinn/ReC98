@@ -4173,10 +4173,9 @@ static void t2replay_stage_seek_start_capture(t2replay_start_t far *start)
 	start->rank = rank;
 	start->rem_lives = lives;
 	start->rem_bombs = bombs;
-	// Resume uses these fields to initialize live MAIN globals. They therefore
-	// carry current stock, not the run's original starting stock.
-	start->start_lives = static_cast<uint8_t>(lives);
-	start->start_bombs = static_cast<uint8_t>(bombs);
+	// Respawns and clear bonuses still use the run's original stock settings.
+	start->start_lives = resident->start_lives;
+	start->start_bombs = resident->start_bombs;
 	start->start_power = static_cast<int8_t>(power);
 	start->shottype = resident->shottype;
 	start->bgm_mode = resident->bgm_mode;
@@ -4741,8 +4740,8 @@ static bool t2replay_stage_seek_start_valid(
 		(start->continues_used <= 9) &&
 		(start->rem_lives >= 0) && (start->rem_lives <= 5) &&
 		(start->rem_bombs >= 0) && (start->rem_bombs <= 5) &&
-		(start->start_lives == static_cast<uint8_t>(start->rem_lives)) &&
-		(start->start_bombs == static_cast<uint8_t>(start->rem_bombs)) &&
+		(start->start_lives == t2replay_header.start.start_lives) &&
+		(start->start_bombs == t2replay_header.start.start_bombs) &&
 		(start->start_power >= 1) && (start->start_power <= 80) &&
 		(start->random_seed == start->resident_frame) &&
 		(start->shottype < SHOTTYPE_COUNT) &&
@@ -6431,6 +6430,15 @@ static void t2replay_header_apply(void)
 	t2replay_start_apply(&t2replay_header.start);
 }
 
+static void t2replay_stage_seek_start_apply(const t2replay_start_t far *start)
+{
+	t2replay_start_apply(start);
+	// cfg_load() normally begins a run with its configured starting stock.
+	// A selected stage instead begins with the stock left at that boundary.
+	lives = start->rem_lives;
+	bombs = start->rem_bombs;
+}
+
 static bool t2replay_command_valid(const t2replay_command_t far *command)
 {
 	unsigned i;
@@ -6890,7 +6898,7 @@ void replay_entry(void)
 				t2replay_fail();
 				return;
 			}
-			t2replay_start_apply(&seek_start);
+			t2replay_stage_seek_start_apply(&seek_start);
 			t2replay_stage_carry_pending = true;
 			t2replay_practice_target = T2RPT_STAGE_START;
 			t2replay_sample_cursor = seek_sample_anchor;
