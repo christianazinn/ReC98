@@ -662,7 +662,7 @@ static uint16_t t2op_header_wire_size(void)
 		return T2REPLAY_HEADER_SIZE;
 	}
 	if(
-		(t2op_header.magic[5] == '6') &&
+		(t2op_header.magic[5] == '7') &&
 		(t2op_header.version == T2REPLAY_VERSION) &&
 		(t2op_header.header_size == T2REPLAY_HEADER_WIRE_SIZE)
 	) {
@@ -1705,7 +1705,7 @@ static bool t2op_stage_seek_valid(uint8_t slot)
 		((t2op_header.version == T2REPLAY_VERSION_EMBEDDED_ACCELERATOR) &&
 		 (t2op_header.magic[5] == '4')) ||
 		((t2op_header.version == T2REPLAY_VERSION) &&
-		 (t2op_header.magic[5] == '6') && (slot != T2REPLAY_TEMP_SLOT))
+		 (t2op_header.magic[5] == '7') && (slot != T2REPLAY_TEMP_SLOT))
 	) {
 		return t2op_embedded_accelerator_valid();
 	}
@@ -1713,7 +1713,7 @@ static bool t2op_stage_seek_valid(uint8_t slot)
 		((t2op_header.version == T2REPLAY_VERSION_TELEMETRY) &&
 		 (t2op_header.magic[5] == '3')) ||
 		((t2op_header.version == T2REPLAY_VERSION) &&
-		 (t2op_header.magic[5] == '6') && (slot == T2REPLAY_TEMP_SLOT))
+		 (t2op_header.magic[5] == '7') && (slot == T2REPLAY_TEMP_SLOT))
 	) ||
 		!t2op_pending_replay_validate(t2op_slot_fn)) {
 		return false;

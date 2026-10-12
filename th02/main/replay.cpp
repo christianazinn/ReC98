@@ -3613,7 +3613,9 @@ static void t2replay_exact_graph_show(void)
 	__int__(0x18);
 }
 
-static void t2replay_exact_hud_score_put(utram_y_t y, score_t value)
+#endif
+
+static void t2replay_hud_score_put(utram_y_t y, score_t value)
 {
 	int32_t divisor = 1000000;
 	tram_x_t x;
@@ -3626,6 +3628,7 @@ static void t2replay_exact_hud_score_put(utram_y_t y, score_t value)
 	}
 }
 
+#if T2REPLAY_EXACT_APPLY
 static void t2replay_exact_hud_continues_put(
 	utram_y_t y, int continues_used
 )
@@ -3685,11 +3688,11 @@ static void t2replay_exact_hud_power_put(void)
 
 static void t2replay_exact_hud_values_put(void)
 {
-	t2replay_exact_hud_score_put(HUD_SCORE_Y, score);
+	t2replay_hud_score_put(HUD_SCORE_Y, score);
 	t2replay_exact_hud_continues_put(
 		HUD_SCORE_Y, resident->continues_used
 	);
-	t2replay_exact_hud_score_put(HUD_HISCORE_Y, hiscore);
+	t2replay_hud_score_put(HUD_HISCORE_Y, hiscore);
 	t2replay_exact_hud_continues_put(HUD_HISCORE_Y, hiscore_continues);
 	t2replay_exact_hud_tally_put(HUD_LIVES_Y, lives, gs_YINYANG);
 	t2replay_exact_hud_tally_put(HUD_BOMBS_Y, bombs, gs_BOMB);
@@ -3887,7 +3890,7 @@ static uint16_t t2replay_header_wire_size(void)
 		return T2REPLAY_HEADER_SIZE;
 	}
 	if(
-		t2replay_magic_matches(t2replay_header.magic, '6') &&
+		t2replay_magic_matches(t2replay_header.magic, '7') &&
 		(t2replay_header.version == T2REPLAY_VERSION) &&
 		(t2replay_header.header_size == T2REPLAY_HEADER_WIRE_SIZE)
 	) {
@@ -4206,6 +4209,11 @@ static void t2replay_stage_carry_capture(uint8_t far *data)
 	t2replay_checkpoint_put_u16(data, 24, score_delta_transferred_prev);
 	data[26] = shot_patnum;
 	data[27] = shot_option_patnum;
+	// stage_init() refills the ring without resetting its cursor, then uses it
+	// to choose the item cycle. Both values survive in sequential playback.
+	data[28] = randring_p;
+	data[29] = item_semirandom_ring_p;
+	t2replay_checkpoint_put_u16(data, 30, extends_gained);
 }
 
 static void t2replay_stage_carry_restore(const uint8_t far *data)
@@ -4228,6 +4236,9 @@ static void t2replay_stage_carry_restore(const uint8_t far *data)
 	score_delta_transferred_prev = t2replay_checkpoint_get_u16(data, 24);
 	shot_patnum = data[26];
 	shot_option_patnum = data[27];
+	randring_p = data[28];
+	item_semirandom_ring_p = data[29];
+	extends_gained = t2replay_checkpoint_get_u16(data, 30);
 }
 
 static bool t2replay_stage_seek_capture(void)
@@ -4593,7 +4604,7 @@ static bool t2replay_header_read(void)
 		(((t2replay_header.magic[5] == '2') ||
 		  (t2replay_header.magic[5] == '3') ||
 		  (t2replay_header.magic[5] == '4') ||
-		  (t2replay_header.magic[5] == '6')) &&
+		  (t2replay_header.magic[5] == '7')) &&
 		 (t2replay_dos_read(
 			fd,
 			reinterpret_cast<uint8_t far *>(&t2replay_header) +
@@ -6306,7 +6317,7 @@ static void t2replay_header_capture(void)
 	t2replay_header.magic[2] = 'R';
 	t2replay_header.magic[3] = 'P';
 	t2replay_header.magic[4] = 'Y';
-	t2replay_header.magic[5] = '6';
+	t2replay_header.magic[5] = '7';
 	t2replay_header.version = T2REPLAY_VERSION;
 	t2replay_header.header_size = T2REPLAY_HEADER_WIRE_SIZE;
 	t2replay_header.packet_size = T2REPLAY_PACKET_SIZE;
@@ -7825,7 +7836,11 @@ void replay_stage_start(void)
 {
 	if(t2replay_stage_carry_pending) {
 		t2replay_stage_carry_pending = false;
+		// Run-wide initialization replaces the score after a continue. A seek
+		// restores the recorded stage score and extend index instead.
+		score = t2replay_stage_seek_selected.start.score;
 		t2replay_stage_carry_restore(t2replay_stage_seek_selected.carry);
+		t2replay_hud_score_put(HUD_SCORE_Y, score);
 	}
 	t2replay_fast_forward_boundary_reset();
 	replay_rank_lock_apply();
