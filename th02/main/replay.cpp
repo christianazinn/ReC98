@@ -146,6 +146,7 @@ static t2replay_public_seek_entry_t
 static t2replay_stage_start_t t2replay_stage_seek_starts[T2REPLAY_STAGE_COUNT];
 static t2replay_stage_start_t t2replay_stage_seek_selected;
 static bool t2replay_stage_carry_pending;
+static bool t2replay_stage_autofire_release_frame;
 static uint8_t t2replay_stage_seek_count;
 
 #ifdef T2SGA
@@ -4791,6 +4792,7 @@ static bool t2replay_stage_seek_prefix_valid(
 	input_t input;
 	int fd;
 	bool valid = false;
+	bool autofire_release_frame = false;
 
 	if(entry->packet_anchor >= t2replay_header.packet_count) {
 		return false;
@@ -4851,6 +4853,14 @@ static bool t2replay_stage_seek_prefix_valid(
 					break;
 				}
 				samples += remaining;
+				if((phase == T2REPLAY_PHASE_GAMEPLAY) &&
+					t2replay_header.start.reserved[T2REPLAY_AUTOFIRE_OFFSET]) {
+					if(!(input & INPUT_SHOT)) {
+						autofire_release_frame = false;
+					} else if(remaining & 1) {
+						autofire_release_frame = !autofire_release_frame;
+					}
+				}
 				continue;
 			}
 			opcode = static_cast<uint8_t>(
@@ -4867,6 +4877,11 @@ static bool t2replay_stage_seek_prefix_valid(
 		}
 	}
 	t2replay_dos_close(fd);
+	if(valid) {
+		// The prefix already binds every raw input before this boundary. Recover
+		// Autofire's alternation from it without expanding the checkpoint again.
+		t2replay_stage_autofire_release_frame = autofire_release_frame;
+	}
 	return valid;
 }
 
@@ -7858,6 +7873,7 @@ void replay_stage_start(void)
 {
 	if(t2replay_stage_carry_pending) {
 		t2replay_stage_carry_pending = false;
+		t2replay_autofire_release_frame = t2replay_stage_autofire_release_frame;
 		// Run-wide initialization replaces the score after a continue. A seek
 		// restores the recorded stage score and extend index instead.
 		score = t2replay_stage_seek_selected.start.score;
