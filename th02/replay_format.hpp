@@ -180,7 +180,7 @@
 #define T2REPLAY_STAGE_SEEK_VERSION 3
 #define T2REPLAY_STAGE_SEEK_SCHEMA 3
 #define T2REPLAY_STAGE_SEEK_FORMAT_FINGERPRINT 0xD29A5403UL
-#define T2REPLAY_STAGE_START_SIZE 68
+#define T2REPLAY_STAGE_START_SIZE 80
 #define T2REPLAY_STAGE_SEEK_CAPTURE_GENERATION 1
 
 #if T2REPLAY_EXACT_APPLY
@@ -492,14 +492,16 @@ struct t2replay_start_t {
 
 struct t2replay_stage_start_t {
 	t2replay_start_t start;
-	uint8_t carry[32];
+	uint8_t carry[44];
 };
 
 inline bool t2replay_stage_carry_valid(const t2replay_stage_start_t far *state) {
 	// [shot_level] indexes the ten-entry native power tables.
 	return (
 		(state->carry[18] < 10) && (state->carry[29] < 10) &&
-		(state->carry[30] <= 5) && (state->carry[31] == 0)
+		(state->carry[30] <= 5) && (state->carry[31] == 0) &&
+		(state->carry[35] < 64) && (state->carry[36] == 0) &&
+		(state->carry[42] < 128) && (state->carry[43] <= 9)
 	);
 }
 

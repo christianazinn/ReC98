@@ -3628,8 +3628,7 @@ static void t2replay_hud_score_put(utram_y_t y, score_t value)
 	}
 }
 
-#if T2REPLAY_EXACT_APPLY
-static void t2replay_exact_hud_continues_put(
+static void t2replay_hud_continues_put(
 	utram_y_t y, int continues_used
 )
 {
@@ -3639,6 +3638,7 @@ static void t2replay_exact_hud_continues_put(
 	gaiji_putca((HUD_LEFT + 14), y, (gb_0 + continues_used), TX_WHITE);
 }
 
+#if T2REPLAY_EXACT_APPLY
 static void t2replay_exact_hud_tally_put(
 	utram_y_t y, int value, int gaiji
 )
@@ -3689,11 +3689,11 @@ static void t2replay_exact_hud_power_put(void)
 static void t2replay_exact_hud_values_put(void)
 {
 	t2replay_hud_score_put(HUD_SCORE_Y, score);
-	t2replay_exact_hud_continues_put(
+	t2replay_hud_continues_put(
 		HUD_SCORE_Y, resident->continues_used
 	);
 	t2replay_hud_score_put(HUD_HISCORE_Y, hiscore);
-	t2replay_exact_hud_continues_put(HUD_HISCORE_Y, hiscore_continues);
+	t2replay_hud_continues_put(HUD_HISCORE_Y, hiscore_continues);
 	t2replay_exact_hud_tally_put(HUD_LIVES_Y, lives, gs_YINYANG);
 	t2replay_exact_hud_tally_put(HUD_BOMBS_Y, bombs, gs_BOMB);
 	t2replay_exact_hud_power_put();
@@ -4213,6 +4213,13 @@ static void t2replay_stage_carry_capture(uint8_t far *data)
 	data[28] = randring_p;
 	data[29] = item_semirandom_ring_p;
 	t2replay_checkpoint_put_u16(data, 30, extends_gained);
+	data[32] = total_miss_count;
+	data[33] = total_bombs_used;
+	data[34] = static_cast<uint8_t>(easy_slow_skip_cycle);
+	t2replay_checkpoint_put_u16(data, 35, spark_ring_i);
+	t2replay_checkpoint_put_u16(data, 37, static_cast<uint16_t>(spark_accel_x.v));
+	t2replay_checkpoint_put_u32(data, 39, static_cast<uint32_t>(hiscore));
+	data[43] = hiscore_continues;
 }
 
 static void t2replay_stage_carry_restore(const uint8_t far *data)
@@ -4238,6 +4245,13 @@ static void t2replay_stage_carry_restore(const uint8_t far *data)
 	randring_p = data[28];
 	item_semirandom_ring_p = data[29];
 	extends_gained = t2replay_checkpoint_get_u16(data, 30);
+	total_miss_count = data[32];
+	total_bombs_used = data[33];
+	easy_slow_skip_cycle = static_cast<int8_t>(data[34]);
+	spark_ring_i = t2replay_checkpoint_get_u16(data, 35);
+	spark_accel_x.v = static_cast<int16_t>(t2replay_checkpoint_get_u16(data, 37));
+	hiscore = static_cast<int32_t>(t2replay_checkpoint_get_u32(data, 39));
+	hiscore_continues = data[43];
 }
 
 static bool t2replay_stage_seek_capture(void)
@@ -7849,6 +7863,8 @@ void replay_stage_start(void)
 		score = t2replay_stage_seek_selected.start.score;
 		t2replay_stage_carry_restore(t2replay_stage_seek_selected.carry);
 		t2replay_hud_score_put(HUD_SCORE_Y, score);
+		t2replay_hud_score_put(HUD_HISCORE_Y, hiscore);
+		t2replay_hud_continues_put(HUD_HISCORE_Y, hiscore_continues);
 	}
 	t2replay_fast_forward_boundary_reset();
 	replay_rank_lock_apply();
