@@ -176,7 +176,7 @@ static bool t2gosave_prompt(void)
 void far t2gosave_post_regist(void)
 {
 	overlay_wipe();
-	if(replay_save_request_prompt_needed() && !t2gosave_prompt()) {
+	if(!t2gosave_prompt()) {
 		replay_save_request_discard();
 	}
 	overlay_wipe();
