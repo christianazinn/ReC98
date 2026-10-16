@@ -8104,6 +8104,10 @@ bool replay_input_wait_for_change(void)
 	return true;
 }
 
+#pragma codeseg T2GOSAVE_TEXT
+void far t2gosave_post_regist(void);
+#pragma codeseg T2REPLAY_TEXT
+
 bool replay_gameover(void)
 {
 	scorestat_process_checkpoint();
@@ -8113,9 +8117,16 @@ bool replay_gameover(void)
 		return true;
 	}
 	if(t2replay_mode == T2RM_DISABLED) {
-		return false;
+		return t2replay_practice_run;
 	}
 	t2replay_finalize(T2REPLAY_END_GAME_OVER);
+	if(t2replay_practice_run) {
+		if(replay_save_request_prompt_needed()) {
+			palette_black_out(1);
+			t2gosave_post_regist();
+		}
+		return true;
+	}
 	return t2replay_playback_exit;
 }
 

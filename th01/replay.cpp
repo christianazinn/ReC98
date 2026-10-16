@@ -5077,10 +5077,20 @@ void far t1replay_gameover_regist_menu(
 	sshiftjis_t route[SCOREDAT_ROUTE_LEN + 1]
 )
 {
+	bool practice = (
+		t1replay_no_record_practice ||
+		(t1replay_header.flags & T1REPLAY_FLAG_PRACTICE)
+	);
+
 #if T1REPLAY_EXACT_TRACE
 	t1replay_exact_terminal_capture(T1REPLAY_END_GAME_OVER);
 #endif
 	t1replay_terminal(T1REPLAY_END_GAME_OVER);
+	if(practice) {
+		t1replay_terminal_save_request();
+		t1replay_abort_to_op();
+		return;
+	}
 	regist_menu(score, stage_num, route);
 }
 
