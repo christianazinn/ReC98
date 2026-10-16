@@ -10,6 +10,8 @@ extern replay_op_font_t replay_op_font;
 
 enum replay_op_font_fixed_t {
 	REPLAY_OP_FONT_NUMERIC_CELL_W = 12,
+	REPLAY_OP_FONT_NAME_CELL_W = 13,
+	REPLAY_OP_FONT_CAPITAL_I_ADVANCE = 3,
 	REPLAY_OP_FONT_ONE_INSET = 2,
 };
 
@@ -42,6 +44,9 @@ void pascal replay_op_font_put_numeric_cells(
 	const char far *str,
 	unsigned count,
 	int color
+);
+void pascal replay_op_font_put_name_cells(
+	screen_x_t cell_left, vram_y_t top, const char far *str, int color
 );
 
 #endif

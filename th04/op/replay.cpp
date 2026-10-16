@@ -2218,13 +2218,13 @@ static void replay_op_line_put_right(
 	}
 }
 
-static void replay_op_line_put_cells(
+static void replay_op_line_put_name_cells(
 	screen_x_t left, vram_y_t top, vc2 col, char *p
 )
 {
 	*p = '\0';
 	if(replay_op_font) {
-		replay_op_font_put_cells(left, top, replay_op_line, col);
+		replay_op_font_put_name_cells(left, top, replay_op_line, col);
 	} else {
 		replay_op_line_put(left, top, col, p);
 	}
@@ -2420,7 +2420,7 @@ static void replay_browser_slot_put(uint8_t slot, bool selected, vram_y_t top)
 		return;
 	}
 	p = replay_op_name_append(p);
-	replay_op_line_put_cells(REPLAY_BROWSER_NAME_LEFT, top, col, p);
+	replay_op_line_put_name_cells(REPLAY_BROWSER_NAME_LEFT, top, col, p);
 	p = replay_op_line;
 	p = replay_op_shot_append(p);
 	replay_op_line_put(REPLAY_BROWSER_SHOT_LEFT, top, col, p);
@@ -2549,7 +2549,7 @@ static void replay_detail_left_put(uint8_t slot, bool settings_focused)
 	);
 	p = replay_op_line;
 	p = replay_op_name_append(p);
-	replay_op_line_put_cells(
+	replay_op_line_put(
 		REPLAY_DETAIL_NAME_LEFT, 80, REPLAY_OP_COL_ACTIVE, p
 	);
 

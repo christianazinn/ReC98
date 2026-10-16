@@ -2782,7 +2782,7 @@ static void t2op_word_cells_at(
 				static_cast<unsigned>(end - t2op_line), t2op_text_color(attr)
 			);
 		} else {
-			replay_op_font_put_cells(
+			replay_op_font_put_name_cells(
 				left, top, t2op_line, t2op_text_color(attr)
 			);
 		}
@@ -5098,8 +5098,8 @@ static void t2op_detail_render(
 			t2op_line, t2op_header.reserved + T2REPLAY_RESERVED_NAME_OFFSET
 		);
 	}
-	t2op_word_cells_at(
-		T2OP_DETAIL_NAME_LEFT, T2OP_DETAIL_TOP, TX_YELLOW, p, false
+	t2op_word_put_at(
+		T2OP_DETAIL_NAME_LEFT, T2OP_DETAIL_TOP, TX_YELLOW, p
 	);
 	p = t2op_word_append(t2op_line, T2OW_SLOT);
 	t2op_word_put_at(

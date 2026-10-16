@@ -400,6 +400,28 @@ void pascal replay_op_font_put_cells(
 	}
 }
 
+void pascal replay_op_font_put_name_cells(
+	screen_x_t cell_left, vram_y_t top, const char far *str, int color
+)
+{
+	screen_x_t glyph_left;
+
+	while(*str) {
+		glyph_left = cell_left;
+		if(*str == '1') {
+			glyph_left += REPLAY_OP_FONT_ONE_INSET;
+		}
+		if(*str == 'I') {
+			glyph_left += (
+				(REPLAY_OP_FONT_NAME_CELL_W - REPLAY_OP_FONT_CAPITAL_I_ADVANCE) / 2
+			);
+		}
+		replay_op_font_put_n(glyph_left, top, str, 1, color);
+		cell_left += REPLAY_OP_FONT_NAME_CELL_W;
+		str++;
+	}
+}
+
 void pascal replay_op_font_put_numeric_cells(
 	screen_x_t cell_left,
 	vram_y_t top,

@@ -2783,6 +2783,18 @@ static void t1replay_op_text_right(
 	}
 }
 
+static void t1replay_op_text_name_cells(
+	screen_x_t left, screen_y_t y, vc_t col, char *end
+)
+{
+	*end = '\0';
+	if(replay_op_font) {
+		replay_op_font_put_name_cells(left, y, t1replay_op_text, col);
+	} else {
+		t1replay_op_text_put(left, y, col, end);
+	}
+}
+
 static void t1replay_op_text_numeric_cells(
 	screen_x_t left, screen_y_t y, vc_t col, char *end
 )
@@ -4940,11 +4952,11 @@ static bool t1replay_op_replay_render(void)
 			p = t1replay_op_name_ascii_append(
 				t1replay_op_text, slot.header.name
 			);
-			t1replay_op_text_put(T1REPLAY_OP_BROWSER_NAME_LEFT, y, col, p);
+			t1replay_op_text_name_cells(T1REPLAY_OP_BROWSER_NAME_LEFT, y, col, p);
 			p = t1replay_op_uint_space_append(
 				t1replay_op_text, slot.header.summary.final_score, 10
 			);
-			t1replay_op_text_put(T1REPLAY_OP_BROWSER_SCORE_LEFT, y, col, p);
+			t1replay_op_text_numeric_cells(T1REPLAY_OP_BROWSER_SCORE_LEFT, y, col, p);
 			p = t1replay_op_uint_append(
 				t1replay_op_text, slot.header.summary.final_stage_id + 1, 1
 			);
