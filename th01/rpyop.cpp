@@ -5578,27 +5578,42 @@ t1replay_op_result_t t1replay_op_replay_update(void)
 	if(input.up) {
 		if(t1replay_op_sel == 0) {
 			t1replay_op_sel = (T1REPLAY_OP_ROWS_PER_PAGE - 1);
+			if(t1replay_op_page == 0) {
+				t1replay_op_page = (
+					(T1REPLAY_SLOT_COUNT / T1REPLAY_OP_ROWS_PER_PAGE) - 1
+				);
+			} else {
+				t1replay_op_page--;
+			}
 		} else {
 			t1replay_op_sel--;
 		}
 		t1replay_op_replay_render();
-	}
-	if(input.down) {
+	} else if(input.down) {
 		t1replay_op_sel = static_cast<uint8_t>(
 			(t1replay_op_sel + 1) % T1REPLAY_OP_ROWS_PER_PAGE
 		);
+		if(t1replay_op_sel == 0) {
+			t1replay_op_page = static_cast<uint8_t>(
+				(t1replay_op_page + 1) %
+				(T1REPLAY_SLOT_COUNT / T1REPLAY_OP_ROWS_PER_PAGE)
+			);
+		}
 		t1replay_op_replay_render();
-	}
-	if(input.left) {
+	} else if(input.left) {
 		if(t1replay_op_page == 0) {
-			t1replay_op_page = 9;
+			t1replay_op_page = (
+				(T1REPLAY_SLOT_COUNT / T1REPLAY_OP_ROWS_PER_PAGE) - 1
+			);
 		} else {
 			t1replay_op_page--;
 		}
 		t1replay_op_replay_render();
-	}
-	if(input.right) {
-		t1replay_op_page = static_cast<uint8_t>((t1replay_op_page + 1) % 10);
+	} else if(input.right) {
+		t1replay_op_page = static_cast<uint8_t>(
+			(t1replay_op_page + 1) %
+			(T1REPLAY_SLOT_COUNT / T1REPLAY_OP_ROWS_PER_PAGE)
+		);
 		t1replay_op_replay_render();
 	}
 	if(input.ok) {
