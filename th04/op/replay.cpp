@@ -4630,7 +4630,6 @@ static void replay_save_name_render(const char far *name)
 		p, replay_op_playchar_word(replay_op_header.start.playchar)
 	);
 	#if (GAME == 4)
-		*p++ = ' ';
 		*p++ = (replay_op_header.start.shottype ? 'B' : 'A');
 	#endif
 	*p = '\0';
