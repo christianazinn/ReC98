@@ -50,6 +50,11 @@
 	#include "th04/resident.hpp"
 #endif
 
+#pragma codeseg EXECL_TEXT
+#include "th02/main/execl.hpp"
+#pragma codeseg REPLAY_TEXT
+extern "C" const char arg0[];
+
 #define REPLAY_BUFFER_PACKET_COUNT 256
 #define REPLAY_BUFFER_SIZE \
 	(REPLAY_BUFFER_PACKET_COUNT * REPLAY_USER_PACKET_SIZE)
@@ -3782,6 +3787,19 @@ void pascal replay_gameover_wait(int frames)
 	scorestat_process_enter(rank, replay_stat_owner, false);
 	replay_stat_gameover = true;
 	replay_input_wait_for_change(frames);
+	if(
+		(replay_mode == RRM_PRACTICE) ||
+		((replay_mode != RRM_DISABLED) &&
+		 (replay_header.mode == RUM_PRACTICE))
+	) {
+		// Practice must not fall through into Story's Continue prompt.
+		resident->end_sequence = ES_SCORE;
+		snd_kaja_func(KAJA_SONG_STOP, 0);
+		palette_black_out(4);
+		GameExecl(arg0);
+		// GameExecl() already freed gameplay resources if replacement failed.
+		replay_dos_terminate_failure();
+	}
 }
 
 void pascal replay_input_wait_for_change(int frames)
