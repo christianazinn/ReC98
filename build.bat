@@ -85,6 +85,8 @@ exit /b
 
 :tup
 bin\tup
+if errorlevel 1 exit /b %errorlevel%
+if not errorlevel 0 exit /b %errorlevel%
 goto return_from_tup
 
 :fallback
