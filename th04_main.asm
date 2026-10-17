@@ -40,6 +40,7 @@ include th04/main/enemy/enemy.inc
 	extern SCOPY@:proc
 	extern _execl:proc
 	extern NULLFUNC_NEAR:proc
+	extrn DWORDS_CLEAR_FULL:far
 
 main_01 group SLOWDOWN_TEXT, STAGE_TEXT, DEMO_TEXT, EMS_TEXT, TILE_SET_TEXT, STD_TEXT, END_EXT_TEXT, END_TEXT, CIRCLE_A_TEXT, TILE_REDRAW_TEXT, CIRCLE_A2_TEXT, RANDRING_FILL_TEXT, RANDRING_NEXT_TEXT, PN_INV_TEXT, CIRCLE_A1_TEXT, CIRCLE_B_TEXT, CIRCLE_C_TEXT, GRCG_MC_TEXT, IT_SPL_R_TEXT, IT_SPL_D_TEXT, CIRCLE_R_TEXT, CIRCLE_TEXT, MIDBOSSX_TEXT, TILE_TEXT, mai_TEXT, PLAYFLD_TEXT, M4_RENDER_TEXT, DIALOG_TEXT, BOSS_EXP_TEXT, P_MARISA_TEXT, EXECL_TEXT, BOSS_5R_TEXT, main_TEXT, STAGES_TEXT, HUD_PNT_TEXT, HUD_DRM_TEXT, HUD_GRZ_TEXT, HUD_PWR_TEXT, HUD_PUT_TEXT, PLAYER_B_TEXT, SHOT_INV_TEXT, main__TEXT, PLAYER_M_TEXT, PLAYER_P_TEXT, main_0_TEXT, HUD_OVRL_TEXT, main_01_TEXT, MB_DFR_TEXT, Y6_FG_TEXT, MAIN_012_A_TEXT, main_012_TEXT, CFG_LRES_TEXT, main_013_TEXT, CHECKERB_TEXT, MB_INV_TEXT, BOSS_BD_TEXT, BOSS_BG_TEXT, SCORE_TEXT, BOSS_FG_TEXT
 main_03 group GATHER_TEXT, SCROLLY3_TEXT, MOTION_3_TEXT, main_032_TEXT, VECTOR2N_TEXT, SPARK_A_TEXT, GRCG_3_TEXT, IT_SPL_U_TEXT, MB_UPD_TEXT, ENM_POS_TEXT, B4M_UPDATE_TEXT, ENM_BTPL_TEXT, MUGETSU_TEXT, main_033_TEXT, MIDBOSS_TEXT, HUD_HP_TEXT, MB_DFT_TEXT, B6_SPAWN_TEXT, main_034_TEXT, BULLET_U_TEXT, BULLET_A_TEXT, IT_UPDT_TEXT, main_035_TEXT, BOSS_TEXT, main_036_TEXT
@@ -611,22 +612,15 @@ CIRCLE_R_TEXT segment word public 'CODE' use16
 	; linker in UPPER case, which is what TASM must be told literally
 	; (kb/codegen 0081, 0086, 0103).
 	;
-	; The proc itself stays assembly: Turbo C++ saves DI before the body,
-	; while this function snapshots SP in BX first and only then saves DI.
+	; Keep this wrapper at its original extent. The far helper borrows this
+	; near frame and returns without removing its parameters.
 	public DWORDS_CLEAR
 	; The Pascal ABI is expressed by the C++ declaration at each call site.
 DWORDS_CLEAR	proc near
-		mov	bx, sp
-		push	di
-		mov	di, ss:[bx+4]
-		mov	cx, ss:[bx+2]
-		push	ds
-		pop	es
+		call	far ptr DWORDS_CLEAR_FULL
 		assume es:_DATA
-		xor	ax, ax
-		rep stosd
-		pop	di
 		retn	4
+		db	14 dup (90h)
 DWORDS_CLEAR	endp
 
 include th04/main/playperf.asm

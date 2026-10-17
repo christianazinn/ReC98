@@ -1611,6 +1611,7 @@ local th04_main_inputs = {
 	"th04/mdload.cpp",
 	"th04/keycfg_i.cpp",
 	"th04/scrst_m.cpp",
+	"th04/clr_full.asm",
 	th04:replay_crt_align(12, "mnalgn.obj"),
 }
 th04:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link(
