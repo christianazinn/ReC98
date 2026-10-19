@@ -40,6 +40,7 @@
 #define T2OP_SLOT_CELL_W 11
 #define T2OP_SLOT_CELL_STEP (T2OP_SLOT_CELL_W + 1)
 #define T2OP_SLOT_ONE_INSET 3
+#define T2OP_PRACTICE_SCORE_MAX 2147483640UL
 #define T2OP_INPUT_KNOWN 0xF1FF
 #define T2OP_DOS_ACCESS_READ 0
 #define T2OP_DOS_ACCESS_RW 2
@@ -263,6 +264,7 @@ static bool t2op_practice_seed_random;
 static uint8_t t2op_pending_source;
 static t2replay_header_t t2op_header;
 static t2replay_header_t t2op_header_saved;
+static uint8_t t2op_split_continues[T2REPLAY_STAGE_COUNT];
 static t2replay_start_t t2op_practice;
 static uint8_t t2op_pending_name[T2REPLAY_NAME_LEN];
 static scoredat_section_t t2op_unlock_sections[SHOTTYPE_COUNT];
@@ -1583,11 +1585,33 @@ static bool t2op_accelerator_prefixes_valid(
 	return (entry_index == entry_count);
 }
 
+static void t2op_split_continues_init(uint8_t *values)
+{
+	uint8_t i;
+
+	for(i = 0; i < T2REPLAY_STAGE_COUNT; i++) {
+		values[i] = 0xFF;
+	}
+	if(t2op_header.stage_reached < T2REPLAY_STAGE_COUNT) {
+		values[t2op_header.stage_reached] = t2op_header.continues_final;
+	}
+}
+
+static void t2op_split_continues_publish(const uint8_t *values)
+{
+	uint8_t i;
+
+	for(i = 0; i < T2REPLAY_STAGE_COUNT; i++) {
+		t2op_split_continues[i] = values[i];
+	}
+}
+
 static bool t2op_embedded_accelerator_valid(void)
 {
 	t2replay_accelerator_header_t header;
 	t2replay_accelerator_entry_t entries[T2REPLAY_STAGE_COUNT];
 	t2replay_stage_start_t start;
+	uint8_t split_continues[T2REPLAY_STAGE_COUNT];
 	uint32_t file_size;
 	uint32_t checksum;
 	uint32_t tail_offset = t2op_header.input_offset + t2op_header.input_size;
@@ -1599,6 +1623,7 @@ static bool t2op_embedded_accelerator_valid(void)
 	if(fd < 0) {
 		return false;
 	}
+	t2op_split_continues_init(split_continues);
 	t2op_memclear(&header, sizeof(header));
 	if(!t2op_dos_size(fd, &file_size) || !t2op_dos_seek(fd, tail_offset) ||
 		(t2op_dos_read(fd, &header, sizeof(header)) != sizeof(header)) ||
@@ -1674,12 +1699,17 @@ static bool t2op_embedded_accelerator_valid(void)
 			t2op_dos_close(fd);
 			return false;
 		}
+		if(entries[i].stage_id > static_cast<uint8_t>(t2op_header.start.stage)) {
+			split_continues[entries[i].stage_id - 1] =
+				static_cast<uint8_t>(start.start.continues_used);
+		}
 	}
 	if(!t2op_accelerator_prefixes_valid(fd, entries, header.entry_count)) {
 		t2op_dos_close(fd);
 		return false;
 	}
 	t2op_dos_close(fd);
+	t2op_split_continues_publish(split_continues);
 	return true;
 }
 
@@ -1688,6 +1718,7 @@ static bool t2op_stage_seek_valid(uint8_t slot)
 	t2replay_public_seek_header_t header;
 	t2replay_public_seek_entry_t entry;
 	t2replay_stage_start_t start;
+	uint8_t split_continues[T2REPLAY_STAGE_COUNT];
 	uint32_t file_size;
 	uint32_t checksum;
 	uint32_t directory_checksum = T2REPLAY_FNV1A_BASIS;
@@ -1696,6 +1727,8 @@ static bool t2op_stage_seek_valid(uint8_t slot)
 	int fd;
 	bool valid = false;
 
+	t2op_split_continues_init(t2op_split_continues);
+	t2op_split_continues_init(split_continues);
 	if(slot == T2REPLAY_TEMP_SLOT) {
 		t2op_temp_set();
 	} else {
@@ -1786,9 +1819,16 @@ static bool t2op_stage_seek_valid(uint8_t slot)
 			t2op_dos_close(fd);
 			return false;
 		}
+		if(entry.stage_id > static_cast<uint8_t>(t2op_header.start.stage)) {
+			split_continues[entry.stage_id - 1] =
+				static_cast<uint8_t>(start.start.continues_used);
+		}
 	}
 	valid = t2op_stage_seek_prefixes_valid(fd, &header);
 	t2op_dos_close(fd);
+	if(valid) {
+		t2op_split_continues_publish(split_continues);
+	}
 	return valid;
 }
 
@@ -3304,12 +3344,22 @@ static char *t2op_u32_zero_append(char *p, uint32_t value, unsigned width)
 	return p;
 }
 
-static int32_t t2op_final_score_display(void)
+static char *t2op_score_append(
+	char *p, uint32_t points, uint8_t continues, unsigned width
+)
 {
-	return static_cast<int32_t>(
-		(static_cast<uint32_t>(t2op_header.score_final) * 10UL) +
-		t2op_header.continues_final
-	);
+	if(width != 0) {
+		width--;
+	}
+	// Native points omit the ones-place continue digit. Append it as text so
+	// even a large legacy scalar cannot overflow while being displayed.
+	if((points != 0) || (continues > 9)) {
+		p = t2op_u32_append(p, points, width);
+	} else {
+		p = t2op_spaces_append(p, width);
+	}
+	return t2op_char(p, (continues <= 9)
+		? static_cast<char>('0' + continues) : '?');
 }
 
 static void t2op_name_date_put(void)
@@ -3346,7 +3396,10 @@ static void t2op_name_metadata_put(void)
 	unsigned length;
 	screen_x_t left;
 
-	p = t2op_i32_append(t2op_line, t2op_final_score_display(), 10);
+	p = t2op_score_append(
+		t2op_line, static_cast<uint32_t>(t2op_header.score_final),
+		t2op_header.continues_final, 10
+	);
 	t2op_name_ascii_put(
 		T2OP_NAME_POINT_LEFT, T2OP_NAME_FIELD_TOP, p, V_WHITE
 	);
@@ -3707,6 +3760,33 @@ static void t2op_main_selection_step(int8_t direction)
 	} while(!extra_unlocked && (t2op_main_sel == T2OMC_EXTRA));
 }
 
+static uint32_t t2op_practice_score_get(void)
+{
+	if(t2op_practice.score < 0) {
+		return 0;
+	}
+	if(static_cast<uint32_t>(t2op_practice.score) >
+		(T2OP_PRACTICE_SCORE_MAX / 10UL)) {
+		return T2OP_PRACTICE_SCORE_MAX;
+	}
+	return (static_cast<uint32_t>(t2op_practice.score) * 10UL);
+}
+
+static void t2op_practice_score_set(uint32_t displayed)
+{
+	if(displayed > T2OP_PRACTICE_SCORE_MAX) {
+		displayed = T2OP_PRACTICE_SCORE_MAX;
+	}
+	displayed /= 10UL;
+	t2op_practice.score = static_cast<int32_t>(displayed);
+	if(t2op_practice.score_highest > (T2OP_PRACTICE_SCORE_MAX / 10UL)) {
+		t2op_practice.score_highest = (T2OP_PRACTICE_SCORE_MAX / 10UL);
+	}
+	if(t2op_practice.score_highest < displayed) {
+		t2op_practice.score_highest = displayed;
+	}
+}
+
 static void t2op_practice_defaults(void)
 {
 	t2op_memclear(&t2op_practice, sizeof(t2op_practice));
@@ -3823,6 +3903,7 @@ static void t2op_prac_prefs_load(void)
 		return;
 	}
 	t2op_practice = prefs.start;
+	t2op_practice_score_set(t2op_practice_score_get());
 	t2op_practice_seed_random = (prefs.seed_random != 0);
 }
 
@@ -4218,14 +4299,10 @@ static void t2op_practice_u32_change(
 
 static void t2op_practice_score_change(uint32_t delta, bool right)
 {
-	uint32_t value = static_cast<uint32_t>(t2op_practice.score);
-	const uint32_t max = 2147483647UL;
+	uint32_t value = t2op_practice_score_get();
 
-	t2op_practice_u32_change(&value, 0, max, delta, right);
-	t2op_practice.score = static_cast<int32_t>(value);
-	if(t2op_practice.score_highest < value) {
-		t2op_practice.score_highest = value;
-	}
+	t2op_practice_u32_change(&value, 0, T2OP_PRACTICE_SCORE_MAX, delta, right);
+	t2op_practice_score_set(value);
 }
 
 static bool t2op_shift_pressed(void)
@@ -4329,7 +4406,7 @@ static bool t2op_practice_field_is_numeric(uint8_t field)
 static uint32_t t2op_practice_numeric_get(uint8_t field)
 {
 	switch(field) {
-	case T2OPC_SCORE: return static_cast<uint32_t>(t2op_practice.score);
+	case T2OPC_SCORE: return t2op_practice_score_get();
 	case T2OPC_POWER: return t2op_practice.start_power;
 	case T2OPC_LIVES: return (t2op_practice.start_lives + 1);
 	case T2OPC_BOMBS: return t2op_practice.start_bombs;
@@ -4355,7 +4432,7 @@ static uint32_t t2op_practice_numeric_min(uint8_t field)
 static uint32_t t2op_practice_numeric_max(uint8_t field)
 {
 	switch(field) {
-	case T2OPC_SCORE: return 2147483647UL;
+	case T2OPC_SCORE: return T2OP_PRACTICE_SCORE_MAX;
 	case T2OPC_SEED: return 0xFFFFFFFFUL;
 	case T2OPC_POWER: return 80;
 	case T2OPC_LIVES: return 6;
@@ -4370,10 +4447,7 @@ static void t2op_practice_numeric_set(uint8_t field, uint32_t value)
 {
 	switch(field) {
 	case T2OPC_SCORE:
-		t2op_practice.score = static_cast<int32_t>(value);
-		if(t2op_practice.score_highest < value) {
-			t2op_practice.score_highest = value;
-		}
+		t2op_practice_score_set(value);
 		break;
 	case T2OPC_POWER:
 		t2op_practice.start_power = static_cast<int8_t>(value);
@@ -4462,7 +4536,7 @@ static bool t2op_practice_target_is_pre_boss(uint8_t target)
 	);
 }
 
-static void t2op_practice_render(void);
+static void t2op_practice_render(uint32_t score_entry = 0xFFFFFFFFUL);
 
 static void t2op_practice_numeric_entry(uint8_t field)
 {
@@ -4512,7 +4586,7 @@ static void t2op_practice_numeric_entry(uint8_t field)
 			value /= 10UL;
 			t2op_practice_numeric_set(field, ((value < min) ? min : value));
 			entered = true;
-			t2op_practice_render();
+			t2op_practice_render((field == T2OPC_SCORE) ? value : 0xFFFFFFFFUL);
 		} else {
 			digit = t2op_practice_digit_edge(now0, prev0, now1, prev1);
 			if(digit >= 0) {
@@ -4525,7 +4599,7 @@ static void t2op_practice_numeric_entry(uint8_t field)
 					field, ((value < min) ? min : value)
 				);
 				entered = true;
-				t2op_practice_render();
+				t2op_practice_render((field == T2OPC_SCORE) ? value : 0xFFFFFFFFUL);
 			}
 		}
 		prev0 = now0;
@@ -4536,7 +4610,7 @@ static void t2op_practice_numeric_entry(uint8_t field)
 	}
 }
 
-static void t2op_practice_render(void)
+static void t2op_practice_render(uint32_t score_entry)
 {
 	char *p;
 	uint8_t page_drawn;
@@ -4685,7 +4759,10 @@ static void t2op_practice_render(void)
 		case T2OPC_LIVES: p = t2op_u32_append(p, (t2op_practice.start_lives + 1), 0); break;
 		case T2OPC_BOMBS: p = t2op_u32_append(p, t2op_practice.start_bombs, 0); break;
 		case T2OPC_POWER: p = t2op_i32_append(p, t2op_practice.start_power, 0); break;
-		case T2OPC_SCORE: p = t2op_i32_append(p, t2op_practice.score, 0); break;
+		case T2OPC_SCORE:
+			p = t2op_u32_append(p, (score_entry != 0xFFFFFFFFUL)
+				? score_entry : t2op_practice_score_get(), 0);
+			break;
 		case T2OPC_SEED:
 			p = (t2op_practice_seed_random
 				? t2op_word_append(p, T2OW_RANDOM)
@@ -4866,6 +4943,7 @@ static void t2op_practice_start(void)
 	char request_fn[11];
 	uint32_t seed;
 
+	t2op_practice_score_set(t2op_practice_score_get());
 	t2op_prac_prefs_save();
 	if(t2op_practice_seed_random) {
 		seed = static_cast<uint32_t>(resident->frame);
@@ -5024,7 +5102,8 @@ static void t2op_browser_slot_render(uint8_t slot, vram_y_t y)
 	p = t2op_rank_append(p, t2op_header.start.rank);
 	t2op_word_put_at(T2OP_BROWSER_RANK_LEFT, y, attr, p);
 	p = t2op_line;
-	p = t2op_i32_append(p, t2op_final_score_display(), 1);
+	p = t2op_score_append(p, static_cast<uint32_t>(t2op_header.score_final),
+		t2op_header.continues_final, 1);
 	t2op_word_numeric_cells_right_at(T2OP_BROWSER_SCORE_RIGHT, y, attr, p);
 	p = t2op_line;
 	p = t2op_browser_stage_append(p);
@@ -5126,7 +5205,9 @@ static void t2op_detail_render(
 		p = t2op_word_append(t2op_line, word); \
 		t2op_word_put_at(T2OP_DETAIL_LEFT, top, TX_YELLOW, p)
 	T2OP_DETAIL_LABEL(136, T2OW_FINAL_SCORE);
-	p = t2op_i32_append(t2op_line, t2op_final_score_display(), 1);
+	p = t2op_score_append(t2op_line,
+		static_cast<uint32_t>(t2op_header.score_final),
+		t2op_header.continues_final, 1);
 	t2op_word_numeric_cells_right_at(
 		T2OP_DETAIL_VALUE_RIGHT, 136, TX_YELLOW, p
 	);
@@ -5179,7 +5260,8 @@ static void t2op_detail_render(
 		p = t2op_line;
 		p = t2op_stage_append(p, static_cast<int8_t>(stage));
 		t2op_word_put_at(T2OP_DETAIL_SPLIT_LEFT, top, attr, p);
-		p = t2op_u32_append(t2op_line, t2op_header.stage_scores[stage], 1);
+		p = t2op_score_append(t2op_line, t2op_header.stage_scores[stage],
+			t2op_split_continues[stage], 1);
 		t2op_word_numeric_cells_right_at(
 			T2OP_DETAIL_SPLIT_SCORE_RIGHT, top, attr, p
 		);
@@ -5214,7 +5296,8 @@ static void t2op_detail_settings_render(void)
 	);
 	T2OP_SETTINGS_ROW(
 		T2OW_SCORE,
-		p = t2op_u32_append(p, t2op_header.start.score, 0)
+		p = t2op_score_append(p,
+			static_cast<uint32_t>(t2op_header.start.score), 0, 0)
 	);
 	T2OP_SETTINGS_ROW(
 		T2OW_SEED,
@@ -5263,6 +5346,7 @@ static void t2op_detail(uint8_t slot)
 	uint8_t selected_stage = static_cast<uint8_t>(t2op_header.start.stage);
 	uint8_t selectable_stage_max = selected_stage;
 
+	t2op_split_continues_init(t2op_split_continues);
 	if((t2op_header.stage_reached > selected_stage) &&
 		t2op_stage_seek_valid(slot)) {
 		selectable_stage_max = t2op_header.stage_reached;
@@ -5442,6 +5526,10 @@ static void t2op_overwrite_render(uint8_t slot, bool overwrite)
 	char *p;
 
 	if(t2op_header_read(slot)) {
+		t2op_split_continues_init(t2op_split_continues);
+		if(t2op_header.stage_reached > t2op_header.start.stage) {
+			t2op_stage_seek_valid(slot);
+		}
 		t2op_detail_render(
 			slot, false, static_cast<uint8_t>(t2op_header.start.stage)
 		);

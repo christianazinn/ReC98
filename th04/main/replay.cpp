@@ -803,6 +803,7 @@ typedef char replay_private_result_size_check[
 ];
 
 static uint32_t replay_score_points(void);
+static uint32_t replay_score_display(void);
 
 static void replay_private_result_write(uint8_t end_reason)
 {
@@ -815,9 +816,9 @@ static void replay_private_result_write(uint8_t end_reason)
 	}
 	if((replay_mode == RRM_PLAYBACK) && !replay_failed &&
 		!replay_private_diagnostic &&
-		(replay_score_points() != replay_header.score_final)) {
+		(replay_score_display() != replay_header.score_final)) {
 		replay_private_diagnostic = 0xE2000000UL |
-			(replay_score_points() & 0xFFFFFFUL);
+			(replay_score_display() & 0xFFFFFFUL);
 	}
 	replay_memclear(&result, sizeof(result));
 	result.magic[0] = 'T'; result.magic[1] = ('0' + GAME);
@@ -860,6 +861,11 @@ static uint32_t replay_score_points(void)
 		value = ((value * 10UL) + score.digits[i]);
 	}
 	return (value * 10UL);
+}
+
+static uint32_t replay_score_display(void)
+{
+	return (replay_score_points() + score.continues_used);
 }
 
 static uint8_t replay_lives(void)
@@ -3127,7 +3133,7 @@ void replay_stage_start(void)
 	if(replay_mode == RRM_RECORD) {
 		if(replay_stage_seen && (replay_last_stage < REPLAY_USER_STAGE_COUNT)) {
 			replay_header.stage_scores[replay_last_stage] =
-				replay_score_points();
+				replay_score_display();
 		}
 		if(
 			!replay_practice_preroll_pending &&
@@ -3928,10 +3934,10 @@ bool replay_process_end(void)
 		protect_blocked = replay_protect_blocked();
 		if(replay_stage_seen && (replay_last_stage < REPLAY_USER_STAGE_COUNT)) {
 			replay_header.stage_scores[replay_last_stage] =
-				replay_score_points();
+				replay_score_display();
 		}
 		replay_header.end_reason = end_reason;
-		replay_header.score_final = replay_score_points();
+		replay_header.score_final = replay_score_display();
 		replay_header.lives_final = replay_lives();
 		replay_header.bombs_final = replay_bombs();
 		replay_header.power_final = power;
