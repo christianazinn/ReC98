@@ -1098,10 +1098,12 @@ static bool t2op_seek_sidecar_rebind(
 )
 {
 	t2replay_public_seek_header_t header;
+	t2replay_public_seek_header_t header_saved;
 	uint32_t file_size;
 	uint32_t checksum;
 	int fd;
 	bool written;
+	bool restored = false;
 
 	if(!file_exist(t2op_seek_fn)) {
 		return true;
@@ -1138,6 +1140,7 @@ static bool t2op_seek_sidecar_rebind(
 		t2op_dos_close(fd);
 		return false;
 	}
+	header_saved = header;
 	header.replay_header_checksum = destination_header_checksum;
 	header.reserved[0] = destination_slot;
 	header.sidecar_checksum = 0;
@@ -1153,8 +1156,15 @@ static bool t2op_seek_sidecar_rebind(
 			(t2op_dos_write(fd, &header, sizeof(header)) == sizeof(header))
 		);
 	}
+	if(!written) {
+		restored = (
+			t2op_dos_seek(fd, 0) &&
+			(t2op_dos_write(fd, &header_saved, sizeof(header_saved)) ==
+			 sizeof(header_saved))
+		);
+	}
 	t2op_dos_close(fd);
-	if(written) {
+	if(written || restored) {
 		t2op_dos_flush();
 	}
 	return written;
@@ -1210,8 +1220,10 @@ static bool t2op_pending_request_rebind(
 {
 	char request_fn[11];
 	t2replay_save_request_t request;
+	t2replay_save_request_t request_saved;
 	int fd;
 	bool written;
+	bool restored = false;
 
 	t2op_paths_init();
 	t2op_save_request_fn_set(request_fn);
@@ -1219,6 +1231,7 @@ static bool t2op_pending_request_rebind(
 		(request.replay_header_checksum != source_header_checksum)) {
 		return false;
 	}
+	request_saved = request;
 	request.replay_header_checksum = destination_header_checksum;
 	request.checksum = 0;
 	request.checksum = t2op_fnv1a(
@@ -1232,8 +1245,15 @@ static bool t2op_pending_request_rebind(
 		t2op_dos_seek(fd, 0) &&
 		(t2op_dos_write(fd, &request, sizeof(request)) == sizeof(request))
 	);
+	if(!written) {
+		restored = (
+			t2op_dos_seek(fd, 0) &&
+			(t2op_dos_write(fd, &request_saved, sizeof(request_saved)) ==
+			 sizeof(request_saved))
+		);
+	}
 	t2op_dos_close(fd);
-	if(written) {
+	if(written || restored) {
 		t2op_dos_flush();
 	}
 	return written;
