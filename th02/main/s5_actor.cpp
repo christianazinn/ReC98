@@ -166,7 +166,7 @@ static bool16 near th02_s5_mima_phase_parameters_valid(
 	);
 }
 
-static bool16 near th02_s5_mima_state_validate(
+static bool16 far th02_s5_mima_state_validate(
 	const th02_s5_mima_state_t *state
 )
 {
@@ -301,7 +301,7 @@ bool16 far th02_s5_mima_state_capture(th02_s5_mima_state_t *state)
 	return true;
 }
 
-static void near th02_s5_mima_state_commit(
+static void far th02_s5_mima_state_commit(
 	const th02_s5_mima_state_t *state
 )
 {

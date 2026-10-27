@@ -20,7 +20,7 @@ static bool16 near th02_actor_core_coord_valid(int value, int extent)
 	return ((value >= -512) && (value < (extent + 512)));
 }
 
-static bool16 near th02_actor_core_state_validate(
+static bool16 far th02_actor_core_state_validate(
 	const th02_actor_core_state_t *state
 )
 {
@@ -76,7 +76,7 @@ bool16 far th02_actor_core_state_capture(th02_actor_core_state_t *state)
 	return true;
 }
 
-static void near th02_actor_core_state_commit(
+static void far th02_actor_core_state_commit(
 	const th02_actor_core_state_t *state
 )
 {
