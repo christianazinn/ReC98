@@ -8381,6 +8381,9 @@ bool16 far replay_checkpoint_schema4_valid(
 	const uint8_t far *container, uint32_t container_size
 )
 {
+	if(container_size != T2REPLAY_CHECKPOINT_CAPTURE_SIZE) {
+		return false;
+	}
 	return t2replay_checkpoint_valid(container, container_size);
 }
 
