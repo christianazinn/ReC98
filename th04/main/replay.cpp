@@ -59,6 +59,8 @@ extern "C" const char arg0[];
 #define REPLAY_BUFFER_SIZE \
 	(REPLAY_BUFFER_PACKET_COUNT * REPLAY_USER_PACKET_SIZE)
 #define REPLAY_FAST_FORWARD_RATE 4
+// Keep diagnostic coordinates below the public REPLAY indicator.
+#define REPLAY_DIAGNOSTIC_TRAM_Y 1
 #if (GAME == 5)
 	// This resident tail word is ZUN bloat, reserved for replay pacing only.
 	#define REPLAY_FAST_FORWARD_PHASE resident->unused_3
@@ -3676,7 +3678,7 @@ static void replay_debug_u16_put(
 		divisor /= 10;
 	}
 	digits[i] = '\0';
-	text_putsa(left, 0, digits, TX_WHITE);
+	text_putsa(left, REPLAY_DIAGNOSTIC_TRAM_Y, digits, TX_WHITE);
 }
 
 static void replay_debug_u32_put(
@@ -3692,7 +3694,7 @@ static void replay_debug_u32_put(
 		divisor /= 10;
 	}
 	digits[i] = '\0';
-	text_putsa(left, 0, digits, TX_WHITE);
+	text_putsa(left, REPLAY_DIAGNOSTIC_TRAM_Y, digits, TX_WHITE);
 }
 
 static void replay_debug_stage_coordinates_put(void)
@@ -3717,17 +3719,17 @@ static void replay_debug_stage_coordinates_put(void)
 #if (GAME == 5)
 	map_section >>= 1;
 #endif
-	text_putca(4, 0, 'F', TX_WHITE);
+	text_putca(4, REPLAY_DIAGNOSTIC_TRAM_Y, 'F', TX_WHITE);
 	replay_debug_u16_put(5, stage_frame, 10000);
-	text_putca(11, 0, 'L', TX_WHITE);
+	text_putca(11, REPLAY_DIAGNOSTIC_TRAM_Y, 'L', TX_WHITE);
 	replay_debug_u16_put(12, replay_debug_last_std_frame, 10000);
-	text_putca(18, 0, 'N', TX_WHITE);
+	text_putca(18, REPLAY_DIAGNOSTIC_TRAM_Y, 'N', TX_WHITE);
 	replay_debug_u16_put(19, next_std_frame, 10000);
-	text_putca(25, 0, 'M', TX_WHITE);
+	text_putca(25, REPLAY_DIAGNOSTIC_TRAM_Y, 'M', TX_WHITE);
 	replay_debug_u16_put(26, map_section, 10);
-	text_putca(29, 0, 'R', TX_WHITE);
+	text_putca(29, REPLAY_DIAGNOSTIC_TRAM_Y, 'R', TX_WHITE);
 	replay_debug_u16_put(30, playperf, 100);
-	text_putca(34, 0, 'G', TX_WHITE);
+	text_putca(34, REPLAY_DIAGNOSTIC_TRAM_Y, 'G', TX_WHITE);
 	replay_debug_u32_put(35, static_cast<uint32_t>(random_seed), 1000000000UL);
 }
 
