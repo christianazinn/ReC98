@@ -1559,7 +1559,12 @@ static bool replay_header_read(void)
 		(replay_header.magic[6] != '\0') ||
 		(replay_header.magic[7] != '\0') ||
 		(replay_header.magic[5] != ('0' + replay_header.version)) ||
+#if (GAME == 5)
+		((replay_header.version != REPLAY_USER_VERSION) &&
+		 (replay_header.version != REPLAY_USER_VERSION_V8))
+#else
 		(replay_header.version != REPLAY_USER_VERSION)
+#endif
 	) {
 		return false;
 	}
@@ -1594,7 +1599,12 @@ static bool replay_header_read(void)
 	}
 	if(
 		(replay_header.header_size !=
+#if (GAME == 5)
+			((replay_header.version == REPLAY_USER_VERSION) ||
+			 (replay_header.version == REPLAY_USER_VERSION_V8)
+#else
 			((replay_header.version == REPLAY_USER_VERSION)
+#endif
 				? REPLAY_USER_HEADER_WIRE_SIZE : REPLAY_USER_HEADER_SIZE)) ||
 		(replay_header.packet_size != REPLAY_USER_PACKET_SIZE) ||
 		((replay_header.flags & ~REPLAY_USER_KNOWN_FLAGS) != 0) ||
@@ -1609,7 +1619,12 @@ static bool replay_header_read(void)
 		 ((replay_header.flags & REPLAY_USER_FLAG_PRACTICE) != 0)) ||
 		(replay_header.input_semantics != REPLAY_USER_INPUT_SEMANTICS) ||
 		(replay_header.input_offset !=
+#if (GAME == 5)
+			((replay_header.version == REPLAY_USER_VERSION) ||
+			 (replay_header.version == REPLAY_USER_VERSION_V8)
+#else
 			((replay_header.version == REPLAY_USER_VERSION)
+#endif
 				? REPLAY_USER_INPUT_OFFSET : REPLAY_USER_INPUT_OFFSET_LEGACY)) ||
 		(replay_header.input_size > REPLAY_USER_INPUT_SIZE_MAX) ||
 		(replay_header.packet_count >
@@ -1620,7 +1635,13 @@ static bool replay_header_read(void)
 		(replay_header.stage_reached > STAGE_EXTRA) ||
 		(replay_header.stage_directory_checksum == 0) ||
 		(
+#if (GAME == 5)
 			((replay_header.version == REPLAY_USER_VERSION) ||
+			 (replay_header.version == REPLAY_USER_VERSION_V8)
+#else
+			((replay_header.version == REPLAY_USER_VERSION)
+#endif
+			 ||
 			 (replay_header.version == REPLAY_USER_VERSION_V6)) !=
 			(replay_header.start.schema == REPLAY_START_SCHEMA)
 		) ||
@@ -1945,6 +1966,51 @@ static void replay_fail(void)
 {
 	replay_failed = true;
 }
+
+#if (GAME == 5)
+bool far replay_continue_hiscore_playback(void)
+{
+	uint16_t draws;
+	uint8_t ordinal;
+
+	if(replay_mode != RRM_PLAYBACK) {
+		return false;
+	}
+	if(
+		replay_failed ||
+		(replay_header.version <= REPLAY_USER_VERSION_V8) ||
+		!replay_playback_control(
+			REPLAY_CONTROL_CONTINUE_RNG, &draws, &ordinal
+		) ||
+		(draws > 1) || (ordinal != continues_used)
+	) {
+		if(replay_private_diagnostic == 0) {
+			replay_private_diagnostic = 0xE4000000UL;
+		}
+		replay_fail();
+		return true;
+	}
+	if(draws != 0) {
+		irand();
+	}
+	return true;
+}
+
+void far replay_continue_hiscore_record(uint8_t draws)
+{
+	if((replay_mode != RRM_RECORD) || replay_failed) {
+		return;
+	}
+	if(
+		(draws > 1) ||
+		!replay_record_control(
+			REPLAY_CONTROL_CONTINUE_RNG, draws, continues_used
+		)
+	) {
+		replay_fail();
+	}
+}
+#endif
 
 static void replay_sample_current(uint8_t phase)
 {

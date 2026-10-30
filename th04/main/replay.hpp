@@ -97,6 +97,13 @@ bool replay_process_end(void);
 bool replay_active(void);
 bool replay_playback_active(void);
 extern bool replay_continue_hiscore_enabled;
+#if (GAME == 5)
+// Records the stock Continue score-insertion branch, or consumes its RNG draw
+// during Playback without accessing the score file. True means Playback has
+// handled the call, including a missing or malformed event.
+bool far replay_continue_hiscore_playback(void);
+void far replay_continue_hiscore_record(uint8_t draws);
+#endif
 
 // Fixed-span pause.cpp delegates its expanded native menu here. Return value
 // retains pause()'s stock ABI: zero resumes and nonzero returns to OP.

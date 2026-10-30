@@ -4,7 +4,12 @@
 #include <stddef.h>
 #include "platform.h"
 
-#define REPLAY_USER_VERSION 8
+#define REPLAY_USER_VERSION_V8 8
+#if (GAME == 5)
+	#define REPLAY_USER_VERSION 9
+#else
+	#define REPLAY_USER_VERSION REPLAY_USER_VERSION_V8
+#endif
 #define REPLAY_USER_VERSION_V6 6
 #define REPLAY_USER_VERSION_V5 5
 #define REPLAY_USER_VERSION_LEGACY 4
@@ -91,6 +96,11 @@
 
 #define REPLAY_CONTROL_STAGE_START 1
 #define REPLAY_CONTROL_TERMINAL 2
+#if (GAME == 5)
+	// arg16 is the stock score-insertion draw count (0 or 1); arg8 is the
+	// Continue count before the stock prompt increments it.
+	#define REPLAY_CONTROL_CONTINUE_RNG 3
+#endif
 
 #define REPLAY_FNV1A_BASIS 0x811C9DC5UL
 #define REPLAY_FNV1A_PRIME 0x01000193UL

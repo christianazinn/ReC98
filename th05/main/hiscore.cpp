@@ -196,9 +196,17 @@ found:
 
 void near hiscore_continue_enter(void)
 {
+	uint8_t draws = 0;
+	extern int8_t unnecessary_shift_place_copy;
+
+	if(replay_continue_hiscore_playback()) {
+		return;
+	}
 	if(replay_continue_hiscore_enabled) {
 		hiscore_continue_enter_raw();
+		draws = (unnecessary_shift_place_copy < SCOREDAT_PLACES);
 	}
+	replay_continue_hiscore_record(draws);
 }
 
 #pragma codestring "\x90"
