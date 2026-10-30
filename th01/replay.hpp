@@ -69,9 +69,10 @@ bool16 far t1replay_process_handoff(uint8_t target_process);
 void far t1replay_exact_terminal_capture(uint8_t end_reason);
 #endif
 void far t1replay_terminal(uint8_t end_reason);
-// Exact-width wrappers for two existing stock far-call sites. The first
-// terminalizes before the native score menu; the second writes a postgame
-// request only after Continue has returned, then performs the native BGM stop.
+// Exact-width wrappers for two existing stock far-call sites. Story keeps its
+// recording through Continue while score registration remains outside the
+// stream. Practice still terminalizes immediately. Declining Continue finalizes
+// the Story recording before requesting Save and stopping the native BGM.
 void far t1replay_gameover_regist_menu(
 	score_t score, int16_t stage_num, sshiftjis_t route[SCOREDAT_ROUTE_LEN + 1]
 );

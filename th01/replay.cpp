@@ -4366,6 +4366,9 @@ void far t1replay_exact_terminal_capture(uint8_t end_reason)
 	if(t1replay_mode == T1RM_DISABLED) {
 		return;
 	}
+	if((end_reason == T1REPLAY_END_MENU) && t1stat_gameover) {
+		end_reason = T1REPLAY_END_GAME_OVER;
+	}
 	t1replay_exact_terminal_pending = t1replay_exact_trace_row_capture(
 		&t1replay_exact_terminal_row, T1REPLAY_EXACT_ROW_TERMINAL,
 		T1REPLAY_PROCESS_NONE, end_reason,
@@ -4875,9 +4878,8 @@ bool16 far t1replay_process_handoff(uint8_t target_process)
 	}
 	t1replay_self_exec_prepare();
 	if(t1replay_mode == T1RM_DISABLED) {
-		// continue_menu() reaches this path only for Yes. The first credit has
-		// already terminated, so remove its pending transaction before native
-		// unrecorded execution replaces this process.
+		// A finalized transaction cannot be carried into unrecorded execution.
+		// Active Story recordings retain their carrier through Continue below.
 		if(
 			t1replay_terminal_pending &&
 			(target_process == T1REPLAY_PROCESS_REIIDEN)
@@ -4979,21 +4981,34 @@ static void t1replay_pause_terminal_apply(bool playback)
 	}
 }
 
+static void t1replay_gameover_stats(void)
+{
+	if(!t1stat_gameover) {
+		scorestat_process_checkpoint();
+		scorestat_process_enter(rank, 0, false);
+		t1stat_gameover = true;
+	}
+}
+
 void far t1replay_terminal(uint8_t end_reason)
 {
 	bool playback = (t1replay_mode == T1RM_PLAYBACK);
+	bool gameover_menu = (
+		(end_reason == T1REPLAY_END_MENU) && t1stat_gameover &&
+		(t1replay_mode != T1RM_DISABLED)
+	);
 
 	if(end_reason == T1REPLAY_END_GAME_OVER) {
-		if(!t1stat_gameover) {
-			scorestat_process_checkpoint();
-			scorestat_process_enter(rank, 0, false);
-			t1stat_gameover = true;
-		}
+		t1replay_gameover_stats();
 	} else if(end_reason == T1REPLAY_END_MENU) {
 		if(t1stat_gameover && t1stat_eligible) {
 			scorestat_process_enter(rank, 0, true);
 		}
 		scorestat_run_end();
+	}
+	if(gameover_menu) {
+		// Escape leaves the stock Continue menu through its late Menu terminal.
+		end_reason = T1REPLAY_END_GAME_OVER;
 	}
 	t1replay_fast_forward_boundary_reset();
 
@@ -5067,6 +5082,9 @@ void far t1replay_terminal(uint8_t end_reason)
 	t1replay_res_clear();
 	t1replay_mode = T1RM_DISABLED;
 	t1replay_pause_terminal_apply(playback);
+	if(gameover_menu && !playback) {
+		t1replay_terminal_request_pending(T1RSRS_POSTGAME);
+	}
 	if(playback) {
 		t1replay_abort_to_op();
 	}
@@ -5081,21 +5099,45 @@ void far t1replay_gameover_regist_menu(
 		t1replay_no_record_practice ||
 		(t1replay_header.flags & T1REPLAY_FLAG_PRACTICE)
 	);
+	t1replay_mode_t mode = t1replay_mode;
 
-#if T1REPLAY_EXACT_TRACE
-	t1replay_exact_terminal_capture(T1REPLAY_END_GAME_OVER);
-#endif
-	t1replay_terminal(T1REPLAY_END_GAME_OVER);
 	if(practice) {
+#if T1REPLAY_EXACT_TRACE
+		t1replay_exact_terminal_capture(T1REPLAY_END_GAME_OVER);
+#endif
+		t1replay_terminal(T1REPLAY_END_GAME_OVER);
 		t1replay_terminal_save_request();
 		t1replay_abort_to_op();
 		return;
 	}
-	regist_menu(score, stage_num, route);
+	t1replay_gameover_stats();
+	// Older Story recordings end before Continue has sampled any input.
+	if((mode == T1RM_PLAYBACK) &&
+		(t1replay_header.end_reason == T1REPLAY_END_GAME_OVER) &&
+		(t1replay_sample_cursor == t1replay_header.sample_count)) {
+#if T1REPLAY_EXACT_TRACE
+		t1replay_exact_terminal_capture(T1REPLAY_END_GAME_OVER);
+#endif
+		t1replay_terminal(T1REPLAY_END_GAME_OVER);
+		return;
+	}
+	if(mode != T1RM_PLAYBACK) {
+		// Score registration is native UI, but is outside the replay stream.
+		// Suspending sampling here retains the live carrier and disk guard.
+		t1replay_mode = T1RM_DISABLED;
+		regist_menu(score, stage_num, route);
+		t1replay_mode = mode;
+	}
 }
 
 void far t1replay_terminal_save_request(void)
 {
+	if(t1stat_gameover && (t1replay_mode != T1RM_DISABLED)) {
+#if T1REPLAY_EXACT_TRACE
+		t1replay_exact_terminal_capture(T1REPLAY_END_GAME_OVER);
+#endif
+		t1replay_terminal(T1REPLAY_END_GAME_OVER);
+	}
 	if(t1stat_gameover && t1stat_eligible) {
 		scorestat_process_enter(rank, 0, true);
 	}
