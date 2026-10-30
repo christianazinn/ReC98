@@ -69,6 +69,17 @@ int main(int argc, char **argv)
 		shell = next_parent;
 	}
 
+	// DOS also restores the terminating PSP's INT 22h, 23h, and 24h vectors.
+	// The outermost retired child holds the return to the surviving shell.
+	// Keep those vectors before releasing that child's PSP and code.
+	if(ancestor_count != 0) {
+		for(i = 0x0A; i < 0x16; i += 2) {
+			*reinterpret_cast<unsigned far *>(MK_FP(_psp, i)) = psp_word(
+				ancestors[ancestor_count - 1], i
+			);
+		}
+	}
+
 	// DOS chooses the return process from PSP:16 when this helper terminates.
 	// Detach all suspended game processes first so no later failure can return
 	// into a block released below. Keeping OP resident was enough to starve a
