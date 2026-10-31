@@ -1390,6 +1390,14 @@ static bool t1replay_checkpoint_cross_groups_valid(
 	) {
 		return false;
 	}
+	if(
+		(checkpoint->boss.boss_id == BID_KIKURI) &&
+		(reinterpret_cast<const t1boss_kikuri_checkpoint_t far *>(
+			checkpoint->boss.payload)->phase == 0) &&
+		(pacing->frame_since_start_of_binary != 0)
+	) {
+		return false;
+	}
 	// Bomb use and collection update the gameplay count immediately, but the
 	// resident copy is synchronized only at specific handoffs. Both are saved.
 	if(checkpoint->orb.in_portal) {

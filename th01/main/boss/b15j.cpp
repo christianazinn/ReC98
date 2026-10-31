@@ -1315,6 +1315,74 @@ static bool16 t1boss_kikuri_checkpoint_entity_is_valid(
 	);
 }
 
+static bool16 t1boss_kikuri_checkpoint_entry_valid(
+	const t1boss_kikuri_checkpoint_t *checkpoint
+)
+{
+	int i;
+	int col;
+	int comp;
+
+	if(
+		!checkpoint ||
+		(checkpoint->owner != T1BOSS_KIKURI_CHECKPOINT_OWNER) ||
+		(checkpoint->schema != T1BOSS_KIKURI_CHECKPOINT_SCHEMA) ||
+		(checkpoint->phase != 0) || (checkpoint->reserved_0 != 0) ||
+		(checkpoint->phase_frame != 0) || (checkpoint->hp != HP_TOTAL) ||
+		(checkpoint->invincibility_frame != 0) ||
+		(checkpoint->pattern_state != 0) ||
+		(checkpoint->phase_u1 != P4_SOUL_ACTIVATION) ||
+		(checkpoint->patterns_done != 0) ||
+		(checkpoint->phase_2_distance != 0) ||
+		(checkpoint->phase_6_random_range_x_half != 0) ||
+		(checkpoint->hit_invincible != false) ||
+		(checkpoint->initial_hp_rendered != false) ||
+		(checkpoint->phase_2_angle != 0) ||
+		(checkpoint->phase_2_drift != 0) ||
+		(checkpoint->phase_6_spiral_angle != 0) ||
+		(checkpoint->reserved[0] != 0)
+	) {
+		return false;
+	}
+	for(i = 0; i < SOUL_COUNT; i++) {
+		if(
+			(checkpoint->soul_left[i] != 0) ||
+			(checkpoint->soul_top[i] != 0) ||
+			(checkpoint->soul_prev_left[i] != 0) ||
+			(checkpoint->soul_prev_top[i] != 0) ||
+			(checkpoint->soul_prev_delta_x[i] != 0) ||
+			(checkpoint->soul_prev_delta_y[i] != 0) ||
+			(checkpoint->soul_image[i] != 0) ||
+			(checkpoint->soul_lock_frame[i] != 0)
+		) {
+			return false;
+		}
+	}
+	for(i = 0; i < TEAR_COUNT; i++) {
+		if(
+			(checkpoint->tear_anim_frame[i] != 0) ||
+			(checkpoint->tear_left[i] != 0) ||
+			(checkpoint->tear_top[i] != 0) ||
+			(checkpoint->tear_prev_left[i] != 0) ||
+			(checkpoint->tear_prev_top[i] != 0) ||
+			(checkpoint->tear_prev_delta_x[i] != 0) ||
+			(checkpoint->tear_prev_delta_y[i] != 0) ||
+			(checkpoint->tear_image[i] != 0) ||
+			(checkpoint->tear_lock_frame[i] != 0)
+		) {
+			return false;
+		}
+	}
+	for(col = 0; col < COLOR_COUNT; col++) {
+		for(comp = 0; comp < COMPONENT_COUNT; comp++) {
+			if(checkpoint->boss_palette[col][comp] > RGB4::max()) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 bool16 t1boss_kikuri_checkpoint_validate(
 	const t1boss_kikuri_checkpoint_t *checkpoint
 )
@@ -1322,6 +1390,10 @@ bool16 t1boss_kikuri_checkpoint_validate(
 	int i;
 	int col;
 	int comp;
+
+	if(checkpoint && (checkpoint->phase == 0)) {
+		return t1boss_kikuri_checkpoint_entry_valid(checkpoint);
+	}
 
 	if(
 		!checkpoint ||
