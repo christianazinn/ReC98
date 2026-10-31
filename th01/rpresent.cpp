@@ -27,12 +27,10 @@ bool16 t1replay_ckpt_player_paint_valid(
 		(checkpoint->player_left >= 0) &&
 		(checkpoint->player_left <= (RES_X - T1REPLAY_PLAYER_W)) &&
 		(
-			(checkpoint->ptn_id_prev == PTN_MIKO_L) ||
-			(checkpoint->ptn_id_prev == PTN_MIKO_R) ||
-			((checkpoint->ptn_id_prev >= PTN_MIKO_L_DASH) &&
-			 (checkpoint->ptn_id_prev <= PTN_MIKO_L_DASH_last)) ||
-			((checkpoint->ptn_id_prev >= PTN_MIKO_R_DASH) &&
-			 (checkpoint->ptn_id_prev <= PTN_MIKO_R_DASH_last))
+			((checkpoint->ptn_id_prev >= PTN_MIKO_L) &&
+			 (checkpoint->ptn_id_prev <= PTN_MIKO_L_DASH_SHOOT_last)) ||
+			((checkpoint->ptn_id_prev >= PTN_MIKO_R) &&
+			 (checkpoint->ptn_id_prev <= PTN_MIKO_R_DASH_SHOOT_last))
 		)
 	);
 }

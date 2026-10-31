@@ -29,7 +29,7 @@ bool16 t1replay_stage_checkpoint_import(
 		(obstacles.count > T1REPLAY_CHECKPOINT_OBSTACLE_COUNT_MAX) ||
 		(checkpoint->vertical_bars_blocked > 1) ||
 		(checkpoint->portals_blocked > 1) ||
-		(checkpoint->card_flip_cycle >= CARD_FLIP_CYCLE_MAX) ||
+		(checkpoint->card_flip_cycle > CARD_FLIP_CYCLE_MAX) ||
 		(checkpoint->reserved != 0)
 	) {
 		return false;

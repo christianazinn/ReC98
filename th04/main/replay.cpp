@@ -229,7 +229,11 @@ extern const gaiji_th04_t gEXTRA_STAGE[12];
 #endif
 
 #define REPLAY_DOS_RESERVE_PARAS (4096 >> 4)
-#define REPLAY_ARCHIVE_BUFFER_SIZE 1024
+#if (GAME == 5)
+	#define REPLAY_ARCHIVE_BUFFER_SIZE 512
+#else
+	#define REPLAY_ARCHIVE_BUFFER_SIZE 1024
+#endif
 
 // The RC19 sender-result paths add eight bytes in this tail contribution.
 // Keep the following stock CRT segment at its foundation paragraph phase.

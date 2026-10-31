@@ -1097,7 +1097,7 @@ static bool t1replay_checkpoint_stage_valid(
 		(stage->obstacles_count > T1REPLAY_CHECKPOINT_OBSTACLE_COUNT_MAX) ||
 		(stage->vertical_bars_blocked > 1) ||
 		(stage->portals_blocked > 1) ||
-		(stage->card_flip_cycle >= CARD_FLIP_CYCLE_MAX) ||
+		(stage->card_flip_cycle > CARD_FLIP_CYCLE_MAX) ||
 		(stage->reserved != 0)
 	) {
 		return false;
