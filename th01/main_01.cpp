@@ -663,6 +663,9 @@ int main(void)
 		mdrv2_bgm_play();
 		mdrv2_se_load(SE_FN);
 		// Kind of pointless if the flag isn't reset?
+	} else if(t1replay_checkpoint_restore_pending()) {
+		// A cold checkpoint needs the driver resource as well as its saved flag.
+		mdrv2_se_load(SE_FN);
 	}
 
 	if(mode_debug == true) {
