@@ -332,7 +332,7 @@ static bool language_main_preference_is_english(void)
 		(data[0] != 'T') || (data[1] != ('0' + GAME)) ||
 		(data[2] != 'L') || (data[3] != 'G') ||
 		(data[4] != LANGUAGE_MAIN_CONFIG_VERSION) ||
-		(data[5] != 1) ||
+		((data[5] & ~0x40) != 1) ||
 		(data[6] != checksum) ||
 		(data[7] != static_cast<uint8_t>(~checksum))
 	) {
