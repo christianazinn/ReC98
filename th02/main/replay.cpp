@@ -7884,8 +7884,13 @@ void replay_stage_start(void)
 	}
 	t2replay_fast_forward_boundary_reset();
 	replay_rank_lock_apply();
-	// Resolve stage_init()'s opaque TRAM mask before a direct-start seek waits.
-	overlay_wipe();
+	if(
+		(t2replay_mode != T2RM_DISABLED) ||
+		replay_practice_stage_presentation_skip()
+	) {
+		// Resolve stage_init()'s opaque TRAM mask before a direct-start seek waits.
+		overlay_wipe();
+	}
 	t2replay_practice_music_seek();
 #ifdef T2SGA
 	t2debug_coords_reset();
