@@ -15,6 +15,7 @@ bool16 t1replay_stage_checkpoint_import(
 	int i;
 	int j;
 	int ptn_id;
+	bool16 has_portal = false;
 
 	if(
 		!checkpoint || !stageobj_bgs || !cards.left || !cards.top ||
@@ -76,8 +77,12 @@ bool16 t1replay_stage_checkpoint_import(
 		) {
 			return false;
 		}
+		if(obstacle->type == OT_PORTAL) {
+			has_portal = true;
+		}
 	}
-	if(checkpoint->portals_blocked) {
+	// A portal-free stage can retain the native latch from the previous stage.
+	if(has_portal && checkpoint->portals_blocked) {
 		if(
 			(checkpoint->entered_portal_slot < 0) ||
 			(checkpoint->entered_portal_slot >= obstacles.count) ||
@@ -167,7 +172,7 @@ bool16 t1replay_stage_checkpoint_import(
 		}
 	}
 
-	if(checkpoint->portals_blocked) {
+	if(has_portal && checkpoint->portals_blocked) {
 		int portal_frame = checkpoint->obstacles[
 			checkpoint->entered_portal_slot
 		].frame;
