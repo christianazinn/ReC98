@@ -3903,11 +3903,14 @@ void pascal replay_input_wait_for_change(int frames)
 	#if (GAME == 5)
 		int time;
 
-		while(replay_input_reset_sense_held_interstitial()) {
+		while(!replay_failed && replay_input_reset_sense_held_interstitial()) {
+		}
+		if(replay_failed) {
+			return;
 		}
 		time = frames;
 		do {
-			if(replay_input_reset_sense_held_interstitial()) {
+			if(replay_input_reset_sense_held_interstitial() || replay_failed) {
 				return;
 			}
 			_AX = vsync_Count1;
@@ -3927,11 +3930,11 @@ void pascal replay_input_wait_for_change(int frames)
 			input_reset_sense();
 			frame_delay(1);
 			replay_input_sense_interstitial();
-		} while(key_det != INPUT_NONE);
+		} while((key_det != INPUT_NONE) && !replay_failed);
 		if(!frames) {
 			frames = 9999;
 		}
-		while(frame < frames) {
+		while((frame < frames) && !replay_failed) {
 			input_reset_sense();
 			frame_delay(1);
 			replay_input_sense_interstitial();

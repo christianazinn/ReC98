@@ -7,7 +7,7 @@
 #define LANGUAGE_DIALOG_READ_MAX_FRAMES 180
 
 typedef char language_dialog_op06_size_check[
-	(sizeof(tx2_op_06_params) == 6) ? 1 : -1
+	(sizeof(tx2_op_06_params) == 5) ? 1 : -1
 ];
 
 struct language_dialog_page_t {
