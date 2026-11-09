@@ -198,12 +198,12 @@ void near dialog_run(void)
 				// example. Y'know, just to ensure that held keys are always
 				// recognized as such, and don't cause a sporadic 2-frame delay
 				// before the text is displayed completely after all.
-				replay_input_reset_sense_interstitial();
+				language_main_dialog_reset_sense();
 
 				c = *(dialog_p++);
 				// End of text box?
 				if(c == 0xFF) {
-					replay_input_wait_for_change(0);
+					language_main_dialog_wait_for_change(0);
 					break;
 				} else if(!dialog_op(c)) {
 					// Regular kanji

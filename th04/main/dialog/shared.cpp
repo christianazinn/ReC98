@@ -15,6 +15,7 @@
 #include "th03/formats/cdg.h"
 #if (GAME == 5)
 #include "th05/hardware/input.h"
+#include "th04/main/language.hpp"
 #else
 #include "th04/hardware/input.h"
 #endif
@@ -151,7 +152,14 @@ inline void dialog_text_put(shiftjis_t* const& text) {
 	// modding text. With such a 0xFF interpreted as a lead byte, text_putsa()
 	// will treat the terminating \0 as a trail byte, and end up printing a
 	// much longer string up to the next properly aligned \0 byte.
+
+#if (GAME == 5)
+	language_main_dialog_putsa(
+
+#else
 	text_putsa(
+
+#endif
 		to_tram_x(dialog_cursor.x), to_tram_y(dialog_cursor.y), text, TX_WHITE
 	);
 	dialog_cursor.x += to_dialog_x(GLYPH_FULL_W);
@@ -182,7 +190,14 @@ inline void dialog_post(void) {
 // ---------------
 
 template <class T> inline void dialog_op_gaiji(const T& c) {
+
+#if (GAME == 5)
+	language_main_dialog_gaiji_putca(
+
+#else
 	gaiji_putca(
+
+#endif
 		to_tram_x(dialog_cursor.x), to_tram_y(dialog_cursor.y), c, TX_WHITE
 	);
 	dialog_cursor.x += to_dialog_x(GAIJI_W);

@@ -8,6 +8,13 @@
 #if (GAME == 5)
 	#include "th04/main/hud/overlay.hpp"
 	#include "th04/main/stage/stage.hpp"
+	#include "th04/main/replay.hpp"
+	#include "th04/main/playfld.hpp"
+	#include "th04/sprites/main_cdg.h"
+	#include "th05/playchar.h"
+	#include "th05/formats/dialog.hpp"
+	#include "th05/hardware/input.h"
+	#include "th02/hardware/frmdelay.h"
 	extern "C" shiftjis_t aTH05_10[];
 	extern "C" shiftjis_t aTH05_11[];
 #endif
@@ -332,7 +339,7 @@ static bool language_main_preference_is_english(void)
 		(data[0] != 'T') || (data[1] != ('0' + GAME)) ||
 		(data[2] != 'L') || (data[3] != 'G') ||
 		(data[4] != LANGUAGE_MAIN_CONFIG_VERSION) ||
-		(data[5] != 1) ||
+		((data[5] & ~0x40) != 1) ||
 		(data[6] != checksum) ||
 		(data[7] != static_cast<uint8_t>(~checksum))
 	) {
@@ -811,8 +818,18 @@ void language_main_hud_gaiji_apply(void)
 }
 #endif
 
+
+#if (GAME == 5)
+#include "th05/main/dialog/language.inc"
+#endif
+
 int far pascal language_main_dialog_ropen(const char *fn)
 {
+#if (GAME == 5)
+	language_main_dialog_overlay_active = false;
+	language_dialog_prepare(fn);
+	return file_ropen(fn);
+#else
 	char overlay_fn[13];
 
 	language_main_dialog_overlay_active = false;
@@ -835,6 +852,7 @@ int far pascal language_main_dialog_ropen(const char *fn)
 	pfend();
 	language_main_stock_archive_restore();
 	return file_ropen(fn);
+#endif
 }
 
 void far pascal language_main_dialog_close(void)
