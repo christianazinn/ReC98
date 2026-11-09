@@ -2189,6 +2189,8 @@ static void replay_diagnostic_stage_start_compare(void)
 
 	if(
 		!replay_practice_diagnostic || (replay_mode != RRM_PLAYBACK) ||
+		((replay_header.mode == RUM_PRACTICE) &&
+		 (replay_header.start.kind > RSK_STAGE)) ||
 		replay_private_diagnostic || (stage_id >= REPLAY_USER_STAGE_COUNT)
 	) {
 		return;
