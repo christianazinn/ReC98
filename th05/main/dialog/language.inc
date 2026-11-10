@@ -20,8 +20,8 @@ struct language_dialog_page_t {
 	uint8_t sequence;
 };
 
-static language_dialog_page_t language_dialog_jp[LANGUAGE_DIALOG_PAGE_COUNT];
-static language_dialog_page_t language_dialog_en[LANGUAGE_DIALOG_PAGE_COUNT];
+static language_dialog_page_t far *language_dialog_jp;
+static language_dialog_page_t far *language_dialog_en;
 static unsigned language_dialog_jp_count;
 static unsigned language_dialog_en_count;
 static unsigned char far *language_dialog_translation;
@@ -35,6 +35,8 @@ static unsigned language_dialog_top;
 static unsigned language_dialog_x;
 static unsigned language_dialog_y;
 static bool language_dialog_active;
+static char language_dialog_filename[13];
+static bool language_dialog_prepared;
 
 extern struct {
 	tram_x_t x;
@@ -46,9 +48,31 @@ static void language_dialog_release(void)
 	language_dialog_active = false;
 	language_dialog_jp_count = 0;
 	language_dialog_en_count = 0;
+	if(language_dialog_jp) {
+		hmem_free(reinterpret_cast<void __seg *>(language_dialog_jp));
+		language_dialog_jp = nullptr;
+		language_dialog_en = nullptr;
+	}
 	if(language_dialog_translation) {
 		hmem_free(reinterpret_cast<void __seg *>(language_dialog_translation));
 		language_dialog_translation = nullptr;
+	}
+}
+
+static void language_dialog_select(const char *fn)
+{
+	unsigned i;
+
+	language_dialog_release();
+	language_dialog_prepared = false;
+	language_dialog_filename[0] = '\0';
+	if(language_main_dialog_member(fn)) {
+		for(i = 0; i < sizeof(language_dialog_filename); i++) {
+			language_dialog_filename[i] = fn[i];
+			if(fn[i] == '\0') {
+				break;
+			}
+		}
 	}
 }
 
@@ -56,11 +80,13 @@ static void language_dialog_release(void)
 // native interpreter still owns all commands and every replay sample.
 static bool language_dialog_scan(
 	const unsigned char far *data, unsigned size,
-	language_dialog_page_t *pages, unsigned& count
+	language_dialog_page_t far *pages, unsigned& count
 )
 {
 	unsigned p = 0;
 	unsigned start;
+	language_dialog_page_t scratch;
+	language_dialog_page_t far *page;
 	uint8_t c;
 	uint8_t side = 2;
 	uint8_t sequence = 0;
@@ -77,10 +103,11 @@ static bool language_dialog_scan(
 			if((side > 1) || (count >= LANGUAGE_DIALOG_PAGE_COUNT)) {
 				return false;
 			}
-			pages[count].start = p;
-			pages[count].glyphs = 0;
-			pages[count].side = side;
-			pages[count].sequence = sequence;
+			page = (pages ? &pages[count] : &scratch);
+			page->start = p;
+			page->glyphs = 0;
+			page->side = side;
+			page->sequence = sequence;
 			while(p < size) {
 				c = data[p++];
 				if(c == 0xFF) {
@@ -100,12 +127,12 @@ static bool language_dialog_scan(
 					}
 					p++;
 				}
-				pages[count].glyphs++;
+				page->glyphs++;
 			}
-			if((c != 0xFF) || !pages[count].glyphs) {
+			if((c != 0xFF) || !page->glyphs) {
 				return false;
 			}
-			pages[count].end = p;
+			page->end = p;
 			count++;
 		} else if(c <= 1) {
 			side = c;
@@ -184,18 +211,27 @@ static bool language_dialog_pair(void)
 	return (e == language_dialog_en_count);
 }
 
-static unsigned char far *language_dialog_slice_read(const char *fn, unsigned& size)
+static unsigned char far *language_dialog_slice_read(
+	const char *fn, unsigned& size,
+	unsigned char far *provided = nullptr,
+	unsigned far *slice_start = nullptr
+)
 {
 	tx2_header_t header;
 	unsigned char far *data = nullptr;
 	unsigned start;
 	unsigned end;
 
-	size = 0;
-	if(static_cast<unsigned>(playchar) >= PLAYCHAR_COUNT) {
+	if((provided && !slice_start) ||
+		(static_cast<unsigned>(playchar) >= PLAYCHAR_COUNT)) {
+		size = 0;
 		return nullptr;
 	}
+	if(!provided) {
+		size = 0;
+	}
 	if(!file_ropen(fn)) {
+		size = 0;
 		return nullptr;
 	}
 	if(file_read(&header, sizeof(header)) == sizeof(header)) {
@@ -203,17 +239,36 @@ static unsigned char far *language_dialog_slice_read(const char *fn, unsigned& s
 		end = header.offset_for[playchar + 1];
 		if((start >= sizeof(header)) && (end > start) &&
 			((end - start) <= LANGUAGE_DIALOG_SLICE_SIZE)) {
+			if(provided && (((end - start) != size) ||
+				(start != *slice_start))) {
+				size = 0;
+				file_close();
+				return nullptr;
+			}
 			size = end - start;
-			data = reinterpret_cast<unsigned char far *>(hmem_allocbyte(size));
+			// A start pointer without a buffer requests only the validated header.
+			if(!provided && slice_start) {
+				*slice_start = start;
+				file_close();
+				return nullptr;
+			}
+			data = (provided ? provided :
+				reinterpret_cast<unsigned char far *>(hmem_allocbyte(size)));
 			if(data) {
 				file_seek(start, SEEK_SET);
 				if(file_read(data, size) != size) {
-					hmem_free(reinterpret_cast<void __seg *>(data));
+					if(!provided) {
+						hmem_free(reinterpret_cast<void __seg *>(data));
+					}
 					data = nullptr;
 					size = 0;
 				}
 			}
+		} else {
+			size = 0;
 		}
+	} else {
+		size = 0;
 	}
 	file_close();
 	return data;
@@ -224,6 +279,8 @@ static void language_dialog_prepare(const char *fn)
 	char overlay_fn[13];
 	unsigned english_size;
 	unsigned japanese_size;
+	unsigned japanese_pages;
+	unsigned english_pages;
 	unsigned char far *japanese;
 	bool valid;
 
@@ -237,21 +294,63 @@ static void language_dialog_prepare(const char *fn)
 	}
 	pfend();
 	pfstart(reinterpret_cast<const unsigned char *>(overlay_fn));
-	language_dialog_translation = language_dialog_slice_read(fn, english_size);
+	// These locals are reused before their JP loading and scanning lifetimes.
+	language_dialog_slice_read(fn, english_size, nullptr, &japanese_size);
 	pfend();
 	language_main_stock_archive_restore();
+	if(!english_size) {
+		return;
+	}
+	language_dialog_translation = reinterpret_cast<unsigned char far *>(
+		hmem_allocbyte(english_size)
+	);
 	if(!language_dialog_translation) {
 		return;
 	}
+	pfend();
+	pfstart(reinterpret_cast<const unsigned char *>(overlay_fn));
+	japanese_pages = english_size;
+	japanese = language_dialog_slice_read(fn, japanese_pages,
+		language_dialog_translation, &japanese_size);
+	pfend();
+	language_main_stock_archive_restore();
+	if(!japanese || (japanese_pages != english_size)) {
+		language_dialog_release();
+		return;
+	}
+	language_dialog_jp = nullptr;
 	japanese = language_dialog_slice_read(fn, japanese_size);
 	valid = (
 		japanese &&
 		language_dialog_scan(japanese, japanese_size,
-			language_dialog_jp, language_dialog_jp_count) &&
+			nullptr, japanese_pages) &&
 		language_dialog_scan(language_dialog_translation, english_size,
-			language_dialog_en, language_dialog_en_count) &&
-		language_dialog_pair()
+			nullptr, english_pages)
 	);
+	if(valid && japanese_pages && english_pages) {
+		language_dialog_jp_count = japanese_pages;
+		language_dialog_en_count = english_pages;
+		language_dialog_jp = reinterpret_cast<language_dialog_page_t far *>(
+			hmem_allocbyte(sizeof(language_dialog_page_t) *
+				(japanese_pages + english_pages))
+		);
+		if(language_dialog_jp) {
+			language_dialog_en = (language_dialog_jp + japanese_pages);
+			valid = (
+				language_dialog_scan(japanese, japanese_size,
+					language_dialog_jp, language_dialog_jp_count) &&
+				language_dialog_scan(language_dialog_translation, english_size,
+					language_dialog_en, language_dialog_en_count) &&
+				(language_dialog_jp_count == japanese_pages) &&
+				(language_dialog_en_count == english_pages) &&
+				language_dialog_pair()
+			);
+		} else {
+			valid = false;
+		}
+	} else {
+		valid = false;
+	}
 	if(japanese) {
 		hmem_free(reinterpret_cast<void __seg *>(japanese));
 	}
@@ -338,6 +437,12 @@ void far language_main_dialog_reset_sense(void)
 	unsigned i;
 	unsigned offset = FP_OFF(dialog_p);
 
+	if(!language_dialog_prepared) {
+		if(language_dialog_filename[0]) {
+			language_dialog_prepare(language_dialog_filename);
+		}
+		language_dialog_prepared = true;
+	}
 	for(i = 0; i < language_dialog_jp_count; i++) {
 		if(language_dialog_jp[i].start == offset) {
 			language_dialog_current = i;
@@ -389,6 +494,8 @@ void far pascal language_main_dialog_wait_for_change(int frames)
 	// This is still the one native wait for the one canonical JP box.
 	replay_input_wait_for_change(frames);
 	if(!language_dialog_active) {
+		language_dialog_release();
+		language_dialog_prepared = false;
 		return;
 	}
 	for(page = language_dialog_jp[language_dialog_current].first_english + 1;
@@ -404,6 +511,9 @@ void far pascal language_main_dialog_wait_for_change(int frames)
 		}
 		language_dialog_page_wait();
 	}
-	language_dialog_active = false;
+	// All English pages for this canonical box have now been displayed.
+	// Release before the native script can load another resource.
+	language_dialog_release();
+	language_dialog_prepared = false;
 }
 #endif

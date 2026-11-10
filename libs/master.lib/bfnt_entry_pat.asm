@@ -49,6 +49,17 @@
 ;			ときにもエラーにするようにした
 ;	95/ 3/24 [M0.22k] InvalidData時、smemを開放していなかった
 
+REPLAY_BFNT_TH05_MAIN = 0
+ifdef GAME
+if GAME eq 5
+ifdef BINARY
+if BINARY eq 'M'
+	REPLAY_BFNT_TH05_MAIN = 1
+endif
+endif
+endif
+endif
+
 MRETURN macro
 	pop	SI
 	pop	DI
@@ -61,7 +72,13 @@ MRETURN macro
 retfunc BFTENTRY_INVAL
 	push	DS
 	mov	DS,CS:_DS_
+if REPLAY_BFNT_TH05_MAIN
+	_call	REPLAY_BFNT_STUB_FREE
+public REPLAY_BFNT_INVALID_CLEANUP_RETURN
+REPLAY_BFNT_INVALID_CLEANUP_RETURN label near
+else
 	_call	SMEM_RELEASE
+endif
 	mov	AX,InvalidData
 BFTENTRY_FAULT:	MRETURN
 endfunc
@@ -103,12 +120,20 @@ func BFNT_ENTRY_PAT	; bfnt_entry_pat() {
 	mov	CS:@@read_byte,AX
 	xchg	BX,AX
 	push	BX
+if REPLAY_BFNT_TH05_MAIN
+	_call	REPLAY_BFNT_STUB_ALLOC_FIRST
+else
 	_call	SMEM_WGET
+endif
 	jc	short BFTENTRY_FAULT
 
 	xchg	CX,AX			;address backup
 	push	BX
+if REPLAY_BFNT_TH05_MAIN
+	_call	REPLAY_BFNT_STUB_ALLOC_SECOND
+else
 	_call	SMEM_WGET
+endif
 	jc	short BFTENTRY_FAULT
 
 	mov	ES,AX
@@ -229,8 +254,16 @@ B2V_LOOP:
 	mov	DS,CS:_DS_
 	mov	CX,AX
 	push	ES
+if REPLAY_BFNT_TH05_MAIN
+	_call	REPLAY_BFNT_STUB_FREE
+else
 	_call	SMEM_RELEASE
+endif
+if REPLAY_BFNT_TH05_MAIN
+	_call	REPLAY_BFNT_STUB_FREE
+else
 	_call	SMEM_RELEASE
+endif
 	mov	AX,CX
 	stc
 	MRETURN
@@ -238,8 +271,16 @@ B2V_LOOP:
 	push	DS
 	mov	DS,CS:_DS_
 	push	ES
+if REPLAY_BFNT_TH05_MAIN
+	_call	REPLAY_BFNT_STUB_FREE
+else
 	_call	SMEM_RELEASE
+endif
+if REPLAY_BFNT_TH05_MAIN
+	_call	REPLAY_BFNT_STUB_FREE
+else
 	_call	SMEM_RELEASE
+endif
 	mov	AX,NoError
 	clc
 	MRETURN

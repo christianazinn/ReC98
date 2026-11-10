@@ -64,6 +64,17 @@ nextseg	dw	?
 mem_id	dw	?
 MEMHEAD	ENDS
 
+REPLAY_BFNT_TH05_MAIN = 0
+ifdef GAME
+if GAME eq 5
+ifdef BINARY
+if BINARY eq 'M'
+	REPLAY_BFNT_TH05_MAIN = 1
+endif
+endif
+endif
+endif
+
 REPLAY_CHECKED_HEAP = 0
 ifdef BINARY
 if ((GAME eq 4) or (GAME eq 5)) and (BINARY eq 'M')
@@ -74,6 +85,9 @@ endif
 if REPLAY_CHECKED_HEAP
 _TEXT ends
 	extrn REPLAY_HEAP_ALLOCBYTE:far
+if REPLAY_BFNT_TH05_MAIN
+	extrn REPLAY_BFNT_ALLOC_FIRST:far, REPLAY_BFNT_ALLOC_SECOND:far, REPLAY_BFNT_CLEANUP_DISPATCH:far
+endif
 _TEXT segment word public 'CODE' use16
 endif
 
@@ -82,7 +96,20 @@ if REPLAY_CHECKED_HEAP
 	db	0EAh
 	dw	offset REPLAY_HEAP_ALLOCBYTE, seg REPLAY_HEAP_ALLOCBYTE
 	; Keep HMEM_ALLOC and every following native offset unchanged.
+if REPLAY_BFNT_TH05_MAIN
+	public REPLAY_BFNT_STUB_ALLOC_FIRST, REPLAY_BFNT_STUB_ALLOC_SECOND, REPLAY_BFNT_STUB_FREE
+REPLAY_BFNT_STUB_ALLOC_FIRST label near
+	db 0EAh
+	dw offset REPLAY_BFNT_ALLOC_FIRST, seg REPLAY_BFNT_ALLOC_FIRST
+REPLAY_BFNT_STUB_ALLOC_SECOND label near
+	db 0EAh
+	dw offset REPLAY_BFNT_ALLOC_SECOND, seg REPLAY_BFNT_ALLOC_SECOND
+REPLAY_BFNT_STUB_FREE label near
+	db 0EAh
+	dw offset REPLAY_BFNT_CLEANUP_DISPATCH, seg REPLAY_BFNT_CLEANUP_DISPATCH
+else
 	db	15 dup(90h)
+endif
 else
 	push	BX
 	mov	BX,SP

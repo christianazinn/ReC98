@@ -827,7 +827,7 @@ int far pascal language_main_dialog_ropen(const char *fn)
 {
 #if (GAME == 5)
 	language_main_dialog_overlay_active = false;
-	language_dialog_prepare(fn);
+	language_dialog_select(fn);
 	return file_ropen(fn);
 #else
 	char overlay_fn[13];

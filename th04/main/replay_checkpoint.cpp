@@ -1,4 +1,7 @@
 #pragma option -zCREPLAY_CK_TEXT
+#if (GAME == 5)
+#pragma option -k-
+#endif
 
 // Portable checkpoint field codecs shared by TH04 and TH05. No native
 // structure image, pointer, segment, padding byte, or renderer list enters the
@@ -453,7 +456,11 @@ static bool rck_reading(const replay_ck_stream_t far *stream)
 	return (stream->mode != RCK_ENCODE);
 }
 
+#if (GAME == 5)
+static bool pascal near rck_applying(const replay_ck_stream_t far *stream)
+#else
 static bool rck_applying(const replay_ck_stream_t far *stream)
+#endif
 {
 	return (stream->mode == RCK_APPLY);
 }
@@ -545,7 +552,11 @@ bool replay_ck_finish(replay_ck_stream_t far *stream)
 	return true;
 }
 
+#if (GAME == 5)
+static bool pascal near rck_u8(replay_ck_stream_t far *stream, uint8_t *value)
+#else
 static bool rck_u8(replay_ck_stream_t far *stream, uint8_t *value)
+#endif
 {
 	uint8_t encoded;
 
@@ -650,7 +661,7 @@ static bool rck_u32(replay_ck_stream_t far *stream, uint32_t *value)
 	return true;
 }
 
-static bool rck_u8_field(
+static bool pascal near rck_u8_field(
 	replay_ck_stream_t far *stream, uint8_t far *field,
 	uint8_t minimum, uint8_t maximum
 )
@@ -668,7 +679,7 @@ static bool rck_u8_field(
 	return true;
 }
 
-static bool rck_u16_field(
+static bool pascal near rck_u16_field(
 	replay_ck_stream_t far *stream, uint16_t far *field, uint16_t maximum
 )
 {

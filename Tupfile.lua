@@ -1914,6 +1914,9 @@ local th05_main_inputs = {
 	"th05/keycfg_i.cpp",
 	"th05/scrst_m.cpp",
 	th05:replay_crt_align(13, "mnalgn.obj"),
+	-- BFNT fallback follows the existing alignment contribution and preserves
+	-- the measured CRT paragraph phase without duplicating the native body.
+	"th05/main/rp_bfnt.asm",
 }
 th05:branch(MODEL_LARGE, { cflags = "-DBINARY='M'" }):link(
 	"main", th05_main_inputs

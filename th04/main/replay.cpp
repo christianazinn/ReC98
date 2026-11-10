@@ -1,4 +1,4 @@
-#pragma option -zCREPLAY_TEXT
+#pragma option -zCREPLAY_TEXT -k-
 
 // Production user replay stream for TH04 and TH05 MAIN. This module owns all
 // format and DOS I/O logic in a new segment; original code only calls the
@@ -262,7 +262,7 @@ static void replay_dos_terminate_failure(void)
 
 extern "C" int MASTER_RET ems_free(unsigned int handle);
 extern "C" const char far replay_heap_message[53];
-static unsigned replay_dos_write(int fh, const void far *buf, unsigned len);
+static unsigned pascal near replay_dos_write(int fh, const void far *buf, unsigned len);
 
 extern "C" void far replay_heap_failure(void)
 {
@@ -296,7 +296,7 @@ void replay_game_init_main_or_exit(const unsigned char far *pf_fn)
 #endif
 }
 
-static int replay_dos_open(const char far *fn, unsigned char access)
+static int pascal near replay_dos_open(const char far *fn, unsigned char access)
 {
 	unsigned fn_seg = REPLAY_FP_SEG(fn);
 	unsigned fn_off = REPLAY_FP_OFF(fn);
@@ -317,7 +317,7 @@ static int replay_dos_open(const char far *fn, unsigned char access)
 	return result;
 }
 
-static int replay_dos_create(const char far *fn)
+static int pascal near replay_dos_create(const char far *fn)
 {
 	unsigned fn_seg = REPLAY_FP_SEG(fn);
 	unsigned fn_off = REPLAY_FP_OFF(fn);
@@ -338,7 +338,7 @@ static int replay_dos_create(const char far *fn)
 	return result;
 }
 
-static void replay_dos_close(int fh)
+static void pascal near replay_dos_close(int fh)
 {
 	_asm {
 		mov	bx, fh
@@ -355,7 +355,7 @@ static void replay_dos_flush(void)
 	}
 }
 
-static unsigned replay_dos_read(int fh, void far *buf, unsigned len)
+static unsigned pascal near replay_dos_read(int fh, void far *buf, unsigned len)
 {
 	unsigned buf_seg = REPLAY_FP_SEG(buf);
 	unsigned buf_off = REPLAY_FP_OFF(buf);
@@ -378,7 +378,7 @@ static unsigned replay_dos_read(int fh, void far *buf, unsigned len)
 	return result;
 }
 
-static unsigned replay_dos_write(int fh, const void far *buf, unsigned len)
+static unsigned pascal near replay_dos_write(int fh, const void far *buf, unsigned len)
 {
 	unsigned buf_seg = REPLAY_FP_SEG(buf);
 	unsigned buf_off = REPLAY_FP_OFF(buf);
@@ -415,7 +415,7 @@ bool pascal far replay_checkpoint_dos_write(
 	return (replay_dos_write(context, data, size) == size);
 }
 
-static bool replay_dos_seek(int fh, uint32_t pos)
+static bool pascal near replay_dos_seek(int fh, uint32_t pos)
 {
 	unsigned pos_hi = static_cast<unsigned>(pos >> 16);
 	unsigned pos_lo = static_cast<unsigned>(pos & 0xFFFFUL);
@@ -434,7 +434,7 @@ static bool replay_dos_seek(int fh, uint32_t pos)
 	return (failed == 0);
 }
 
-static bool replay_dos_size(int fh, uint32_t *size)
+static bool pascal near replay_dos_size(int fh, uint32_t *size)
 {
 	unsigned pos_hi;
 	unsigned pos_lo;
@@ -459,7 +459,7 @@ static bool replay_dos_size(int fh, uint32_t *size)
 	return (failed == 0);
 }
 
-static void replay_dos_delete(const char far *fn)
+static void pascal near replay_dos_delete(const char far *fn)
 {
 	unsigned fn_seg = REPLAY_FP_SEG(fn);
 	unsigned fn_off = REPLAY_FP_OFF(fn);
@@ -474,7 +474,7 @@ static void replay_dos_delete(const char far *fn)
 	}
 }
 
-static void replay_memclear(void far *buf, unsigned size)
+static void pascal near replay_memclear(void far *buf, unsigned size)
 {
 	uint8_t far *p = reinterpret_cast<uint8_t far *>(buf);
 
@@ -484,7 +484,7 @@ static void replay_memclear(void far *buf, unsigned size)
 	}
 }
 
-static void replay_copy(
+static void pascal near replay_copy(
 	void far *dst, const void far *src, unsigned size
 )
 {
@@ -497,7 +497,7 @@ static void replay_copy(
 	}
 }
 
-static uint32_t replay_fnv1a(
+static uint32_t pascal near replay_fnv1a(
 	uint32_t hash, const void far *buf, unsigned size
 )
 {
@@ -721,7 +721,7 @@ static void replay_checkpoint_temp_delete(void)
 	replay_dos_delete(fn);
 }
 
-static bool replay_dos_hash_continue(
+static bool pascal near replay_dos_hash_continue(
 	int fh,
 	uint32_t offset,
 	uint32_t size,
@@ -749,7 +749,7 @@ static bool replay_dos_hash_continue(
 	return true;
 }
 
-static bool replay_dos_hash(
+static bool pascal near replay_dos_hash(
 	int fh, uint32_t offset, uint32_t size, uint32_t far *hash_out
 )
 {
@@ -758,7 +758,7 @@ static bool replay_dos_hash(
 	);
 }
 
-static bool replay_dos_hash_three_continue(
+static bool pascal near replay_dos_hash_three_continue(
 	int fh,
 	uint32_t offset,
 	uint32_t size,
