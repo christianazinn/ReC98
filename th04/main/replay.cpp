@@ -170,6 +170,11 @@ static bool replay_pending_valid;
 static bool replay_record_after_pause;
 static bool replay_failed;
 static bool replay_finished;
+static bool replay_playback_options_saved;
+static uint8_t replay_playback_rank;
+static uint8_t replay_playback_cfg_lives;
+static uint8_t replay_playback_cfg_bombs;
+static bool replay_playback_turbo;
 static bool replay_stage_seen;
 static bool replay_private_test;
 static bool replay_temp_capture;
@@ -3101,6 +3106,12 @@ void replay_entry(void)
 		((replay_header.flags & REPLAY_USER_FLAG_PRACTICE) != 0) &&
 		(replay_header.start.kind > RSK_STAGE)
 	);
+	// Playback settings belong to this MAIN process, not the next OP save.
+	replay_playback_rank = resident->rank;
+	replay_playback_cfg_lives = resident->cfg_lives;
+	replay_playback_cfg_bombs = resident->cfg_bombs;
+	replay_playback_turbo = resident->turbo_mode;
+	replay_playback_options_saved = true;
 	replay_header_apply();
 }
 
@@ -4097,6 +4108,13 @@ bool replay_process_end(void)
 		replay_fail();
 	}
 	replay_private_result_write(end_reason);
+	if(replay_playback_options_saved) {
+		resident->rank = replay_playback_rank;
+		resident->cfg_lives = replay_playback_cfg_lives;
+		resident->cfg_bombs = replay_playback_cfg_bombs;
+		resident->turbo_mode = replay_playback_turbo;
+		replay_playback_options_saved = false;
+	}
 	return true;
 }
 
