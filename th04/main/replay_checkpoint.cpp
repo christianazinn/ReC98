@@ -2744,6 +2744,12 @@ static bool rck_practice_boss_construct(
 		// through her transition states instead of refilling each phase.
 		boss.hp = ((start->phase <= 2) ? 9400 : 3700);
 	}
+#else
+	if((stage_id == 5) && (start->phase == 12)) {
+		// Shinki carries 2800 HP through the timed phase 11 transition.
+		// Restore that health after the seek has skipped earlier attacks.
+		boss.hp = 2800;
+	}
 #endif
 	if(!rck_practice_boss_auxiliary_valid()) {
 		snd_se_mode = se_mode;
