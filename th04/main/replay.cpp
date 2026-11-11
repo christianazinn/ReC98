@@ -3078,6 +3078,12 @@ void replay_entry(void)
 			replay_practice_start_pending = true;
 			replay_practice_preroll_pending = (command_start.kind > RSK_STAGE);
 			replay_stage_presentation_skip = (command_start.kind > RSK_STAGE);
+			// Preserve user preferences for the return to OP.
+			replay_playback_rank = resident->rank;
+			replay_playback_cfg_lives = resident->cfg_lives;
+			replay_playback_cfg_bombs = resident->cfg_bombs;
+			replay_playback_turbo = resident->turbo_mode;
+			replay_playback_options_saved = true;
 			replay_header_apply();
 		}
 		if(replay_mode == RRM_PRACTICE) {
@@ -3974,6 +3980,17 @@ static uint8_t replay_end_reason(void)
 	return RUER_MENU_RETURN;
 }
 
+static void replay_options_restore(void)
+{
+	if(replay_playback_options_saved) {
+		resident->rank = replay_playback_rank;
+		resident->cfg_lives = replay_playback_cfg_lives;
+		resident->cfg_bombs = replay_playback_cfg_bombs;
+		resident->turbo_mode = replay_playback_turbo;
+		replay_playback_options_saved = false;
+	}
+}
+
 bool replay_process_end(void)
 {
 	uint16_t arg;
@@ -4003,12 +4020,14 @@ bool replay_process_end(void)
 	}
 	replay_finished = true;
 	if(replay_mode == RRM_DISABLED) {
+		replay_options_restore();
 		if(replay_pause_action == RPA_RESTART) {
 			return replay_restart_command_write();
 		}
 		return false;
 	}
 	if(replay_mode == RRM_PRACTICE) {
+		replay_options_restore();
 		if(replay_pause_action == RPA_RESTART) {
 			return replay_restart_command_write();
 		}
@@ -4087,6 +4106,7 @@ bool replay_process_end(void)
 			replay_pending_files_delete();
 		}
 		replay_protect_end();
+		replay_options_restore();
 		if(replay_pause_action == RPA_RESTART) {
 			return replay_restart_command_write();
 		}
@@ -4108,13 +4128,7 @@ bool replay_process_end(void)
 		replay_fail();
 	}
 	replay_private_result_write(end_reason);
-	if(replay_playback_options_saved) {
-		resident->rank = replay_playback_rank;
-		resident->cfg_lives = replay_playback_cfg_lives;
-		resident->cfg_bombs = replay_playback_cfg_bombs;
-		resident->turbo_mode = replay_playback_turbo;
-		replay_playback_options_saved = false;
-	}
+	replay_options_restore();
 	return true;
 }
 
