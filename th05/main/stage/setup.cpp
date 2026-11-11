@@ -184,7 +184,6 @@ void pascal near stage6_setup(void)
 	boss_backdrop_colorfill = shinki_stage_backdrop_colorfill;
 
 	cdg_load_all_noalpha(CDG_BG_BOSS, "st05bk.cdg");
-	cdg_load_all_noalpha(CDG_BG_2, "st05bk2.cdg");
 	bb_boss_load("st05.bb");
 
 	stage_render = nullfunc_near;

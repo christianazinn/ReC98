@@ -582,6 +582,10 @@ void near shinki_bg_type_d_update(void)
 
 void pascal near shinki_bg_render(void)
 {
+	if((boss.phase >= 2) && !cdg_slots[CDG_BG_2].seg_colors()) {
+		cdg_free(CDG_BG_BOSS);
+		cdg_load_all_noalpha(CDG_BG_2, "st05bk2.cdg");
+	}
 	if(boss.phase == PHASE_HP_FILL) {
 		boss_backdrop_render(
 			SHINKI_BACKDROP_LEFT, SHINKI_STAGE_BACKDROP_TOP, 1
