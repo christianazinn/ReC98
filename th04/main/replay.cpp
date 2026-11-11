@@ -2803,6 +2803,13 @@ void replay_practice_items_ready(void)
 static void replay_header_apply(void)
 {
 	const replay_start_config_t far *start = &replay_header.start;
+
+	// Preserve user preferences for the return to OP.
+	replay_playback_rank = resident->rank;
+	replay_playback_cfg_lives = resident->cfg_lives;
+	replay_playback_cfg_bombs = resident->cfg_bombs;
+	replay_playback_turbo = resident->turbo_mode;
+	replay_playback_options_saved = true;
 	replay_rank_lock_active = (
 		(start->seed_mode & RSM_RANK_LOCK) != 0
 	);
@@ -3078,12 +3085,6 @@ void replay_entry(void)
 			replay_practice_start_pending = true;
 			replay_practice_preroll_pending = (command_start.kind > RSK_STAGE);
 			replay_stage_presentation_skip = (command_start.kind > RSK_STAGE);
-			// Preserve user preferences for the return to OP.
-			replay_playback_rank = resident->rank;
-			replay_playback_cfg_lives = resident->cfg_lives;
-			replay_playback_cfg_bombs = resident->cfg_bombs;
-			replay_playback_turbo = resident->turbo_mode;
-			replay_playback_options_saved = true;
 			replay_header_apply();
 		}
 		if(replay_mode == RRM_PRACTICE) {
@@ -3112,12 +3113,6 @@ void replay_entry(void)
 		((replay_header.flags & REPLAY_USER_FLAG_PRACTICE) != 0) &&
 		(replay_header.start.kind > RSK_STAGE)
 	);
-	// Playback settings belong to this MAIN process, not the next OP save.
-	replay_playback_rank = resident->rank;
-	replay_playback_cfg_lives = resident->cfg_lives;
-	replay_playback_cfg_bombs = resident->cfg_bombs;
-	replay_playback_turbo = resident->turbo_mode;
-	replay_playback_options_saved = true;
 	replay_header_apply();
 }
 
