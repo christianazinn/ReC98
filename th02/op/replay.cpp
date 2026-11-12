@@ -4942,6 +4942,8 @@ static void t2op_playback_start(uint8_t slot, uint8_t selected_stage)
 {
 	uint8_t flags = 0;
 	uint8_t seek_stage = 0;
+	uint8_t bgm_mode_before = snd_bgm_mode;
+	bool bgm_mode_changed = false;
 
 	if(selected_stage != static_cast<uint8_t>(t2op_header.start.stage)) {
 		flags = T2REPLAY_COMMAND_FLAG_STAGE_SEEK;
@@ -4954,8 +4956,21 @@ static void t2op_playback_start(uint8_t slot, uint8_t selected_stage)
 		T2REPLAY_COMMAND_PLAYBACK, slot, flags, seek_stage, 0
 	)) {
 		palette_black_out(1);
+		// MAIN applies the recorded BGM mode before waiting for the title fade.
+		// Start that loaded track through the native driver transition first.
+		if(!t2practice_diag_no_sound() &&
+			(snd_bgm_mode != t2op_header.start.bgm_mode)) {
+			snd_bgm_mode = t2op_header.start.bgm_mode;
+			bgm_mode_changed = true;
+			t2_language_op_bridge(T2LOB_BGM_RESTART, 0, 0);
+		}
 		t2_language_op_bridge(T2LOB_START_INIT, 0, 0);
 		t2op_main_exec();
+		// A successful execl() does not return. Keep the title mode if it fails.
+		if(bgm_mode_changed) {
+			snd_bgm_mode = bgm_mode_before;
+			t2_language_op_bridge(T2LOB_BGM_RESTART, 0, 0);
+		}
 	}
 }
 
@@ -6063,7 +6078,7 @@ void far replay_title_update_and_render(void)
 
 // Keep this replay-owned segment's growth paragraph-aligned so every
 // following stock and patch segment retains its audited phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
 
