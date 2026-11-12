@@ -3725,6 +3725,7 @@ static void t2op_main_render(void)
 	if(replay_title_restore_needed) {
 		replay_title_background_restore();
 		replay_title_restore_needed = false;
+		idle_frame = 0;
 		if(t2op_title_return_fade) {
 			palette_black_in(1);
 			t2op_title_return_fade = false;
@@ -6061,7 +6062,7 @@ void far replay_title_update_and_render(void)
 
 // Keep this replay-owned segment's growth paragraph-aligned so every
 // following stock and patch segment retains its audited phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
 
