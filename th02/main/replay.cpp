@@ -52,6 +52,7 @@
 #include "th02/main/checkpoint_apply.hpp"
 #include "th02/main/hud/hud.hpp"
 #include "th02/main/hud/overlay.hpp"
+#include "th02/main/hiscore.hpp"
 #include "th02/main/playperf.hpp"
 #include "th02/main/practice.hpp"
 #include "th02/practice_diag.hpp"
@@ -8453,8 +8454,23 @@ bool replay_playback_exit_requested(void)
 	return (t2replay_mode == T2RM_PLAYBACK) && (t2replay_failed || quit);
 }
 
+void replay_scoredat_cleared_set(void)
+{
+	if(!replay_playback_active()) {
+		scoredat_cleared_set();
+	}
+}
+
+void replay_scoredat_extra_cleared_set(void)
+{
+	if(!replay_playback_active()) {
+		scoredat_extra_cleared_set();
+	}
+}
+
 // Keep this replay-owned segment's growth paragraph-aligned so every
 // following stock and patch segment retains its audited phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90"
 // MIDI seeking uses the native MENU_TEXT reserve for its implementation, and
 // the direct-start TRAM cleanup consumes five bytes here.

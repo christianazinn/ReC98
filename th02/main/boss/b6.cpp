@@ -2768,6 +2768,6 @@ extern "C" void far sigma_end(void)
 	// th02/main/boss/b5.cpp's mima_19C1D().
 	resident->score = ((score * 10) + resident->continues_used);
 
-	scoredat_extra_cleared_set();
+	replay_scoredat_extra_cleared_set();
 	GameExecl(aMaine);
 }

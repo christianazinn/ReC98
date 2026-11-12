@@ -34,6 +34,7 @@
 #include "th02/main/frames.hpp"
 #include "th02/main/boss/boss.hpp"
 #include "th02/main/hiscore.hpp"
+#include "th02/main/replay.hpp"
 #include "th02/main/execl.hpp"
 #include "th02/main/dialog/dialog.hpp"
 #include "th02/main/bullet/bullet.hpp"
@@ -419,7 +420,7 @@ extern "C" void far mima_end(void)
 	dialog_script_stage5_post_animate();
 	score += 100000;
 	if(!resident->continues_used) {
-		scoredat_cleared_set();
+		replay_scoredat_cleared_set();
 	}
 	mima_19C1D();
 }

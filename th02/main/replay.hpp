@@ -165,6 +165,10 @@ bool replay_save_request_prompt_needed(void);
 void replay_save_request_discard(void);
 
 bool replay_playback_active(void);
+
+// Playback leaves the native clear-unlock records unchanged.
+void replay_scoredat_cleared_set(void);
+void replay_scoredat_extra_cleared_set(void);
 bool replay_playback_exit_requested(void);
 
 #endif /* TH02_MAIN_REPLAY_HPP */
