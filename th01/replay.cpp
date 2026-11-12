@@ -5024,7 +5024,7 @@ void far t1replay_terminal(uint8_t end_reason)
 		// Esc leaves Continue through a separate stock branch that has no BGM
 		// stop call to wrap. Its existing late terminal call reaches this path.
 		t1replay_terminal_request_pending(T1RSRS_POSTGAME);
-		return;
+		goto apply_pause_action;
 	}
 	if(
 		((end_reason != T1REPLAY_END_MENU) &&
@@ -5089,12 +5089,12 @@ void far t1replay_terminal(uint8_t end_reason)
 	}
 	t1replay_res_clear();
 	t1replay_mode = T1RM_DISABLED;
+apply_pause_action:
 	t1replay_pause_terminal_apply(playback);
-	if(gameover_menu && !playback) {
-		t1replay_terminal_request_pending(T1RSRS_POSTGAME);
-	}
 	if(playback) {
 		t1replay_abort_to_op();
+	} else if(gameover_menu) {
+		t1replay_terminal_request_pending(T1RSRS_POSTGAME);
 	}
 }
 
@@ -5262,6 +5262,6 @@ bool16 far t1replay_abort_requested(void)
 
 // Keep this replay-owned segment's growth paragraph-aligned so every
 // following stock and patch segment retains its audited phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
