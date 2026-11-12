@@ -80,6 +80,7 @@
 #include "th02/main/stage/callback.hpp"
 #include "th02/main/null.hpp"
 #include "th02/keyconfig.hpp"
+#include "th02/language.hpp"
 #include "th04/scorestat.hpp"
 #include "th04/main/rp_guard.hpp"
 
@@ -104,6 +105,10 @@ static char t2replay_stage_seek_fn[11];
 static bool t2replay_paths_ready;
 static t2replay_mode_t t2replay_mode;
 static t2replay_header_t t2replay_header;
+static t2replay_start_t t2replay_off_restart_start;
+static uint8_t t2replay_off_restart_flags;
+static bool t2replay_off_restart_ready;
+static bool t2replay_entry_seen;
 static t2replay_packet_t t2replay_buffer[T2REPLAY_BUFFER_PACKET_COUNT];
 static uint16_t t2replay_buffer_len;
 static uint16_t t2replay_buffer_pos;
@@ -2107,6 +2112,31 @@ static int t2replay_dos_open(const char far *fn, unsigned char access)
 		or	ax, dx
 		mov	result, ax
 	}
+	return result;
+}
+
+// Only command admission needs the original DOS error before open() maps it to -1.
+static int t2replay_command_open(uint16_t far *error)
+{
+	unsigned fn_seg = T2REPLAY_FP_SEG(t2replay_command_fn);
+	unsigned fn_off = T2REPLAY_FP_OFF(t2replay_command_fn);
+	uint16_t dos_result;
+	int result;
+
+	_asm {
+		push	ds
+		mov	dx, fn_off
+		mov	ds, fn_seg
+		mov	ah, 3Dh
+		xor	al, al
+		int	21h
+		pop	ds
+		mov	dos_result, ax
+		sbb	dx, dx
+		or	ax, dx
+		mov	result, ax
+	}
+	*error = ((result < 0) ? dos_result : 0);
 	return result;
 }
 
@@ -6330,6 +6360,35 @@ static void t2replay_fail(void)
 	quit = true;
 }
 
+static void t2replay_start_capture(
+	t2replay_start_t far *start, bool autofire
+)
+{
+	t2replay_memclear(start, sizeof(*start));
+	start->resident_frame = static_cast<uint32_t>(resident->frame);
+	// main_entry() assigns this exact resident value to [random_seed] immediately
+	// before stage_init(). stage_init() then consumes it to fill [randring].
+	start->random_seed = start->resident_frame;
+	start->score = resident->score;
+	start->score_highest = resident->score_highest;
+	start->continues_used = resident->continues_used;
+	start->skill = resident->skill;
+	start->stage = resident->stage;
+	start->rank = resident->rank;
+	start->rem_lives = resident->rem_lives;
+	start->rem_bombs = resident->rem_bombs;
+	start->start_lives = resident->start_lives;
+	start->start_bombs = resident->start_bombs;
+	start->start_power = resident->start_power;
+	start->shottype = resident->shottype;
+	start->bgm_mode = resident->bgm_mode;
+	start->reduce_effects = (resident->reduce_effects ? 1 : 0);
+	start->reserved[T2REPLAY_PRACTICE_PLAYPERF_OFFSET] =
+		t2replay_practice_playperf_encode(playperf);
+	start->reserved[T2REPLAY_AUTOFIRE_OFFSET] =
+		(autofire ? 1 : 0);
+}
+
 static void t2replay_header_capture(void)
 {
 	uint16_t date_year;
@@ -6356,28 +6415,7 @@ static void t2replay_header_capture(void)
 	t2replay_header.input_semantics = T2REPLAY_INPUT_SEMANTICS_KEY_DET;
 	t2replay_header.stage_count = T2REPLAY_STAGE_COUNT;
 	t2replay_header.input_offset = T2REPLAY_HEADER_WIRE_SIZE;
-	t2replay_header.start.resident_frame = static_cast<uint32_t>(resident->frame);
-	// main_entry() assigns this exact resident value to [random_seed] immediately
-	// before stage_init(). stage_init() then consumes it to fill [randring].
-	t2replay_header.start.random_seed = t2replay_header.start.resident_frame;
-	t2replay_header.start.score = resident->score;
-	t2replay_header.start.score_highest = resident->score_highest;
-	t2replay_header.start.continues_used = resident->continues_used;
-	t2replay_header.start.skill = resident->skill;
-	t2replay_header.start.stage = resident->stage;
-	t2replay_header.start.rank = resident->rank;
-	t2replay_header.start.rem_lives = resident->rem_lives;
-	t2replay_header.start.rem_bombs = resident->rem_bombs;
-	t2replay_header.start.start_lives = resident->start_lives;
-	t2replay_header.start.start_bombs = resident->start_bombs;
-	t2replay_header.start.start_power = resident->start_power;
-	t2replay_header.start.shottype = resident->shottype;
-	t2replay_header.start.bgm_mode = resident->bgm_mode;
-	t2replay_header.start.reduce_effects = (resident->reduce_effects ? 1 : 0);
-	t2replay_header.start.reserved[T2REPLAY_PRACTICE_PLAYPERF_OFFSET] =
-		t2replay_practice_playperf_encode(playperf);
-	t2replay_header.start.reserved[T2REPLAY_AUTOFIRE_OFFSET] =
-		(t2replay_autofire_active ? 1 : 0);
+	t2replay_start_capture(&t2replay_header.start, t2replay_autofire_active);
 	t2replay_autofire_release_frame = false;
 	_asm {
 		mov ah, 2Ah
@@ -6556,20 +6594,24 @@ static uint16_t t2replay_command_validation_mask(
 #if T2REPLAY_PRACTICE_DIAGNOSTICS
 static uint8_t t2replay_command_load(
 	uint8_t far *slot, uint8_t far *flags, uint8_t far *seek_stage,
-	t2replay_start_t far *start
+	t2replay_start_t far *start, bool far *absent
 )
 {
 	t2replay_command_t command;
 	char handoff_fn[12];
 	uint32_t size;
 	int fd;
+	uint16_t open_error;
+
+	*absent = false;
 
 	// The primary command is authoritative. The second file exists only to
 	// force the preceding directory update across the process boundary.
 	t2replay_handoff_fn_set(handoff_fn);
 	t2replay_dos_delete(handoff_fn);
-	fd = t2replay_dos_open(t2replay_command_fn, T2REPLAY_DOS_ACCESS_READ);
+	fd = t2replay_command_open(&open_error);
 	if(fd < 0) {
+		*absent = (open_error == 2);
 		t2practice_diag_main_command(T2PDR_MAIN_COMMAND_MISSING, 0);
 		return T2RM_DISABLED;
 	}
@@ -6640,20 +6682,24 @@ static uint8_t t2replay_command_load(
 #else
 static uint8_t t2replay_command_load(
 	uint8_t far *slot, uint8_t far *flags, uint8_t far *seek_stage,
-	t2replay_start_t far *start
+	t2replay_start_t far *start, bool far *absent
 )
 {
 	t2replay_command_t command;
 	char handoff_fn[12];
 	uint32_t size;
 	int fd;
+	uint16_t open_error;
+
+	*absent = false;
 
 	// The primary command is authoritative. The second file exists only to
 	// force the preceding directory update across the process boundary.
 	t2replay_handoff_fn_set(handoff_fn);
 	t2replay_dos_delete(handoff_fn);
-	fd = t2replay_dos_open(t2replay_command_fn, T2REPLAY_DOS_ACCESS_READ);
+	fd = t2replay_command_open(&open_error);
 	if(fd < 0) {
+		*absent = (open_error == 2);
 		return T2RM_DISABLED;
 	}
 	if((t2replay_dos_read(fd, &command, sizeof(command)) != sizeof(command)) ||
@@ -6769,19 +6815,22 @@ void replay_entry(void)
 	uint32_t seek_packet_anchor;
 	uint32_t seek_prefix_checksum;
 	bool replay_header_valid;
+	bool command_absent;
 #if T2REPLAY_EXACT_APPLY
 	t2replay_exact_load_result_t exact_load;
 #endif
 
-	if(t2replay_mode != T2RM_DISABLED) {
+	if((t2replay_mode != T2RM_DISABLED) || t2replay_entry_seen) {
 		return;
 	}
+	t2replay_entry_seen = true;
 	t2practice_diag_lifecycle(T2PDLM_MAIN_REPLAY_ENTRY_BEGIN, 0, 0, 0);
 	replay_stage_loop_func = t2replay_stage_loop;
 	t2replay_paths_init();
 	t2practice_diag_lifecycle(T2PDLM_MAIN_REPLAY_PATHS_READY, 0, 0, 0);
 	command_mode = t2replay_command_load(
-		&slot, &command_flags, &command_seek_stage, &command_start
+		&slot, &command_flags, &command_seek_stage, &command_start,
+		&command_absent
 	);
 	t2replay_practice_run = (
 		(command_mode == T2REPLAY_COMMAND_PRACTICE) ||
@@ -6795,6 +6844,21 @@ void replay_entry(void)
 		 (command_flags & T2REPLAY_COMMAND_FLAG_PRACTICE))
 	);
 	if(command_mode == T2RM_DISABLED) {
+		if(command_absent && !resident->demo_num && !resident->debug) {
+			t2_language_load();
+			if(!t2_replay_recording_enabled() &&
+				(((resident->stage == 0) && (resident->rank != RANK_EXTRA)) ||
+				 ((resident->stage == 5) && (resident->rank == RANK_EXTRA)))) {
+				t2replay_autofire_active = t2_autofire_get();
+				t2replay_start_capture(
+					&t2replay_off_restart_start, t2replay_autofire_active
+				);
+				t2replay_off_restart_flags = 0;
+				t2replay_off_restart_ready = t2replay_practice_start_valid(
+					&t2replay_off_restart_start
+				);
+			}
+		}
 		return;
 	}
 	t2practice_diag_lifecycle(T2PDLM_MAIN_REPLAY_COMMAND_READY, 0, 0, 0);
@@ -6856,6 +6920,11 @@ void replay_entry(void)
 		t2replay_temp_set();
 		t2replay_pending_files_delete();
 		t2replay_start_apply(&command_start);
+		t2replay_off_restart_start = command_start;
+		t2replay_off_restart_flags = T2REPLAY_COMMAND_FLAG_PRACTICE;
+		t2replay_off_restart_ready = t2replay_practice_start_valid(
+			&t2replay_off_restart_start
+		);
 		t2replay_practice_target = command_start.reserved[
 			T2REPLAY_PRACTICE_TARGET_OFFSET
 		];
@@ -7884,8 +7953,13 @@ void replay_stage_start(void)
 	}
 	t2replay_fast_forward_boundary_reset();
 	replay_rank_lock_apply();
-	// Resolve stage_init()'s opaque TRAM mask before a direct-start seek waits.
-	overlay_wipe();
+	if(
+		(t2replay_mode != T2RM_DISABLED) ||
+		replay_practice_stage_presentation_skip()
+	) {
+		// Resolve stage_init()'s opaque TRAM mask before a direct-start seek waits.
+		overlay_wipe();
+	}
 	t2replay_practice_music_seek();
 #ifdef T2SGA
 	t2debug_coords_reset();
@@ -8159,8 +8233,11 @@ bool replay_pause_restart_semantics(void)
 bool replay_pause_restart_available(void)
 {
 	return (
-		(t2replay_mode == T2RM_RECORD) &&
-		!t2replay_finished
+		!t2replay_finished &&
+		((t2replay_mode == T2RM_RECORD) ||
+		 ((t2replay_mode == T2RM_DISABLED) &&
+		  t2replay_off_restart_ready && !t2replay_failed && !quit &&
+		  !resident->demo_num && !resident->debug))
 	);
 }
 
@@ -8180,14 +8257,19 @@ bool replay_pause_restart(void)
 	command.magic[4] = 'F'; command.magic[5] = 'G';
 	command.magic[6] = '2'; command.magic[7] = '\0';
 	command.mode = T2REPLAY_COMMAND_RESTART;
-	command.flags = (
-		(t2replay_header.flags & T2REPLAY_FLAG_PRACTICE)
-		? T2REPLAY_COMMAND_FLAG_PRACTICE : 0
-	);
-	if(t2replay_header.start.reserved[T2REPLAY_AUTOFIRE_OFFSET]) {
+	if(t2replay_mode == T2RM_DISABLED) {
+		command.start = t2replay_off_restart_start;
+		command.flags = t2replay_off_restart_flags;
+	} else {
+		command.flags = (
+			(t2replay_header.flags & T2REPLAY_FLAG_PRACTICE)
+			? T2REPLAY_COMMAND_FLAG_PRACTICE : 0
+		);
+		command.start = t2replay_header.start;
+	}
+	if(command.start.reserved[T2REPLAY_AUTOFIRE_OFFSET]) {
 		command.flags |= T2REPLAY_COMMAND_FLAG_AUTOFIRE;
 	}
-	command.start = t2replay_header.start;
 	seed = static_cast<uint32_t>(resident->frame);
 	command.start.resident_frame = seed;
 	command.start.random_seed = seed;
@@ -8210,9 +8292,12 @@ bool replay_pause_restart(void)
 		t2replay_dos_delete(t2replay_command_fn);
 		return false;
 	}
-	t2replay_guard_end();
+	if(t2replay_mode == T2RM_RECORD) {
+		t2replay_guard_end();
+	}
 	t2replay_temp_set();
 	t2replay_pending_files_delete();
+	t2replay_off_restart_ready = false;
 	t2replay_mode = T2RM_DISABLED;
 	t2replay_finished = true;
 	return true;
@@ -8253,6 +8338,7 @@ void replay_pause_exit_without_saving(void)
 	t2replay_paths_init();
 	t2replay_temp_set();
 	t2replay_pending_files_delete();
+	t2replay_off_restart_ready = false;
 	t2replay_mode = T2RM_DISABLED;
 	t2replay_finished = true;
 }
@@ -8279,6 +8365,7 @@ static bool16 far t2replay_stage_loop(void)
 
 bool replay_process_end(const char *binary_fn)
 {
+	t2replay_off_restart_ready = false;
 	if(t2stat_continue_pending) {
 		scorestat_process_enter(rank, 0, t2stat_eligible);
 		t2stat_continue_pending = false;
@@ -8368,7 +8455,7 @@ bool replay_playback_exit_requested(void)
 
 // Keep this replay-owned segment's growth paragraph-aligned so every
 // following stock and patch segment retains its audited phase.
-#pragma codestring "\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90"
 // MIDI seeking uses the native MENU_TEXT reserve for its implementation, and
 // the direct-start TRAM cleanup consumes five bytes here.
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
