@@ -5437,7 +5437,7 @@ static bool replay_main_start_restart_apply(
 )
 {
 	if(flags & REPLAY_COMMAND_FLAG_PRACTICE) {
-		uint16_t previous_rand = resident->rand;
+		int32_t previous_rand = resident->rand;
 
 		// Practice serializes resident->rand into its new record. Only this
 		// temporary assignment precedes the durability write, and it is undone
