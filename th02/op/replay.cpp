@@ -5085,6 +5085,7 @@ static void t2op_record_then_start(bool extra)
 	if(!resident->debug) {
 		scorestat_run_begin((extra ? RANK_EXTRA : rank), 0);
 	}
+	sel = 1;
 	if(extra) {
 		t2_language_op_bridge(T2LOB_START_EXTRA, 0, 0);
 	} else {
@@ -6062,7 +6063,7 @@ void far replay_title_update_and_render(void)
 
 // Keep this replay-owned segment's growth paragraph-aligned so every
 // following stock and patch segment retains its audited phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
 
