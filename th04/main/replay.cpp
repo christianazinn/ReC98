@@ -3432,8 +3432,13 @@ static void replay_restart_capture(void)
 		start->credit_bombs = resident->credit_bombs;
 		start->turbo_mode = static_cast<uint8_t>(resident->turbo_mode);
 	}
-	start->resident_rand = random_seed;
-	start->random_seed = random_seed;
+	if(
+		!replay_restart_practice ||
+		((start->seed_mode & RSM_VALUE_MASK) == RSM_RANDOM)
+	) {
+		start->resident_rand = random_seed;
+		start->random_seed = random_seed;
+	}
 }
 
 // Pause can cover stage titles, clear-bonus rows, and other one-shot TRAM
