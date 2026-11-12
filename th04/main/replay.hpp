@@ -96,6 +96,10 @@ bool replay_process_end(void);
 
 bool replay_active(void);
 bool replay_playback_active(void);
+// Blocking menus must leave failed Playback before consuming fallback input.
+bool replay_playback_exit_requested(void);
+// Draws the native Continue prompt without growing its fixed code segment.
+void replay_continue_prompt_put(uint8_t credits_left);
 extern bool replay_continue_hiscore_enabled;
 #if (GAME == 5)
 // Records the stock Continue score-insertion branch, or consumes its RNG draw

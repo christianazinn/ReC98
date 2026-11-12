@@ -122,15 +122,14 @@ unsigned char near continue_prompt(void)
 		goto refuse;
 	}
 
-	gaiji_putsa(19, 10, gCONTINUE_PROMPT, TX_WHITE);
-	gaiji_putsa(24, 13, gYES, (TX_GREEN | TX_REVERSE));
-	gaiji_putsa(25, 15, gNO, TX_WHITE);
-	gaiji_putsa(19, 22, gCREDIT, TX_GREEN);
-	gaiji_putca(33, 22, (credits_left + gb_0), TX_GREEN);
+	replay_continue_prompt_put(credits_left);
 	replay_input_reset_sense_interstitial();
 
 	while(1) {
 		replay_input_sense_interstitial();
+		if(replay_playback_exit_requested()) {
+			goto refuse;
+		}
 		if(!held) {
 			held = key_det;
 			if((held & INPUT_UP) || (held & INPUT_DOWN)) {
@@ -191,3 +190,10 @@ unsigned char near continue_prompt(void)
 refuse:
 	return 1;
 }
+
+// Preserve the original native contribution after the drawing tail call.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"

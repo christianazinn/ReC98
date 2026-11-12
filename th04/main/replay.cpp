@@ -4137,6 +4137,25 @@ bool replay_playback_active(void)
 	return (replay_mode == RRM_PLAYBACK);
 }
 
+bool replay_playback_exit_requested(void)
+{
+	return ((replay_mode == RRM_PLAYBACK) && replay_failed);
+}
+
+extern "C" const char gCONTINUE_PROMPT[];
+extern "C" const char gYES[];
+extern "C" const char gNO[];
+extern "C" const char gCREDIT[];
+
+void replay_continue_prompt_put(uint8_t credits_left)
+{
+	gaiji_putsa(19, 10, gCONTINUE_PROMPT, TX_WHITE);
+	gaiji_putsa(24, 13, gYES, (TX_GREEN | TX_REVERSE));
+	gaiji_putsa(25, 15, gNO, TX_WHITE);
+	gaiji_putsa(19, 22, gCREDIT, TX_GREEN);
+	gaiji_putca(33, 22, (credits_left + gb_0), TX_GREEN);
+}
+
 // Preserve the paragraph phase of every following stock CODE segment.
 #if (GAME == 4)
 	#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90"
