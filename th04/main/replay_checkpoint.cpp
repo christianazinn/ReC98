@@ -2606,6 +2606,50 @@ static void rck_practice_boss_timedown_apply(
 	}
 }
 
+#if (GAME == 5)
+// Skip damage-gated attacks without lowering HP during native flight and
+// timed transitions, which carry health into the next playable phase.
+// Classify the callback and phase before the update can advance either.
+static bool rck_practice_boss_damage_phase(
+	uint8_t stage, uint8_t phase, func_t_near update
+)
+{
+	switch(stage) {
+	case 0:
+		return ((update == sara_update) && (phase >= 2) && (phase <= 4));
+	case 1:
+		return ((update == louise_update) && (
+			(phase == 2) || (phase == 4) || (phase == 5) || (phase == 7)
+		));
+	case 2:
+		return ((update == alice_update) && (
+			(phase == 3) || (phase == 6) || (phase == 9) || (phase == 12)
+		));
+	case 3:
+		return (((update == mai_update) || (update == yuki_update)) && (
+			(phase == 3) || (phase == 5) || (phase == 7) || (phase == 9)
+		));
+	case 4:
+		return ((update == yumeko_update) && (
+			(phase == 2) || (phase == 4) || (phase == 5) ||
+			(phase == 7) || (phase == 8) || (phase == 10)
+		));
+	case 5:
+		return ((update == shinki_update) && (
+			(phase == 2) || (phase == 3) || (phase == 6) ||
+			(phase == 7) || (phase == 9) || (phase == 10) || (phase == 12)
+		));
+	case STAGE_EXTRA:
+		return ((update == exalice_update) && (
+			(phase == 2) || (phase == 4) || (phase == 6) ||
+			(phase == 8) || (phase == 10) || (phase == 12) ||
+			(phase == 14) || (phase == 16) || (phase == 17)
+		));
+	}
+	return false;
+}
+#endif
+
 static bool rck_practice_boss_construct(
 	const replay_start_config_t far *start
 )
@@ -2692,18 +2736,20 @@ static bool rck_practice_boss_construct(
 			return false;
 		}
 #if (GAME == 5)
+		func_t_near update_at_entry = boss_update;
+		uint8_t phase_at_entry = boss.phase;
 		if(
 			(stage_id == 3) &&
 			(rck_practice_boss_target_section != RCS_TH05_PAIR)
 		) {
-			if((boss_update == boss_update_func) &&
-			   (boss.phase == PHASE_NONE)) {
+			if((update_at_entry == boss_update_func) &&
+			   (phase_at_entry == PHASE_NONE)) {
 				rck_practice_th05_stage4_solo_prepare(
 					rck_practice_boss_target_section
 				);
 				continue;
 			}
-			if((boss_update == boss_update_func) && (boss.phase == 2)) {
+			if((update_at_entry == boss_update_func) && (phase_at_entry == 2)) {
 				if(rck_practice_boss_target_section == RCS_TH05_MAI) {
 					boss.hp = static_cast<int>(boss.phase_end_hp + 1);
 					boss2.hp = boss2.phase_end_hp;
@@ -2711,12 +2757,14 @@ static bool rck_practice_boss_construct(
 					boss.hp = boss.phase_end_hp;
 					boss2.hp = static_cast<int>(boss2.phase_end_hp + 1);
 				}
-			} else if(boss_update != boss_update_func) {
+			} else if(rck_practice_boss_damage_phase(
+				stage_id, phase_at_entry, update_at_entry
+			)) {
 				boss.hp = boss.phase_end_hp;
 			}
-		} else if(stage_id != 3) {
-			// The paired fight reaches phase 2 by time alone. Retain both HP
-			// values so its first playable frame does not trigger a defeat.
+		} else if(rck_practice_boss_damage_phase(
+			stage_id, phase_at_entry, update_at_entry
+		)) {
 			boss.hp = boss.phase_end_hp;
 		}
 #else
