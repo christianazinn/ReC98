@@ -8049,6 +8049,7 @@ void replay_input_sample(uint8_t phase)
 	}
 #endif
 	if(t2replay_mode == T2RM_DISABLED) {
+		t2replay_autofire_apply(phase);
 		return;
 	}
 	host_input = key_det;
@@ -8470,6 +8471,7 @@ void replay_scoredat_extra_cleared_set(void)
 
 // Keep this replay-owned segment's growth paragraph-aligned so every
 // following stock and patch segment retains its audited phase.
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 #pragma codestring "\x90\x90\x90\x90\x90\x90"
 // MIDI seeking uses the native MENU_TEXT reserve for its implementation, and
