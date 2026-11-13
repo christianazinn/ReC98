@@ -1523,6 +1523,49 @@ static bool replay_op_save_request_read(replay_save_request_t far *request)
 	);
 }
 
+static bool replay_op_pending_request_rebind(
+	uint32_t source_header_checksum, uint32_t destination_header_checksum
+)
+{
+	replay_save_request_t request;
+	replay_save_request_t request_saved;
+	int fh;
+	bool written;
+	bool restored = false;
+
+	replay_op_paths_init();
+	if(!replay_op_save_request_read(&request) ||
+		(request.replay_header_checksum != source_header_checksum)) {
+		return false;
+	}
+	request_saved = request;
+	request.replay_header_checksum = destination_header_checksum;
+	request.checksum = 0;
+	request.checksum = replay_op_fnv1a(
+		REPLAY_FNV1A_BASIS, &request, sizeof(request)
+	);
+	fh = replay_op_dos_open_rw(replay_op_save_request_fn);
+	if(fh < 0) {
+		return false;
+	}
+	written = (
+		replay_op_dos_seek(fh, 0) &&
+		(replay_op_dos_write(fh, &request, sizeof(request)) == sizeof(request))
+	);
+	if(!written) {
+		restored = (
+			replay_op_dos_seek(fh, 0) &&
+			(replay_op_dos_write(fh, &request_saved, sizeof(request_saved)) ==
+			 sizeof(request_saved))
+		);
+	}
+	replay_op_dos_close(fh);
+	if(written || restored) {
+		replay_op_dos_flush();
+	}
+	return written;
+}
+
 static bool replay_op_pending_read(
 	replay_save_request_t far *request, bool deep
 )
@@ -1784,6 +1827,7 @@ static bool replay_op_pending_commit(
 )
 {
 	replay_save_request_t request;
+	char name_saved[REPLAY_USER_NAME_LEN];
 	bool destination_exists;
 	uint32_t identity;
 	unsigned i;
@@ -1805,9 +1849,19 @@ static bool replay_op_pending_commit(
 		return false;
 	}
 	for(i = 0; i < REPLAY_USER_NAME_LEN; i++) {
+		name_saved[i] = replay_op_header.name[i];
 		replay_op_header.name[i] = name[i];
 	}
-	if(!replay_op_header_write(replay_op_temp_fn)) {
+	if(
+		!replay_op_header_write(replay_op_temp_fn) ||
+		!replay_op_pending_request_rebind(
+			request.replay_header_checksum, replay_op_header.header_checksum
+		)
+	) {
+		for(i = 0; i < REPLAY_USER_NAME_LEN; i++) {
+			replay_op_header.name[i] = name_saved[i];
+		}
+		replay_op_header_write(replay_op_temp_fn);
 		return false;
 	}
 	identity = replay_op_header.header_checksum;
