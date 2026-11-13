@@ -5513,7 +5513,6 @@ void far replay_op_startup_dispatch(void)
 	snd_determine_modes(resident->bgm_mode, resident->se_mode);
 	snd_load(se_fn, SND_LOAD_SE);
 	replay_op_paths_init();
-	replay_main_title_labels_load();
 	replay_op_save_transaction_recover();
 	replay_op_pending_request_validate();
 	if(replay_save_pending()) {
@@ -5588,6 +5587,7 @@ void far replay_main_update_and_render(const char *main_bg_fn)
 
 	if(!replay_main_private_checked) {
 		replay_main_private_checked = true;
+		replay_main_title_labels_load();
 		replay_op_save_transaction_recover();
 		replay_op_pending_request_validate();
 		if(replay_save_pending()) {
