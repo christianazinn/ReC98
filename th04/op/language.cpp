@@ -42,6 +42,8 @@ static char language_config_fn[11];
 static char language_menu_bgm_fn[3];
 static char language_se_fn[5];
 static bool language_option_initialized;
+static bool language_option_session_active;
+static bool language_option_background_changed;
 static bool language_keyconfig_returning;
 static bool language_option_input_allowed;
 static int8_t language_option_sel;
@@ -1088,9 +1090,14 @@ static void language_option_changed_put(void)
 
 static void language_option_return_to_main(void)
 {
-	if(language_preference_get() != language_option_entry_preference) {
+	if(
+		(language_preference_get() != language_option_entry_preference) ||
+		language_option_background_changed
+	) {
 		language_asset_music_prepare();
 		#if (GAME == 5)
+			// load_all reads the first header before freeing that slot.
+			cdg_free_all();
 			replay_op_bridge(ROBF_MAIN_CDG_LOAD);
 			replay_main_title_labels_load();
 		#else
@@ -1099,6 +1106,8 @@ static void language_option_return_to_main(void)
 		replay_main_language_assets_reload();
 	}
 	language_option_initialized = false;
+	language_option_session_active = false;
+	language_option_background_changed = false;
 	menu_sel = 6; // RMC_OPTION in replay.cpp
 	in_option = false;
 }
@@ -1109,8 +1118,9 @@ void far language_option_update_and_render(void)
 
 	if(!language_option_initialized) {
 		language_option_sel = language_keyconfig_returning ? LOC_KEYCONFIG : LOC_LANGUAGE;
-		if(!language_keyconfig_returning) {
+		if(!language_option_session_active) {
 			language_option_entry_preference = language_preference_get();
+			language_option_session_active = true;
 		}
 		language_keyconfig_returning = false;
 		language_option_input_allowed = false;
@@ -1147,6 +1157,8 @@ void far language_option_update_and_render(void)
 		if(language_option_sel == LOC_KEYCONFIG) {
 			keyconfig_menu();
 			replay_main_language_assets_reload();
+			language_option_background_changed =
+				(language_preference_get() != language_option_entry_preference);
 			language_keyconfig_returning = true;
 			language_option_initialized = false;
 			language_option_input_allowed = false;
