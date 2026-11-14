@@ -5397,6 +5397,7 @@ static void t2op_detail(uint8_t slot)
 		}
 		if(input_allowed) {
 			if(key_det & INPUT_CANCEL) {
+				t2op_input_wait_release();
 				break;
 			} else if(!settings_focus && (key_det & INPUT_UP)) {
 				if(selected_stage > static_cast<uint8_t>(t2op_header.start.stage)) {
@@ -6078,7 +6079,7 @@ void far replay_title_update_and_render(void)
 
 // Keep this replay-owned segment's growth paragraph-aligned so every
 // following stock and patch segment retains its audited phase.
-#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
+#pragma codestring "\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90\x90"
 
 #pragma codeseg
 
