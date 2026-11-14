@@ -17,6 +17,9 @@ void far t1replay_entry(void);
 bool16 far t1replay_abort_requested(void);
 void far t1replay_abort_to_op(void);
 
+// Drops playback state without finalizing or changing Saved data.
+void far t1replay_playback_cancel(void);
+
 // The frame-input seam. input_sense(true) returns before this call and
 // therefore consumes no replay sample.
 void far t1replay_frame_io(void);

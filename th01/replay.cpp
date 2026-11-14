@@ -5231,6 +5231,16 @@ bool16 far t1replay_pause_restart_available(void)
 	return t1replay_restart_state_valid(state);
 }
 
+void far t1replay_playback_cancel(void)
+{
+	if(t1replay_mode != T1RM_PLAYBACK) {
+		return;
+	}
+	t1replay_checkpoint_free();
+	t1replay_res_clear();
+	t1replay_mode = T1RM_DISABLED;
+}
+
 bool16 far t1replay_playback_abort_requested(void)
 {
 	// This is intentionally outside the canonical input stream. A physical

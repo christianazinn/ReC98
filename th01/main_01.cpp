@@ -499,6 +499,7 @@ void boss_free(void)
 
 void far t1replay_abort_to_op(void)
 {
+	t1replay_playback_cancel();
 	// Process replacement owns transient gameplay allocations. Calling either
 	// REIIDEN-specific free path here could double-free a terminal-path object.
 	game_switch_binary();
@@ -663,6 +664,9 @@ int main(void)
 		mdrv2_bgm_play();
 		mdrv2_se_load(SE_FN);
 		// Kind of pointless if the flag isn't reset?
+	} else if(t1replay_checkpoint_restore_pending()) {
+		// A cold checkpoint needs the driver resource as well as its saved flag.
+		mdrv2_se_load(SE_FN);
 	}
 
 	if(mode_debug == true) {
@@ -1270,6 +1274,5 @@ op:
 	return 0;
 }
 
-// The independent-SFX startup removes five bytes from main(), the last
-// function here. Keep the following stock segment at its original address.
-#pragma codestring "\x90\x90\x90\x90\x90"
+// The playback cancel call uses the five bytes reserved by the
+// independent-SFX startup. Keep the following stock segment in place.
